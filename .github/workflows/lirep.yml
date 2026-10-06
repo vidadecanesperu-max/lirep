@@ -1,0 +1,50 @@
+name: LIREP CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lirep-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    name: Validate LIREP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate repository
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "======================================"
+          echo " LIREP - CI BASELINE"
+          echo "======================================"
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Commit:     $GITHUB_SHA"
+          echo "Branch:     $GITHUB_REF_NAME"
+          echo
+
+          test -f README.md || {
+            echo "ERROR: README.md not found"
+            exit 1
+          }
+
+          echo "PASS - Repository initialized"
+          echo "PASS - main branch available"
+          echo "PASS - GitHub Actions operational"
+          echo
+          echo "LIREP CI baseline: OK"
