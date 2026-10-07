@@ -23,7 +23,7 @@ function cors(request, env) {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-LIREP-Prefix",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -213,14 +213,14 @@ export default {
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.11.1" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.11.2" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.11.1", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.11.1", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.11.2", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.11.2", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
