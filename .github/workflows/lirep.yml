@@ -43,7 +43,7 @@ jobs:
             exit 1
           }
 
-          echo "PASS - Repository initialized"
+          npm run verify\n\n          echo "PASS - Repository initialized"
           echo "PASS - main branch available"
           echo "PASS - GitHub Actions operational"
           echo
