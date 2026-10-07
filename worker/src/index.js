@@ -272,14 +272,14 @@ loadConfig();
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.9.2" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.10.2" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.9.2", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.9.2", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.10.2", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.10.2", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
@@ -368,6 +368,8 @@ loadConfig();
     const documentNumber = requiredString(input.document_number, 50);
     const firstNames = requiredString(input.first_names, 150);
     const lastNames = requiredString(input.last_names, 150);
+    const phone = requiredString(input.phone, 30);
+    const address = requiredString(input.address, 500);
     const detail = requiredString(input.detail, 5000);
     const consumerRequest = requiredString(input.consumer_request, 5000);
 
@@ -379,6 +381,8 @@ loadConfig();
       !documentNumber ||
       !firstNames ||
       !lastNames ||
+      !phone ||
+      !address ||
       !detail ||
       !consumerRequest
     ) {
@@ -398,7 +402,11 @@ loadConfig();
       !/^[A-Z0-9]{8}$/.test(normalizedPrefix) ||
       !documentTypes.has(input.document_type) ||
       !complaintTypes.has(input.complaint_type) ||
-      (email !== null && !isEmail(email))
+      (email !== null && !isEmail(email)) ||
+      input.consumer_conformity !== true ||
+      !["email","phone","physical"].includes(input.preferred_response_channel) ||
+      (input.preferred_response_channel === "email" && email === null) ||
+      (input.is_minor === true && (!requiredString(input.representative_first_names,150) || !requiredString(input.representative_last_names,150) || !documentTypes.has(input.representative_document_type) || !requiredString(input.representative_document_number,50)))
     ) {
       return json({ ok: false, error: "VALIDATION_ERROR" }, 400, corsHeaders);
     }
@@ -413,6 +421,15 @@ loadConfig();
       p_first_names: firstNames,
       p_last_names: lastNames,
       p_email: email,
+      p_phone: phone,
+      p_address: address,
+      p_is_minor: input.is_minor === true,
+      p_representative_first_names: typeof input.representative_first_names==="string"?input.representative_first_names.trim().slice(0,150):null,
+      p_representative_last_names: typeof input.representative_last_names==="string"?input.representative_last_names.trim().slice(0,150):null,
+      p_representative_document_type: input.is_minor===true?input.representative_document_type:null,
+      p_representative_document_number: typeof input.representative_document_number==="string"?input.representative_document_number.trim().slice(0,50):null,
+      p_representative_phone: typeof input.representative_phone==="string"?input.representative_phone.trim().slice(0,30):null,
+      p_representative_email: typeof input.representative_email==="string"&&input.representative_email.trim()?input.representative_email.trim().slice(0,254):null,
       p_complaint_type: input.complaint_type,
       p_product_service_type:
         typeof input.product_service_type === "string"
@@ -428,6 +445,8 @@ loadConfig();
           : Number(input.amount),
       p_detail: detail,
       p_consumer_request: consumerRequest,
+      p_consumer_conformity: true,
+      p_preferred_response_channel: input.preferred_response_channel,
     };
 
     if (
