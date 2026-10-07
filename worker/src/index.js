@@ -35,6 +35,14 @@ function requiredString(value, max) {
   return v;
 }
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 async function verifyTurnstile(token, request, env) {
   if (typeof token !== "string" || token.length === 0 || token.length > 2048) {
     return false;
@@ -60,7 +68,10 @@ async function verifyTurnstile(token, request, env) {
 
   if (!response.ok) return false;
   const result = await response.json();
-  return result.success === true;
+  return (
+    result.success === true &&
+    result.hostname === "vidadecanes.pe"
+  );
 }
 
 async function supabaseConnectivity(env) {
@@ -155,14 +166,14 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.8.1" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.8.2" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.8.1", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.8.1", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.8.2", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.8.2", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
@@ -268,19 +279,34 @@ export default {
       return json({ ok: false, error: "VALIDATION_ERROR" }, 400, corsHeaders);
     }
 
+    const documentTypes = new Set(["dni", "ce", "passport", "ruc", "other"]);
+    const complaintTypes = new Set(["reclamo", "queja"]);
+    const normalizedPrefix = publicPrefix.toUpperCase();
+    const email =
+      typeof input.email === "string" && input.email.trim()
+        ? input.email.trim().slice(0, 254)
+        : null;
+
+    if (
+      !isUuid(idempotencyKey) ||
+      !/^[A-Z0-9]{8}$/.test(normalizedPrefix) ||
+      !documentTypes.has(input.document_type) ||
+      !complaintTypes.has(input.complaint_type) ||
+      (email !== null && !isEmail(email))
+    ) {
+      return json({ ok: false, error: "VALIDATION_ERROR" }, 400, corsHeaders);
+    }
+
     const payload = {
       p_idempotency_key: idempotencyKey,
-      p_public_prefix: publicPrefix,
+      p_public_prefix: normalizedPrefix,
       p_establishment_code: establishmentCode,
       p_book_code: bookCode,
       p_document_type: input.document_type,
       p_document_number: documentNumber,
       p_first_names: firstNames,
       p_last_names: lastNames,
-      p_email:
-        typeof input.email === "string" && input.email.trim()
-          ? input.email.trim().slice(0, 254)
-          : null,
+      p_email: email,
       p_complaint_type: input.complaint_type,
       p_product_service_type:
         typeof input.product_service_type === "string"
