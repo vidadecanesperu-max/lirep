@@ -212,7 +212,7 @@ export default {
 <button id="submit" type="submit">Registrar reclamo o queja</button>
 <div id="message" class="msg" role="status" aria-live="polite"></div>
 </form>
-</section><footer class="footer">&copy; <span id="copyright-year"></span> 360 Integral Solutions · Autor y desarrollador</footer></main>
+</section><footer class="footer">&copy; <span id="copyright-year"></span> · Powered by 360 Integral Solutions</footer></main>
 <script>
 document.getElementById("copyright-year").textContent=new Date().getFullYear();
 const API="https://lirep-public-api.vidadecanes-peru.workers.dev";
@@ -272,14 +272,14 @@ loadConfig();
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.9.1" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.9.2" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.9.1", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.9.1", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.9.2", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.9.2", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
