@@ -84,19 +84,17 @@ async function supabaseConnectivity(env) {
       },
     );
 
-    const body = await response.json().catch(() => null);
-    const message = String(body?.message || "");
+    if (response.ok) return { ok: true };
 
-    if (
-      response.ok ||
-      message.includes("PUBLIC_PREFIX_NOT_FOUND") ||
-      message.includes("ORGANIZATION_NOT_AVAILABLE") ||
-      message.includes("INVALID_PUBLIC_PREFIX")
-    ) {
-      return { ok: true };
+    if (response.status === 401 || response.status === 403) {
+      return { ok: false, error: "BACKEND_AUTH_FAILED" };
     }
 
-    return { ok: false, error: "BACKEND_CHECK_FAILED" };
+    if (response.status >= 500) {
+      return { ok: false, error: "BACKEND_UPSTREAM_FAILED" };
+    }
+
+    return { ok: true };
   } catch {
     return { ok: false, error: "BACKEND_UNREACHABLE" };
   }
@@ -157,14 +155,14 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.7.2" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.7.3" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.7.1", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.7.1", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.7.3", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.7.3", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname !== "/api/v1/complaints") {
