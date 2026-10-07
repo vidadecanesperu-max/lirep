@@ -151,9 +151,9 @@ function escHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[ch]));
 }
 
-async function receiptData(publicPrefix, publicCode, env) {
+async function receiptData(publicPrefix, publicCode, accessToken, env) {
   const response = await fetch(
-    env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/rpc/lirep_public_receipt_data",
+    env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/rpc/lirep_secure_receipt_data",
     {
       method: "POST",
       headers: {
@@ -162,7 +162,7 @@ async function receiptData(publicPrefix, publicCode, env) {
         "content-type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ p_public_prefix: publicPrefix, p_public_code: publicCode }),
+      body: JSON.stringify({ p_public_prefix: publicPrefix, p_public_code: publicCode, p_access_token: accessToken }),
       signal: AbortSignal.timeout(10000),
     },
   );
@@ -249,23 +249,24 @@ export default {
     if (url.pathname === "/constancia" && request.method === "GET") {
       const publicPrefix=String(url.searchParams.get("public_prefix")||"").trim().toUpperCase();
       const publicCode=String(url.searchParams.get("code")||"").trim().toUpperCase();
-      if(!/^[A-Z0-9]{8}$/.test(publicPrefix) || !/^[A-Z0-9-]{10,80}$/.test(publicCode)) return json({ok:false,error:"INVALID_RECEIPT_REFERENCE"},400);
+      const accessToken=String(url.searchParams.get("token")||"").trim().toLowerCase();
+      if(!/^[A-Z0-9]{8}$/.test(publicPrefix) || !/^[A-Z0-9-]{10,80}$/.test(publicCode) || !isUuid(accessToken)) return json({ok:false,error:"INVALID_RECEIPT_REFERENCE"},400);
       try{
-        const data=await receiptData(publicPrefix,publicCode,env);
+        const data=await receiptData(publicPrefix,publicCode,accessToken,env);
         if(!data) return json({ok:false,error:"RECEIPT_NOT_FOUND"},404);
         return new Response(receiptHtml(data),{status:200,headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","referrer-policy":"no-referrer","content-security-policy":"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; frame-ancestors 'none'"}});
       }catch{return json({ok:false,error:"SERVICE_UNAVAILABLE"},503);}
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.12.3" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.13.4" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.12.3", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.12.3", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.13.4", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.13.4", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
