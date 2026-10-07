@@ -1,5 +1,6 @@
--- LIREP V1.11.5 — DIAGNÓSTICO SEGURO DEL REGISTRO PRODUCTIVO DE PRUEBA
+-- LIREP V1.11.5 R2 — DIAGNÓSTICO SEGURO DEL REGISTRO PRODUCTIVO DE PRUEBA
 -- SOLO LECTURA. NO borra, no anula, no cambia correlativos.
+-- R2 evita asumir nombres de columnas en audit_log.
 
 with target as (
   select
@@ -34,5 +35,14 @@ select
   (select submitted_at from target) as submitted_at,
   (select response_due_at from target) as response_due_at,
   (select next_number from book) as production_lr001_next_number,
-  (select count(*) from public.complaint_status_history h join target t on t.id=h.complaint_id) as history_rows,
-  (select count(*) from public.audit_log a join target t on t.id=a.record_id) as audit_rows;
+  (select count(*)
+   from public.complaint_status_history h
+   join target t on t.id=h.complaint_id) as history_rows,
+  (
+    select jsonb_agg(jsonb_build_object(
+      'column_name', c.column_name,
+      'data_type', c.data_type
+    ) order by c.ordinal_position)
+    from information_schema.columns c
+    where c.table_schema='public' and c.table_name='audit_log'
+  ) as audit_log_schema;
