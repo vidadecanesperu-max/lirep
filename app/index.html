@@ -59,7 +59,7 @@
 </section><footer class="footer">&copy; <span id="copyright-year"></span> · Powered by 360 Integral Solutions</footer></main>
 <script>
 document.getElementById("copyright-year").textContent=new Date().getFullYear();
-const API="https://lirep-public-api.vidadecanes-peru.workers.dev";
+const API=location.origin;
 const PREFIX="VIDACANE";
 let establishmentCode=null,bookCode=null,idempotencyKey=null;
 const company=document.getElementById("company"),form=document.getElementById("form"),message=document.getElementById("message"),submit=document.getElementById("submit");
