@@ -165,15 +165,121 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if ((url.pathname === "/" || url.pathname === "/libro-de-reclamaciones") && request.method === "GET") {
+      return new Response(`<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Libro de Reclamaciones | Vida de Canes ECO</title>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f5f7fa}*{box-sizing:border-box}body{margin:0}.wrap{max-width:900px;margin:auto;padding:24px}.card{background:#fff;border:1px solid #dde3ea;border-radius:16px;padding:24px;box-shadow:0 8px 30px #1720330d}h1{margin:.2em 0;font-size:clamp(1.7rem,4vw,2.4rem)}h2{font-size:1.15rem;margin:28px 0 12px}.muted{color:#5f6b7a}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}label{display:block;font-weight:650;font-size:.92rem}input,select,textarea{width:100%;margin-top:6px;padding:12px;border:1px solid #cfd7e2;border-radius:10px;font:inherit;background:#fff}textarea{min-height:120px;resize:vertical}.full{grid-column:1/-1}.check{display:flex;gap:10px;align-items:flex-start;font-weight:400}.check input{width:auto;margin-top:4px}button{margin-top:18px;border:0;border-radius:10px;padding:13px 18px;font:inherit;font-weight:750;cursor:pointer;background:#172033;color:#fff}button:disabled{opacity:.55;cursor:not-allowed}.msg{margin-top:16px;padding:14px;border-radius:10px;display:none}.ok{display:block;background:#ecfdf3;color:#166534}.err{display:block;background:#fff1f2;color:#9f1239}.company{padding:12px 0 18px;border-bottom:1px solid #e5e9ef}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eef2f7;font-size:.8rem;font-weight:700}.footer{text-align:center;margin-top:18px;padding:14px 8px;color:#6b7280;font-size:.82rem}@media(max-width:650px){.wrap{padding:12px}.card{padding:18px}.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+</style>
+</head>
+<body>
+<main class="wrap"><section class="card">
+<span class="badge">Libro de Reclamaciones Virtual</span>
+<h1>Libro de Reclamaciones</h1>
+<div id="company" class="company"><strong>Vida de Canes ECO</strong><div class="muted">Cargando información del establecimiento…</div></div>
+
+<form id="form" novalidate>
+<h2>1. Identificación del consumidor</h2>
+<div class="grid">
+<label>Tipo de documento<select name="document_type" required><option value="dni">DNI</option><option value="ce">Carné de extranjería</option><option value="passport">Pasaporte</option><option value="ruc">RUC</option><option value="other">Otro</option></select></label>
+<label>Número de documento<input name="document_number" maxlength="50" required></label>
+<label>Nombres<input name="first_names" maxlength="150" required></label>
+<label>Apellidos<input name="last_names" maxlength="150" required></label>
+<label class="full">Correo electrónico<input name="email" type="email" maxlength="254" required></label>
+</div>
+
+<h2>2. Bien o servicio</h2>
+<div class="grid">
+<label>Tipo<select name="product_service_type" required><option value="servicio">Servicio</option><option value="producto">Producto</option></select></label>
+<label>Monto reclamado (S/)<input name="amount" type="number" min="0" step="0.01"></label>
+<label class="full">Descripción<input name="product_service_description" maxlength="1000" required></label>
+</div>
+
+<h2>3. Detalle del reclamo o queja</h2>
+<div class="grid">
+<label>Tipo<select name="complaint_type" required><option value="reclamo">Reclamo</option><option value="queja">Queja</option></select></label>
+<label class="full">Detalle<textarea name="detail" maxlength="5000" required></textarea></label>
+<label class="full">Pedido del consumidor<textarea name="consumer_request" maxlength="5000" required></textarea></label>
+<label class="full check"><input type="checkbox" name="confirm" required><span>Declaro que la información consignada es correcta y solicito el registro de esta hoja en el Libro de Reclamaciones.</span></label>
+</div>
+
+<div class="cf-turnstile" data-sitekey="0x4AAAAAAFQZXPjiJUTwSZmi"></div>
+<button id="submit" type="submit">Registrar reclamo o queja</button>
+<div id="message" class="msg" role="status" aria-live="polite"></div>
+</form>
+</section><footer class="footer">&copy; <span id="copyright-year"></span> 360 Integral Solutions · Autor y desarrollador</footer></main>
+<script>
+document.getElementById("copyright-year").textContent=new Date().getFullYear();
+const API="https://lirep-public-api.vidadecanes-peru.workers.dev";
+const PREFIX="VIDACANE";
+let establishmentCode=null,bookCode=null;
+const company=document.getElementById("company"),form=document.getElementById("form"),message=document.getElementById("message"),submit=document.getElementById("submit");
+
+function uuid(){return crypto.randomUUID();}
+function show(text,type){message.className="msg "+type;message.textContent=text;}
+async function loadConfig(){
+ try{
+  const r=await fetch(API+"/api/v1/form-config?public_prefix="+PREFIX);
+  const j=await r.json();
+  if(!r.ok||!j.ok)throw new Error();
+  const e=j.config.establishments?.[0],b=e?.books?.[0];
+  if(!e||!b)throw new Error();
+  establishmentCode=e.code;bookCode=b.code;
+  const org=j.config.organization;
+  company.innerHTML="<strong>"+escapeHtml(org.trade_name||org.legal_name)+"</strong><div class=\"muted\">"+escapeHtml(e.name)+" · "+escapeHtml([e.district,e.province,e.department].filter(Boolean).join(", "))+"</div>";
+ }catch{submit.disabled=true;show("El Libro de Reclamaciones no está disponible temporalmente. Intenta nuevamente más tarde.","err");}
+}
+function escapeHtml(v){const d=document.createElement("div");d.textContent=String(v||"");return d.innerHTML;}
+form.addEventListener("submit",async(e)=>{
+ e.preventDefault();message.className="msg";
+ if(!form.reportValidity()||!establishmentCode||!bookCode)return;
+ const fd=new FormData(form),token=fd.get("cf-turnstile-response");
+ if(!token){show("Completa la verificación de seguridad.","err");return;}
+ submit.disabled=true;
+ const body={
+  idempotency_key:uuid(),public_prefix:PREFIX,establishment_code:establishmentCode,book_code:bookCode,
+  document_type:fd.get("document_type"),document_number:fd.get("document_number"),first_names:fd.get("first_names"),
+  last_names:fd.get("last_names"),email:fd.get("email"),complaint_type:fd.get("complaint_type"),
+  product_service_type:fd.get("product_service_type"),product_service_description:fd.get("product_service_description"),
+  amount:fd.get("amount"),detail:fd.get("detail"),consumer_request:fd.get("consumer_request"),turnstile_token:token
+ };
+ try{
+  const r=await fetch(API+"/api/v1/complaints",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!r.ok||!j.ok)throw new Error(j.error||"SUBMISSION_FAILED");
+  const c=j.complaint;
+  show("Registro realizado correctamente. Código: "+c.public_code+". Conserva este código como constancia.","ok");
+  form.reset();if(window.turnstile)turnstile.reset();
+ }catch(err){show("No se pudo registrar. "+(err.message==="TURNSTILE_FAILED"?"Repite la verificación de seguridad.":"Intenta nuevamente."),"err");if(window.turnstile)turnstile.reset();}
+ finally{submit.disabled=false;}
+});
+loadConfig();
+</script>
+</body></html>`, {
+        status: 200,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-cache",
+          "x-content-type-options": "nosniff",
+          "referrer-policy": "strict-origin-when-cross-origin",
+        },
+      });
+    }
+
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.8.2" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.9.1" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.8.2", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.8.2", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.9.1", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.9.1", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
