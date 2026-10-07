@@ -22,7 +22,18 @@
 <label>Número de documento<input name="document_number" maxlength="50" required></label>
 <label>Nombres<input name="first_names" maxlength="150" required></label>
 <label>Apellidos<input name="last_names" maxlength="150" required></label>
-<label class="full">Correo electrónico<input name="email" type="email" maxlength="254" required></label>
+<label>Teléfono<input name="phone" type="tel" maxlength="30" required></label>
+<label>Correo electrónico<input name="email" type="email" maxlength="254"></label>
+<label class="full">Domicilio<input name="address" maxlength="500" required></label>
+<label class="full check"><input type="checkbox" id="is_minor" name="is_minor"><span>El consumidor es menor de edad</span></label>
+<div id="representative" class="full grid" hidden>
+<label>Nombres del padre, madre o representante<input name="representative_first_names" maxlength="150"></label>
+<label>Apellidos del padre, madre o representante<input name="representative_last_names" maxlength="150"></label>
+<label>Tipo de documento del representante<select name="representative_document_type"><option value="dni">DNI</option><option value="ce">Carné de extranjería</option><option value="passport">Pasaporte</option><option value="ruc">RUC</option><option value="other">Otro</option></select></label>
+<label>Número de documento del representante<input name="representative_document_number" maxlength="50"></label>
+<label>Teléfono del representante<input name="representative_phone" type="tel" maxlength="30"></label>
+<label>Correo del representante<input name="representative_email" type="email" maxlength="254"></label>
+</div>
 </div>
 
 <h2>2. Bien o servicio</h2>
@@ -37,7 +48,8 @@
 <label>Tipo<select name="complaint_type" required><option value="reclamo">Reclamo</option><option value="queja">Queja</option></select></label>
 <label class="full">Detalle<textarea name="detail" maxlength="5000" required></textarea></label>
 <label class="full">Pedido del consumidor<textarea name="consumer_request" maxlength="5000" required></textarea></label>
-<label class="full check"><input type="checkbox" name="confirm" required><span>Declaro que la información consignada es correcta y solicito el registro de esta hoja en el Libro de Reclamaciones.</span></label>
+<label>Canal preferido de respuesta<select name="preferred_response_channel" required><option value="email">Correo electrónico</option><option value="phone">Teléfono</option><option value="physical">Domicilio</option></select></label>
+<label class="full check"><input type="checkbox" name="consumer_conformity" required><span>Declaro que la información consignada es correcta y manifiesto mi conformidad con el registro electrónico de esta hoja en el Libro de Reclamaciones.</span></label>
 </div>
 
 <div class="cf-turnstile" data-sitekey="0x4AAAAAAFQZXPjiJUTwSZmi"></div>
@@ -49,10 +61,12 @@
 document.getElementById("copyright-year").textContent=new Date().getFullYear();
 const API="https://lirep-public-api.vidadecanes-peru.workers.dev";
 const PREFIX="VIDACANE";
-let establishmentCode=null,bookCode=null;
+let establishmentCode=null,bookCode=null,idempotencyKey=null;
 const company=document.getElementById("company"),form=document.getElementById("form"),message=document.getElementById("message"),submit=document.getElementById("submit");
 
 function uuid(){return crypto.randomUUID();}
+const minor=document.getElementById("is_minor"),representative=document.getElementById("representative");
+minor.addEventListener("change",()=>{representative.hidden=!minor.checked;representative.querySelectorAll("input,select").forEach(el=>{if(["representative_first_names","representative_last_names","representative_document_type","representative_document_number"].includes(el.name))el.required=minor.checked;});});
 function show(text,type){message.className="msg "+type;message.textContent=text;}
 async function loadConfig(){
  try{
@@ -74,9 +88,13 @@ form.addEventListener("submit",async(e)=>{
  if(!token){show("Completa la verificación de seguridad.","err");return;}
  submit.disabled=true;
  const body={
-  idempotency_key:uuid(),public_prefix:PREFIX,establishment_code:establishmentCode,book_code:bookCode,
+  idempotency_key:(idempotencyKey||(idempotencyKey=uuid())),public_prefix:PREFIX,establishment_code:establishmentCode,book_code:bookCode,
   document_type:fd.get("document_type"),document_number:fd.get("document_number"),first_names:fd.get("first_names"),
-  last_names:fd.get("last_names"),email:fd.get("email"),complaint_type:fd.get("complaint_type"),
+  last_names:fd.get("last_names"),email:fd.get("email"),phone:fd.get("phone"),address:fd.get("address"),is_minor:fd.get("is_minor")==="on",
+  representative_first_names:fd.get("representative_first_names")||null,representative_last_names:fd.get("representative_last_names")||null,
+  representative_document_type:fd.get("representative_document_type")||null,representative_document_number:fd.get("representative_document_number")||null,
+  representative_phone:fd.get("representative_phone")||null,representative_email:fd.get("representative_email")||null,
+  consumer_conformity:fd.get("consumer_conformity")==="on",preferred_response_channel:fd.get("preferred_response_channel"),complaint_type:fd.get("complaint_type"),
   product_service_type:fd.get("product_service_type"),product_service_description:fd.get("product_service_description"),
   amount:fd.get("amount"),detail:fd.get("detail"),consumer_request:fd.get("consumer_request"),turnstile_token:token
  };
@@ -86,7 +104,7 @@ form.addEventListener("submit",async(e)=>{
   if(!r.ok||!j.ok)throw new Error(j.error||"SUBMISSION_FAILED");
   const c=j.complaint;
   show("Registro realizado correctamente. Código: "+c.public_code+". Conserva este código como constancia.","ok");
-  form.reset();if(window.turnstile)turnstile.reset();
+  form.reset();representative.hidden=true;idempotencyKey=null;if(window.turnstile)turnstile.reset();
  }catch(err){show("No se pudo registrar. "+(err.message==="TURNSTILE_FAILED"?"Repite la verificación de seguridad.":"Intenta nuevamente."),"err");if(window.turnstile)turnstile.reset();}
  finally{submit.disabled=false;}
 });
