@@ -112,6 +112,40 @@ async function supabaseConnectivity(env) {
   }
 }
 
+async function originAllowedForPrefix(origin, publicPrefix, env) {
+  if (!origin || !publicPrefix || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return false;
+  try {
+    const response = await fetch(
+      env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/rpc/lirep_public_origin_allowed",
+      {
+        method: "POST",
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "content-type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ p_public_prefix: publicPrefix, p_origin: origin }),
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+    if (!response.ok) return false;
+    return (await response.json()) === true;
+  } catch {
+    return false;
+  }
+}
+
+function corsForOrigin(origin) {
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
 async function callSupabase(payload, env) {
   const endpoint =
     env.SUPABASE_URL.replace(/\/$/, "") +
@@ -179,26 +213,28 @@ export default {
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.11.0" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.11.1" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.11.0", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.11.0", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.11.1", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.11.1", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
       const requestOrigin = request.headers.get("Origin");
-      const corsHeaders = requestOrigin ? cors(request, env) : {};
-      if (requestOrigin && !corsHeaders) {
-        return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
-      }
-
       const publicPrefix = String(url.searchParams.get("public_prefix") || "").trim().toUpperCase();
       if (!/^[A-Z0-9]{8}$/.test(publicPrefix)) {
-        return json({ ok: false, error: "INVALID_PUBLIC_PREFIX" }, 400, corsHeaders);
+        return json({ ok: false, error: "INVALID_PUBLIC_PREFIX" }, 400);
+      }
+      let corsHeaders = {};
+      if (requestOrigin) {
+        const selfOrigin = new URL(request.url).origin;
+        const allowed = requestOrigin === selfOrigin || await originAllowedForPrefix(requestOrigin, publicPrefix, env);
+        if (!allowed) return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
+        corsHeaders = corsForOrigin(requestOrigin);
       }
 
       try {
@@ -229,21 +265,21 @@ export default {
       return json({ ok: false, error: "NOT_FOUND" }, 404);
     }
 
-    const corsHeaders = cors(request, env);
+    const requestOrigin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {
-      if (!corsHeaders) return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
-      return new Response(null, { status: 204, headers: corsHeaders });
+      const requestedPrefix = String(request.headers.get("X-LIREP-Prefix") || url.searchParams.get("public_prefix") || "").trim().toUpperCase();
+      const selfOrigin = new URL(request.url).origin;
+      const allowed = requestOrigin && (requestOrigin === selfOrigin || (/^[A-Z0-9]{8}$/.test(requestedPrefix) && await originAllowedForPrefix(requestOrigin, requestedPrefix, env)));
+      if (!allowed) return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
+      return new Response(null, { status: 204, headers: corsForOrigin(requestOrigin) });
     }
 
     if (request.method !== "POST") {
-      return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405, corsHeaders || {});
+      return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
     }
 
-    if (!corsHeaders) {
-      return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
-    }
-
+    let corsHeaders = {};
     const contentLength = Number(request.headers.get("content-length") || "0");
     if (contentLength > 32768) {
       return json({ ok: false, error: "PAYLOAD_TOO_LARGE" }, 413, corsHeaders);
@@ -261,6 +297,12 @@ export default {
     } catch {
       return json({ ok: false, error: "INVALID_JSON" }, 400, corsHeaders);
     }
+
+    const originPrefix = typeof input.public_prefix === "string" ? input.public_prefix.trim().toUpperCase() : "";
+    const selfOrigin = new URL(request.url).origin;
+    const originAllowed = requestOrigin && (requestOrigin === selfOrigin || (/^[A-Z0-9]{8}$/.test(originPrefix) && await originAllowedForPrefix(requestOrigin, originPrefix, env)));
+    if (!originAllowed) return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
+    corsHeaders = corsForOrigin(requestOrigin);
 
     const turnstileToken = input.turnstile_token;
     const turnstileOk = await verifyTurnstile(turnstileToken, request, env);
