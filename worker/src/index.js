@@ -70,7 +70,7 @@ async function supabaseConnectivity(env) {
 
   try {
     const response = await fetch(
-      env.SUPABASE_URL.replace(/\\\/$/, "") + "/rest/v1/rpc/lirep_public_form_config",
+      env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/rpc/lirep_public_form_config",
       {
         method: "POST",
         headers: {
@@ -157,7 +157,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.7.1" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.7.2" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
