@@ -6,7 +6,7 @@
 <title>Libro de Reclamaciones | Vida de Canes ECO</title>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
-:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f5f7fa}*{box-sizing:border-box}body{margin:0}.wrap{max-width:900px;margin:auto;padding:24px}.card{background:#fff;border:1px solid #dde3ea;border-radius:16px;padding:24px;box-shadow:0 8px 30px #1720330d}h1{margin:.2em 0;font-size:clamp(1.7rem,4vw,2.4rem)}h2{font-size:1.15rem;margin:28px 0 12px}.muted{color:#5f6b7a}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}label{display:block;font-weight:650;font-size:.92rem}input,select,textarea{width:100%;margin-top:6px;padding:12px;border:1px solid #cfd7e2;border-radius:10px;font:inherit;background:#fff}textarea{min-height:120px;resize:vertical}.full{grid-column:1/-1}.check{display:flex;gap:10px;align-items:flex-start;font-weight:400}.check input{width:auto;margin-top:4px}button{margin-top:18px;border:0;border-radius:10px;padding:13px 18px;font:inherit;font-weight:750;cursor:pointer;background:#172033;color:#fff}button:disabled{opacity:.55;cursor:not-allowed}.msg{margin-top:16px;padding:14px;border-radius:10px;display:none}.ok{display:block;background:#ecfdf3;color:#166534}.err{display:block;background:#fff1f2;color:#9f1239}.company{padding:12px 0 18px;border-bottom:1px solid #e5e9ef}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eef2f7;font-size:.8rem;font-weight:700}.footer{text-align:center;margin-top:18px;padding:14px 8px;color:#6b7280;font-size:.82rem}@media(max-width:650px){.wrap{padding:12px}.card{padding:18px}.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f5f7fa}*{box-sizing:border-box}body{margin:0}.wrap{max-width:900px;margin:auto;padding:24px}.card{background:#fff;border:1px solid #dde3ea;border-radius:16px;padding:24px;box-shadow:0 8px 30px #1720330d}h1{margin:.2em 0;font-size:clamp(1.7rem,4vw,2.4rem)}h2{font-size:1.15rem;margin:28px 0 12px}.muted{color:#5f6b7a}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}label{display:block;font-weight:650;font-size:.92rem}input,select,textarea{width:100%;margin-top:6px;padding:12px;border:1px solid #cfd7e2;border-radius:10px;font:inherit;background:#fff}textarea{min-height:120px;resize:vertical}.full{grid-column:1/-1}[hidden]{display:none!important}.check{display:flex;gap:10px;align-items:flex-start;font-weight:400}.check input{width:auto;margin-top:4px}button{margin-top:18px;border:0;border-radius:10px;padding:13px 18px;font:inherit;font-weight:750;cursor:pointer;background:#172033;color:#fff}button:disabled{opacity:.55;cursor:not-allowed}.msg{margin-top:16px;padding:14px;border-radius:10px;display:none}.ok{display:block;background:#ecfdf3;color:#166534}.err{display:block;background:#fff1f2;color:#9f1239}.company{padding:12px 0 18px;border-bottom:1px solid #e5e9ef}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eef2f7;font-size:.8rem;font-weight:700}.footer{text-align:center;margin-top:18px;padding:14px 8px;color:#6b7280;font-size:.82rem}@media(max-width:650px){.wrap{padding:12px}.card{padding:18px}.grid{grid-template-columns:1fr}.full{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -66,7 +66,15 @@ const company=document.getElementById("company"),form=document.getElementById("f
 
 function uuid(){return crypto.randomUUID();}
 const minor=document.getElementById("is_minor"),representative=document.getElementById("representative");
-minor.addEventListener("change",()=>{representative.hidden=!minor.checked;representative.querySelectorAll("input,select").forEach(el=>{if(["representative_first_names","representative_last_names","representative_document_type","representative_document_number"].includes(el.name))el.required=minor.checked;});});
+function syncMinorFields(){
+ representative.hidden=!minor.checked;
+ representative.querySelectorAll("input,select").forEach(el=>{
+  el.disabled=!minor.checked;
+  if(["representative_first_names","representative_last_names","representative_document_type","representative_document_number"].includes(el.name))el.required=minor.checked;
+ });
+}
+minor.addEventListener("change",syncMinorFields);
+syncMinorFields();
 function show(text,type){message.className="msg "+type;message.textContent=text;}
 async function loadConfig(){
  try{
@@ -77,7 +85,12 @@ async function loadConfig(){
   if(!e||!b)throw new Error();
   establishmentCode=e.code;bookCode=b.code;
   const org=j.config.organization;
-  company.innerHTML="<strong>"+escapeHtml(org.trade_name||org.legal_name)+"</strong><div class=\"muted\">"+escapeHtml(e.name)+" · "+escapeHtml([e.district,e.province,e.department].filter(Boolean).join(", "))+"</div>";
+  const displayName=org.trade_name||org.legal_name;
+  const establishmentName=String(e.name||"").trim();
+  const normalizedDisplay=String(displayName||"").toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g," ").trim();
+  const normalizedEst=establishmentName.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g," ").trim();
+  const showEstablishment=establishmentName && normalizedEst!==normalizedDisplay && !normalizedEst.startsWith(normalizedDisplay+" ");
+  company.innerHTML="<strong>"+escapeHtml(displayName)+"</strong><div class=\"muted\">"+(showEstablishment?escapeHtml(establishmentName)+" · ":"")+escapeHtml([e.district,e.province,e.department].filter(Boolean).join(", "))+"</div>";
  }catch{submit.disabled=true;show("El Libro de Reclamaciones no está disponible temporalmente. Intenta nuevamente más tarde.","err");}
 }
 function escapeHtml(v){const d=document.createElement("div");d.textContent=String(v||"");return d.innerHTML;}
@@ -104,7 +117,7 @@ form.addEventListener("submit",async(e)=>{
   if(!r.ok||!j.ok)throw new Error(j.error||"SUBMISSION_FAILED");
   const c=j.complaint;
   show("Registro realizado correctamente. Código: "+c.public_code+". Conserva este código como constancia.","ok");
-  form.reset();representative.hidden=true;idempotencyKey=null;if(window.turnstile)turnstile.reset();
+  form.reset();syncMinorFields();idempotencyKey=null;if(window.turnstile)turnstile.reset();
  }catch(err){show("No se pudo registrar. "+(err.message==="TURNSTILE_FAILED"?"Repite la verificación de seguridad.":"Intenta nuevamente."),"err");if(window.turnstile)turnstile.reset();}
  finally{submit.disabled=false;}
 });
