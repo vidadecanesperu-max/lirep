@@ -21,7 +21,7 @@ function cors(request, env) {
 
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
@@ -155,14 +155,47 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.7.3" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.8.0" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.7.3", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.7.3", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.8.0", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.8.0", backend: "supabase", connected: false, error: result.error }, 503);
+    }
+
+    if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
+      const corsHeaders = cors(request, env);
+      if (!corsHeaders) return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
+
+      const publicPrefix = String(url.searchParams.get("public_prefix") || "").trim().toUpperCase();
+      if (!/^[A-Z0-9]{8}$/.test(publicPrefix)) {
+        return json({ ok: false, error: "INVALID_PUBLIC_PREFIX" }, 400, corsHeaders);
+      }
+
+      try {
+        const response = await fetch(
+          env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/rpc/lirep_public_form_config",
+          {
+            method: "POST",
+            headers: {
+              apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+              "content-type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ p_public_prefix: publicPrefix }),
+            signal: AbortSignal.timeout(10000),
+          },
+        );
+
+        const body = await response.json().catch(() => null);
+        if (!response.ok) return json({ ok: false, error: "FORM_NOT_AVAILABLE" }, 404, corsHeaders);
+        return json({ ok: true, config: body }, 200, corsHeaders);
+      } catch {
+        return json({ ok: false, error: "SERVICE_UNAVAILABLE" }, 503, corsHeaders);
+      }
     }
 
     if (url.pathname !== "/api/v1/complaints") {
