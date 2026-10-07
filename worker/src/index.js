@@ -63,6 +63,45 @@ async function verifyTurnstile(token, request, env) {
   return result.success === true;
 }
 
+async function supabaseConnectivity(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: false, error: "BACKEND_CONFIGURATION_MISSING" };
+  }
+
+  try {
+    const response = await fetch(
+      env.SUPABASE_URL.replace(/\\\/$/, "") + "/rest/v1/rpc/lirep_public_form_config",
+      {
+        method: "POST",
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "content-type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ p_public_prefix: "00000000" }),
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+
+    const body = await response.json().catch(() => null);
+    const message = String(body?.message || "");
+
+    if (
+      response.ok ||
+      message.includes("PUBLIC_PREFIX_NOT_FOUND") ||
+      message.includes("ORGANIZATION_NOT_AVAILABLE") ||
+      message.includes("INVALID_PUBLIC_PREFIX")
+    ) {
+      return { ok: true };
+    }
+
+    return { ok: false, error: "BACKEND_CHECK_FAILED" };
+  } catch {
+    return { ok: false, error: "BACKEND_UNREACHABLE" };
+  }
+}
+
 async function callSupabase(payload, env) {
   const endpoint =
     env.SUPABASE_URL.replace(/\/$/, "") +
@@ -118,7 +157,14 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.7.0" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.7.1" });
+    }
+
+    if (url.pathname === "/health/backend" && request.method === "GET") {
+      const result = await supabaseConnectivity(env);
+      return result.ok
+        ? json({ ok: true, service: "lirep-public-api", version: "1.7.1", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.7.1", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname !== "/api/v1/complaints") {
