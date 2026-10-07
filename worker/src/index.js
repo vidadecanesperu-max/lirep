@@ -179,6 +179,46 @@ function receiptHtml(d) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Constancia ${escHtml(d.public_code)}</title><style>body{font-family:Arial,sans-serif;color:#111827;margin:0;background:#f3f4f6}.page{max-width:820px;margin:24px auto;background:#fff;padding:34px;border:1px solid #d1d5db}.top{display:flex;justify-content:space-between;gap:20px;border-bottom:2px solid #111827;padding-bottom:18px}h1{font-size:24px;margin:0}h2{font-size:16px;margin:22px 0 8px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}p{margin:6px 0;line-height:1.45}.code{font-weight:800;font-size:18px;word-break:break-word}.muted{color:#6b7280}.actions{margin:18px 0}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#111827;color:#fff;font-weight:700;cursor:pointer}.foot{margin-top:28px;font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:14px}@page{size:A4;margin:10mm}@media print{html,body{background:#fff;margin:0;padding:0} @page{margin:8mm} .page{border:0;margin:0;max-width:none;padding:0;font-size:11px}.top{padding-bottom:10px}.top h1{font-size:20px}h2{margin:12px 0 5px;font-size:14px}p{margin:3px 0;line-height:1.3}.actions{display:none}.foot{margin-top:14px;padding-top:8px;font-size:9px}section{break-inside:avoid;page-break-inside:avoid}}@media(max-width:650px){.page{margin:0;padding:20px;border:0}.top{display:block}}</style></head><body><main class="page"><div class="top"><div><h1>Constancia del Libro de Reclamaciones</h1><p class="muted">${escHtml(o.trade_name||o.legal_name)}</p></div><div><div class="code">${escHtml(d.public_code)}</div><p>${escHtml(submitted)}</p></div></div><div class="actions"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div><section><h2>Proveedor</h2><p><b>Razón social:</b> ${escHtml(o.legal_name)}</p><p><b>RUC:</b> ${escHtml(o.ruc)}</p><p><b>Establecimiento:</b> ${escHtml(e.name)} (${escHtml(e.code)})</p><p><b>Dirección:</b> ${escHtml([e.address,e.district,e.province,e.department].filter(Boolean).join(", "))}</p></section><section><h2>Consumidor</h2><p><b>Nombre:</b> ${escHtml([co.first_names,co.last_names].filter(Boolean).join(" "))}</p><p><b>Documento:</b> ${escHtml(co.document_type)} ${escHtml(co.document_number)}</p><p><b>Teléfono:</b> ${escHtml(co.phone)}</p><p><b>Correo:</b> ${escHtml(co.email||"No consignado")}</p><p><b>Domicilio:</b> ${escHtml(co.address)}</p></section>${representative}<section><h2>Bien o servicio</h2><p><b>Tipo:</b> ${escHtml(d.product_service_type)}</p><p><b>Descripción:</b> ${escHtml(d.product_service_description)}</p><p><b>Monto:</b> ${escHtml(amount)}</p></section><section><h2>${escHtml(String(d.complaint_type||"").toUpperCase())}</h2><p><b>Detalle:</b> ${escHtml(d.detail)}</p><p><b>Pedido:</b> ${escHtml(d.consumer_request)}</p></section><section><h2>Registro electrónico</h2><p><b>Conformidad:</b> ${d.consumer_conformity?"Sí":"No"}</p><p><b>Canal preferido de respuesta:</b> ${escHtml(d.preferred_response_channel)}</p><p><b>Fecha límite registrada para respuesta:</b> ${escHtml(due)}</p></section><div class="foot">Esta constancia corresponde al registro electrónico identificado por el código indicado. © ${new Date().getFullYear()} · Powered by 360 Integral Solutions</div></main></body></html>`;
 }
 
+
+async function lirepRpc(name, payload, env) {
+  const response = await fetch(env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/rpc/" + name, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
+      "content-type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15000)
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.message || "RPC_FAILED");
+  return data;
+}
+async function sendSecureReceipt(prefix, code, env) {
+  if (!env.RESEND_API_KEY) return;
+  const queued = await lirepRpc("lirep_queue_receipt_email", {p_public_prefix:prefix,p_public_code:code}, env);
+  if (!queued?.queued) return;
+  const job = await lirepRpc("lirep_claim_receipt_email_by_id", {p_queue_id:queued.queue_id}, env);
+  if (!job) return;
+  const link = "https://lirep-public-api.vidadecanes-peru.workers.dev/constancia?public_prefix=" + encodeURIComponent(job.public_prefix) + "&code=" + encodeURIComponent(job.public_code) + "&token=" + encodeURIComponent(job.receipt_token);
+  const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(job.public_code) + "</p><p><a href=\"" + escHtml(link) + "\">Ver y guardar constancia</a></p>";
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method:"POST",
+      headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"content-type":"application/json"},
+      body:JSON.stringify({from:job.from_name+" <"+job.from_email+">",to:[job.recipient],subject:"Constancia del Libro de Reclamaciones - "+job.public_code,html}),
+      signal:AbortSignal.timeout(15000)
+    });
+    const result=await response.json().catch(()=>null);
+    if (!response.ok || !result?.id) throw new Error(result?.message || "EMAIL_PROVIDER_FAILED");
+    await lirepRpc("lirep_complete_receipt_email",{p_queue_id:job.queue_id,p_success:true,p_provider:"resend",p_provider_message_id:result.id,p_error:null},env);
+  } catch(error) {
+    await lirepRpc("lirep_complete_receipt_email",{p_queue_id:job.queue_id,p_success:false,p_provider:"resend",p_provider_message_id:null,p_error:String(error?.message||error)},env).catch(()=>{});
+  }
+}
+
 async function callSupabase(payload, env) {
   const endpoint =
     env.SUPABASE_URL.replace(/\/$/, "") +
@@ -230,7 +270,7 @@ async function callSupabase(payload, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if ((url.pathname === "/" || url.pathname === "/libro-de-reclamaciones") && request.method === "GET") {
@@ -259,14 +299,14 @@ export default {
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.13.4" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.13.5" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.13.4", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.13.4", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.13.5", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.13.5", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
@@ -465,6 +505,7 @@ export default {
         return json({ ok: false, error: result.error }, result.status, corsHeaders);
       }
 
+      ctx.waitUntil(sendSecureReceipt(normalizedPrefix, result.data.public_code, env).catch(()=>{}));
       return json({ ok: true, complaint: result.data }, result.status, corsHeaders);
     } catch {
       return json({ ok: false, error: "SERVICE_UNAVAILABLE" }, 503, corsHeaders);
