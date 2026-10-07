@@ -155,19 +155,22 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.8.0" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.8.1" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.8.0", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.8.0", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.8.1", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.8.1", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
-      const corsHeaders = cors(request, env);
-      if (!corsHeaders) return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
+      const requestOrigin = request.headers.get("Origin");
+      const corsHeaders = requestOrigin ? cors(request, env) : {};
+      if (requestOrigin && !corsHeaders) {
+        return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
+      }
 
       const publicPrefix = String(url.searchParams.get("public_prefix") || "").trim().toUpperCase();
       if (!/^[A-Z0-9]{8}$/.test(publicPrefix)) {
