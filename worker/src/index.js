@@ -140,7 +140,7 @@ function corsForOrigin(origin) {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-LIREP-Prefix",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -258,14 +258,14 @@ export default {
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.12.0" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.12.1" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.12.0", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.12.0", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.12.1", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.12.1", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
@@ -343,7 +343,15 @@ export default {
       return json({ ok: false, error: "INVALID_JSON" }, 400, corsHeaders);
     }
 
-    const originPrefix = typeof input.public_prefix === "string" ? input.public_prefix.trim().toUpperCase() : "";
+    const bodyPrefix = typeof input.public_prefix === "string" ? input.public_prefix.trim().toUpperCase() : "";
+    const queryPrefix = String(url.searchParams.get("public_prefix") || "").trim().toUpperCase();
+    const headerPrefix = String(request.headers.get("X-LIREP-Prefix") || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{8}$/.test(bodyPrefix) ||
+        (queryPrefix && queryPrefix !== bodyPrefix) ||
+        (headerPrefix && headerPrefix !== bodyPrefix)) {
+      return json({ ok: false, error: "TENANT_PREFIX_MISMATCH" }, 409);
+    }
+    const originPrefix = bodyPrefix;
     const selfOrigin = new URL(request.url).origin;
     const originAllowed = requestOrigin && (requestOrigin === selfOrigin || (/^[A-Z0-9]{8}$/.test(originPrefix) && await originAllowedForPrefix(requestOrigin, originPrefix, env)));
     if (!originAllowed) return json({ ok: false, error: "ORIGIN_NOT_ALLOWED" }, 403);
