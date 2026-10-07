@@ -60,7 +60,8 @@
 <script>
 document.getElementById("copyright-year").textContent=new Date().getFullYear();
 const API=location.origin;
-const PREFIX="VIDACANE";
+const PREFIX=(new URLSearchParams(location.search).get("public_prefix")||"").trim().toUpperCase();
+if(!/^[A-Z0-9]{8}$/.test(PREFIX)){document.body.innerHTML="<main class=\"wrap\"><section class=\"card\"><h1>Libro no disponible</h1><p class=\"muted\">Falta la identificación segura de la empresa. No se realizará ningún registro.</p></section></main>";throw new Error("PUBLIC_PREFIX_REQUIRED");}
 let establishmentCode=null,bookCode=null,idempotencyKey=null;
 const company=document.getElementById("company"),form=document.getElementById("form"),message=document.getElementById("message"),submit=document.getElementById("submit");
 
@@ -112,7 +113,7 @@ form.addEventListener("submit",async(e)=>{
   amount:fd.get("amount"),detail:fd.get("detail"),consumer_request:fd.get("consumer_request"),turnstile_token:token
  };
  try{
-  const r=await fetch(API+"/api/v1/complaints",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const r=await fetch(API+"/api/v1/complaints?public_prefix="+encodeURIComponent(PREFIX),{method:"POST",headers:{"Content-Type":"application/json","X-LIREP-Prefix":PREFIX},body:JSON.stringify(body)});
   const j=await r.json();
   if(!r.ok||!j.ok)throw new Error(j.error||"SUBMISSION_FAILED");
   const c=j.complaint;
