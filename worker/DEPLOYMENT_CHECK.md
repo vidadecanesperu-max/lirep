@@ -3,3 +3,8 @@
 This file records the CI/CD reconnection verification performed on 2026-10-07.
 
 Expected behavior: a push to `main` triggers the Cloudflare Worker production deployment automatically.
+
+
+## V1.9.1 deployment retrigger
+
+Cloudflare Git deployment retrigger after GitHub CI passed for public form publication.
