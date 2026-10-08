@@ -197,6 +197,8 @@ async function lirepRpc(name, payload, env) {
   return data;
 }
 async function sendSecureReceipt(prefix, code, env) {
+  // Production rollout remains disabled until end-to-end QA is certified.
+  if (prefix !== "LIREPQA1") return;
   if (!env.RESEND_API_KEY) return;
   const queued = await lirepRpc("lirep_queue_receipt_email", {p_public_prefix:prefix,p_public_code:code}, env);
   if (!queued?.queued) return;
@@ -330,14 +332,14 @@ export default {
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.13.7" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.13.8" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.13.7", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.13.7", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.13.8", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.13.8", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
