@@ -2,7 +2,7 @@
 /**
  * Plugin Name: LIREP - Libro de Reclamaciones Virtual Peru
  * Description: Integracion universal del Libro de Reclamaciones LIREP.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: 360 Integral Solutions
  */
 
@@ -54,13 +54,13 @@ function lirep_settings_page() {
 }
 
 function lirep_shortcode($atts = []) {
-    $atts = shortcode_atts(['prefix' => ''], $atts, 'lirep');
-    $prefix = strtoupper(trim($atts['prefix'] ?: get_option('lirep_public_prefix', '')));
+    // The tenant identifier is administrator-controlled; shortcode attributes cannot override it.
+    $prefix = strtoupper(trim((string) get_option('lirep_public_prefix', '')));
     if (!preg_match('/^[A-Z0-9]{8}$/', $prefix)) {
         return '<div style="padding:16px;border:1px solid #ddd;border-radius:10px">LIREP no está configurado. Ingresa el identificador público en Ajustes → LIREP.</div>';
     }
 
     $src = add_query_arg(['public_prefix' => $prefix, 'embed' => '1'], LIREP_EMBED_BASE . '/libro-de-reclamaciones');
-    return '<div class="lirep-container"><iframe src="' . esc_url($src) . '" title="Libro de Reclamaciones" loading="lazy" style="width:100%;min-height:1150px;border:0;display:block" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>';
+    return '<div class="lirep-container"><iframe src="' . esc_url($src) . '" title="Libro de Reclamaciones" loading="lazy" style="width:100%;min-height:1150px;border:0;display:block" referrerpolicy="no-referrer"></iframe></div>';
 }
 add_shortcode('lirep', 'lirep_shortcode');
