@@ -2,7 +2,7 @@
 /**
  * Plugin Name: LIREP - Libro de Reclamaciones Virtual Peru
  * Description: Integracion universal del Libro de Reclamaciones LIREP.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: 360 Integral Solutions
  */
 
@@ -14,7 +14,17 @@ function lirep_register_settings() {
     register_setting('lirep_settings', 'lirep_public_prefix', [
         'type' => 'string',
         'sanitize_callback' => function($value) {
-            return strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)$value));
+            $prefix = strtoupper(trim((string) $value));
+            if (!preg_match('/^[A-Z0-9]{8}$/', $prefix)) {
+                add_settings_error(
+                    'lirep_public_prefix',
+                    'lirep_invalid_prefix',
+                    'El identificador debe contener exactamente 8 caracteres alfanuméricos.',
+                    'error'
+                );
+                return (string) get_option('lirep_public_prefix', '');
+            }
+            return $prefix;
         },
         'default' => ''
     ]);
@@ -31,6 +41,7 @@ function lirep_settings_page() {
     ?>
     <div class="wrap">
       <h1>LIREP</h1>
+      <?php settings_errors('lirep_public_prefix'); ?>
       <p>Configura una sola vez el identificador público asignado a esta empresa.</p>
       <form method="post" action="options.php">
         <?php settings_fields('lirep_settings'); ?>
