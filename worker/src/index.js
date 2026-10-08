@@ -311,8 +311,13 @@ export default {
 (function(){
  if(new URLSearchParams(location.search).get("embed")!=="1" || window.parent===window)return;
  function sendHeight(){
-  var height=Math.max(document.documentElement.scrollHeight,document.body.scrollHeight);
-  if(Number.isFinite(height)&&height>0)window.parent.postMessage({type:"lirep:resize",height:Math.ceil(height),prefix:new URLSearchParams(location.search).get("public_prefix")},"*");
+  // The document scrollHeight includes the iframe viewport's minimum height.
+  // Measuring it creates a feedback loop: parent grows iframe, document grows again.
+  var content=document.querySelector(".wrap")||document.querySelector("main")||document.body.firstElementChild;
+  if(!content)return;
+  var rect=content.getBoundingClientRect();
+  var height=Math.ceil(rect.bottom+window.scrollY+24);
+  if(Number.isFinite(height)&&height>0)window.parent.postMessage({type:"lirep:resize",height:height,prefix:new URLSearchParams(location.search).get("public_prefix")},"*");
  }
  if("ResizeObserver" in window)new ResizeObserver(sendHeight).observe(document.body);
  window.addEventListener("load",sendHeight);
