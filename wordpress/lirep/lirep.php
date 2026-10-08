@@ -2,7 +2,7 @@
 /**
  * Plugin Name: LIREP - Libro de Reclamaciones Virtual Peru
  * Description: Integracion universal del Libro de Reclamaciones LIREP.
- * Version: 1.4.0
+ * Version: 1.4.1
  * Author: 360 Integral Solutions
  */
 
@@ -78,3 +78,6 @@ function lirep_shortcode($atts = []) {
     $html .= '<script>(function(){var frame=document.getElementById(' . wp_json_encode($iframe_id) . ');var origin=' . wp_json_encode($origin) . ';var prefix=' . wp_json_encode($prefix) . ';window.addEventListener("message",function(event){if(event.origin!==origin||event.source!==frame.contentWindow)return;var data=event.data;if(!data||data.type!=="lirep:resize"||data.prefix!==prefix)return;var height=Number(data.height);if(!Number.isFinite(height)||height<300||height>10000)return;frame.style.height=Math.ceil(height+4)+"px";});})();</script>';
     return $html;
 }
+
+// Register the shortcode after defining its callback.
+add_shortcode('lirep', 'lirep_shortcode');
