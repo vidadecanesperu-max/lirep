@@ -2,7 +2,7 @@
 /**
  * Plugin Name: LIREP - Libro de Reclamaciones Virtual Peru
  * Description: Integracion universal del Libro de Reclamaciones LIREP.
- * Version: 1.3.0
+ * Version: 1.4.0
  * Author: 360 Integral Solutions
  */
 
@@ -72,6 +72,9 @@ function lirep_shortcode($atts = []) {
     }
 
     $src = add_query_arg(['public_prefix' => $prefix, 'embed' => '1'], LIREP_EMBED_BASE . '/libro-de-reclamaciones');
-    return '<div class="lirep-container"><iframe src="' . esc_url($src) . '" title="Libro de Reclamaciones" loading="lazy" style="width:100%;min-height:1150px;border:0;display:block" referrerpolicy="no-referrer"></iframe></div>';
+    $iframe_id = 'lirep-frame-' . wp_unique_id();
+    $origin = wp_parse_url(LIREP_EMBED_BASE, PHP_URL_SCHEME) . '://' . wp_parse_url(LIREP_EMBED_BASE, PHP_URL_HOST);
+    $html = '<div class="lirep-container"><iframe id="' . esc_attr($iframe_id) . '" src="' . esc_url($src) . '" title="Libro de Reclamaciones" loading="lazy" scrolling="no" style="width:100%;height:1600px;border:0;display:block;overflow:hidden" referrerpolicy="no-referrer"></iframe></div>';
+    $html .= '<script>(function(){var frame=document.getElementById(' . wp_json_encode($iframe_id) . ');var origin=' . wp_json_encode($origin) . ';var prefix=' . wp_json_encode($prefix) . ';window.addEventListener("message",function(event){if(event.origin!==origin||event.source!==frame.contentWindow)return;var data=event.data;if(!data||data.type!=="lirep:resize"||data.prefix!==prefix)return;var height=Number(data.height);if(!Number.isFinite(height)||height<300||height>10000)return;frame.style.height=Math.ceil(height+4)+"px";});})();</script>';
+    return $html;
 }
-add_shortcode('lirep', 'lirep_shortcode');
