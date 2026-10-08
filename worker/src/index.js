@@ -330,14 +330,14 @@ export default {
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "lirep-public-api", version: "1.13.6" });
+      return json({ ok: true, service: "lirep-public-api", version: "1.13.7" });
     }
 
     if (url.pathname === "/health/backend" && request.method === "GET") {
       const result = await supabaseConnectivity(env);
       return result.ok
-        ? json({ ok: true, service: "lirep-public-api", version: "1.13.6", backend: "supabase", connected: true })
-        : json({ ok: false, service: "lirep-public-api", version: "1.13.6", backend: "supabase", connected: false, error: result.error }, 503);
+        ? json({ ok: true, service: "lirep-public-api", version: "1.13.7", backend: "supabase", connected: true })
+        : json({ ok: false, service: "lirep-public-api", version: "1.13.7", backend: "supabase", connected: false, error: result.error }, 503);
     }
 
     if (url.pathname === "/api/v1/form-config" && request.method === "GET") {
@@ -536,7 +536,13 @@ export default {
         return json({ ok: false, error: result.error }, result.status, corsHeaders);
       }
 
-      const receiptToken = await lirepRpc("lirep_issue_receipt_token", {p_public_prefix:normalizedPrefix,p_public_code:result.data.public_code}, env);
+      // A committed complaint must never become a 503 because receipt-token issuance fails.
+      let receiptToken = null;
+      try {
+        receiptToken = await lirepRpc("lirep_issue_receipt_token", {p_public_prefix:normalizedPrefix,p_public_code:result.data.public_code}, env);
+      } catch (error) {
+        console.error("RECEIPT_TOKEN_ISSUANCE_FAILED", result.data.public_code);
+      }
       result.data.receipt_token = typeof receiptToken === "string" ? receiptToken : (receiptToken?.access_token || receiptToken?.receipt_token || null);
       ctx.waitUntil(sendSecureReceipt(normalizedPrefix, result.data.public_code, env).catch(()=>{}));
       return json({ ok: true, complaint: result.data }, result.status, corsHeaders);
