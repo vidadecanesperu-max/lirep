@@ -58,6 +58,14 @@ for(const [name,passed] of [
  ['WordPress invalid tenant retains previous setting',plugin.includes("get_option('lirep_public_prefix', '')")],
  ['WordPress settings validation feedback',plugin.includes("settings_errors('lirep_public_prefix')")]
 ]) { if(!passed){console.error('WORDPRESS CONFIG FAIL:',name);process.exit(1)} }
+for(const [name,passed] of [
+ ['Worker iframe resize protocol',worker.includes('lirep:resize')],
+ ['Worker embedded-only resize',worker.includes('get("embed")!=="1"')],
+ ['WordPress iframe resize listener',plugin.includes('lirep:resize')],
+ ['WordPress iframe message origin guard',plugin.includes('event.origin!==origin')],
+ ['WordPress iframe message source guard',plugin.includes('event.source!==frame.contentWindow')],
+ ['WordPress iframe tenant guard',plugin.includes('data.prefix!==prefix')]
+]){if(!passed){console.error('IFRAME RESIZE FAIL:',name);process.exit(1)}}
 console.log('WordPress tenant and referrer safeguards OK');
 console.log('Email rollout safety guards OK');
 
