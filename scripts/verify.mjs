@@ -47,6 +47,13 @@ for(const [name,passed] of [
  ['email evidence destination schema',completionSql.includes('external_message_id')&&completionSql.includes('destination')],
  ['receipt token best-effort',worker.includes('RECEIPT_TOKEN_ISSUANCE_FAILED')]
 ]) { if(!passed){console.error('EMAIL SAFETY FAIL:',name);process.exit(1)} }
+const pluginTenantFunction=plugin.slice(plugin.indexOf('function lirep_shortcode('));
+for(const [name,passed] of [
+ ['WordPress administrator-controlled tenant',pluginTenantFunction.includes("get_option('lirep_public_prefix'")],
+ ['WordPress no shortcode tenant override',!pluginTenantFunction.includes("$atts['prefix']")],
+ ['WordPress iframe no-referrer',pluginTenantFunction.includes('referrerpolicy="no-referrer"')]
+]) { if(!passed){console.error('WORDPRESS SECURITY FAIL:',name);process.exit(1)} }
+console.log('WordPress tenant and referrer safeguards OK');
 console.log('Email rollout safety guards OK');
 
 console.log(`LIREP ${version} verification OK`);
