@@ -53,6 +53,11 @@ for(const [name,passed] of [
  ['WordPress no shortcode tenant override',!pluginTenantFunction.includes("$atts['prefix']")],
  ['WordPress iframe no-referrer',pluginTenantFunction.includes('referrerpolicy="no-referrer"')]
 ]) { if(!passed){console.error('WORDPRESS SECURITY FAIL:',name);process.exit(1)} }
+for(const [name,passed] of [
+ ['WordPress exact tenant validation',plugin.includes("preg_match('/^[A-Z0-9]{8}$/', $prefix)")],
+ ['WordPress invalid tenant retains previous setting',plugin.includes("get_option('lirep_public_prefix', '')")],
+ ['WordPress settings validation feedback',plugin.includes("settings_errors('lirep_public_prefix')")]
+]) { if(!passed){console.error('WORDPRESS CONFIG FAIL:',name);process.exit(1)} }
 console.log('WordPress tenant and referrer safeguards OK');
 console.log('Email rollout safety guards OK');
 
