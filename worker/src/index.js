@@ -270,6 +270,34 @@ async function callSupabase(payload, env) {
 }
 
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil((async () => {
+      if (!env.RESEND_API_KEY) return;
+      for (let i = 0; i < 5; i++) {
+        const id = await lirepRpc("lirep_next_pending_receipt_id", {}, env);
+        if (!id) break;
+        const job = await lirepRpc("lirep_claim_receipt_email_by_id", {p_queue_id:id}, env);
+        if (!job) continue;
+        const link = "https://lirep-public-api.vidadecanes-peru.workers.dev/constancia?public_prefix=" + encodeURIComponent(job.public_prefix) + "&code=" + encodeURIComponent(job.public_code) + "&token=" + encodeURIComponent(job.receipt_token);
+        const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(job.public_code) + "</p><p><a href='" + escHtml(link) + "'>Ver constancia</a></p>";
+        let accepted = false;
+        try {
+          const response = await fetch("https://api.resend.com/emails", {
+            method:"POST",headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"content-type":"application/json"},
+            body:JSON.stringify({from:job.from_name+" <"+job.from_email+">",to:[job.recipient],subject:"Constancia del Libro de Reclamaciones - "+job.public_code,html}),
+            signal:AbortSignal.timeout(15000)
+          });
+          const result = await response.json().catch(()=>null);
+          if (!response.ok || !result?.id) throw new Error(result?.message || "EMAIL_PROVIDER_FAILED");
+          accepted = true;
+          await lirepRpc("lirep_complete_receipt_email",{p_queue_id:id,p_success:true,p_provider:"resend",p_provider_message_id:result.id,p_error:null},env);
+        } catch(error) {
+          if (accepted) { console.error("EMAIL_ACCEPTED_COMPLETION_FAILED",id); continue; }
+          await lirepRpc("lirep_complete_receipt_email",{p_queue_id:id,p_success:false,p_provider:"resend",p_provider_message_id:null,p_error:String(error?.message||error)},env).catch(()=>{});
+        }
+      }
+    })());
+  },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
