@@ -36,3 +36,11 @@ En julio de 2026 se publicó un **proyecto** de modificación normativa, no conf
 - No se enviaron reclamos productivos ni se publicó el borrador.
 
 **Decisión:** continuar con preparación técnica, pero mantener producción deshabilitada hasta resolver los bloqueantes.
+
+## QA-LEGAL-027 · Política de privacidad (2026-10-08)
+- **PUBLICADO / VERIFICADO:** https://vidadecanes.pe/politica-de-privacidad/ carga con contenido real, sin error 404, según inspección de navegador automatizada posterior a la publicación.
+- **PUBLICADO / VERIFICADO:** el formulario Worker con `public_prefix=VIDACANE&embed=1` muestra el aviso de plazo de respuesta de 15 días hábiles improrrogables y un enlace hacia esa política. Commit del aviso: `69e8a6e947640af3be1f2c649334fc2a166e28ca`.
+- **Contenido de política publicado:** identificación de VIDA DE CANES E.I.R.L. / RUC 20609667584, finalidades, bases legales, derechos de titulares, proveedores tecnológicos, seguridad y conservación. **Publicación no equivale a dictamen de cumplimiento legal.**
+- **Pendiente de verificación documental:** exactitud de razón social y RUC, domicilio del responsable, canal de ejercicio de derechos ARCO, inventario y registro de bancos de datos personales cuando corresponda, plazos específicos de retención, transferencias internacionales y contratos con encargados.
+- **QA interpretado correctamente:** la política de privacidad no necesita repetir el plazo de atención de reclamos, pues dicho plazo está en el formulario. Un enlace de navegación hacia el Libro de Reclamaciones no constituye por sí mismo un envío de reclamo. No se ha ejecutado un envío productivo.
+- **NO GO:** página pública anterior intacta; correo productivo bloqueado; no sustituir página hasta aprobar verificación de identidad, constancia, correo, retención, backup y rollback.
