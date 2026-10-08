@@ -313,7 +313,7 @@ export default {
  function sendHeight(){
   // The document scrollHeight includes the iframe viewport's minimum height.
   // Measuring it creates a feedback loop: parent grows iframe, document grows again.
-  var content=document.querySelector(".wrap")||document.querySelector("main")||document.body.firstElementChild;
+  var content=document.body.lastElementChild && document.body.lastElementChild.tagName!=="SCRIPT" ? document.body.lastElementChild : document.querySelector("footer")||document.querySelector(".wrap")||document.querySelector("main");
   if(!content)return;
   var rect=content.getBoundingClientRect();
   var height=Math.ceil(rect.bottom+window.scrollY+24);
