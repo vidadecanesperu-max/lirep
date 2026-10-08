@@ -30,5 +30,24 @@ for(const [name,body,needle] of [
 ]){
   if(!body.includes(needle)){console.error('SECURITY FAIL:',name);process.exit(1)}
 }
+// Email rollout safeguards: both paths must remain QA-only until approved.
+const emailStart=worker.indexOf('async function sendSecureReceipt(');
+const emailEnd=worker.indexOf('\nasync function ',emailStart+10);
+const emailFunction=worker.slice(emailStart,emailEnd<0?undefined:emailEnd);
+const scheduledStart=worker.indexOf('async scheduled(');
+const scheduledEnd=worker.indexOf('async fetch(',scheduledStart);
+const scheduledFunction=worker.slice(scheduledStart,scheduledEnd<0?undefined:scheduledEnd);
+const schedulerSql=fs.readFileSync('supabase/migrations/20261008011500_v1_13_6_receipt_queue_scheduler.sql','utf8');
+const completionSql=fs.readFileSync('supabase/migrations/20261008015000_v1_13_7_evidence_schema_fix_and_qa_reconciliation.sql','utf8');
+for(const [name,passed] of [
+ ['immediate QA-only email gate',emailFunction.includes('prefix !== "LIREPQA1"')],
+ ['scheduled QA-only database discovery',schedulerSql.includes("o.public_prefix='LIREPQA1'")],
+ ['immediate accepted-email retry guard',emailFunction.includes('if (accepted)')],
+ ['scheduled accepted-email retry guard',scheduledFunction.includes('if (accepted)')],
+ ['email evidence destination schema',completionSql.includes('external_message_id')&&completionSql.includes('destination')],
+ ['receipt token best-effort',worker.includes('RECEIPT_TOKEN_ISSUANCE_FAILED')]
+]) { if(!passed){console.error('EMAIL SAFETY FAIL:',name);process.exit(1)} }
+console.log('Email rollout safety guards OK');
+
 console.log(`LIREP ${version} verification OK`);
 console.log('Tenant isolation guards OK');
