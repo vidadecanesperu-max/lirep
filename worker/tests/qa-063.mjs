@@ -10,7 +10,7 @@ globalThis.fetch=async input=>{const url=String(input);calls.push(url);if(url.in
 try{
  assert.match(source,/if \(prefix !== "LIREPQA1"\) return;/,"Email production gate must remain active");
  assert.match(source,/async scheduled\(event, env, ctx\) \{[\s\S]*?return;\s*\},/,"Cron must remain disabled");
- const response=await worker.fetch(new Request(origin+"/api/v1/complaints?public_prefix=LIREPQA1",{method:"POST",headers:{Origin:"https://untrusted.invalid","content-type":"application/json","X-LIREP-Prefix":"LIREPQA1"},body:JSON.stringify({})}),env,{waitUntil(){}});
+ const response=await worker.fetch(new Request(origin+"/api/v1/complaints?public_prefix=LIREPQA1",{method:"POST",headers:{Origin:"https://untrusted.invalid","content-type":"application/json","X-LIREP-Prefix":"LIREPQA1"},body:JSON.stringify({public_prefix:"LIREPQA1"})}),env,{waitUntil(){}});
  assert.equal(response.status,403);
  assert.equal((await response.json()).error,"ORIGIN_NOT_ALLOWED");
  assert.deepEqual(calls.map(x=>new URL(x).pathname),["/rest/v1/rpc/lirep_public_origin_allowed"]);
