@@ -5,7 +5,7 @@ assert.ok(source.includes("No pudimos confirmar el resultado del envío."),"Ambi
 assert.ok(source.includes("Es posible que tu reclamo o queja ya se haya registrado."),"Must not claim rejection");
 assert.ok(source.includes("idempotencyKey||(idempotencyKey=uuid())"),"Retry key must be stable");
 assert.ok(source.includes("form.reset();syncMinorFields();idempotencyKey=null;"),"Key must reset after confirmed response only");
-const catchStart=source.indexOf('}catch(err){show(err.message===\\\"TURNSTILE_FAILED\\\"');
+const catchStart=source.lastIndexOf("}catch(err){show(",source.indexOf("No pudimos confirmar el resultado del envío."));
 assert.ok(catchStart>=0,"Submission error handler missing");
 const catchEnd=source.indexOf('finally{submit.disabled=false;}',catchStart);
 assert.ok(catchEnd>catchStart,"Submission finally block missing");
