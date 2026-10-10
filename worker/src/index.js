@@ -277,6 +277,10 @@ async function callSupabase(payload, env) {
 export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
+      // QA safety: scheduled delivery is disabled until production rollout is approved.
+      // The immediate sender is separately restricted to LIREPQA1.
+      return;
+      /*
       if (!env.RESEND_API_KEY) return;
       for (let i = 0; i < 5; i++) {
         const id = await lirepRpc("lirep_next_pending_receipt_id", {}, env);
@@ -301,6 +305,7 @@ export default {
           await lirepRpc("lirep_complete_receipt_email",{p_queue_id:id,p_success:false,p_provider:"resend",p_provider_message_id:null,p_error:String(error?.message||error)},env).catch(()=>{});
         }
       }
+      */
     })());
   },
   async fetch(request, env, ctx) {
@@ -559,7 +564,9 @@ export default {
       // A committed complaint must never become a 503 because receipt-token issuance fails.
       let receiptToken = null;
       try {
-        receiptToken = await lirepRpc("lirep_issue_receipt_token", {p_public_prefix:normalizedPrefix,p_public_code:result.data.public_code}, env);
+        if (!result.data.duplicate) {
+          receiptToken = await lirepRpc("lirep_issue_receipt_token", {p_public_prefix:normalizedPrefix,p_public_code:result.data.public_code}, env);
+        }
       } catch (error) {
         console.error("RECEIPT_TOKEN_ISSUANCE_FAILED", result.data.public_code);
       }
