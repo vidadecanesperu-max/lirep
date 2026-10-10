@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lirep-qa-staging",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-07",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {"enabled": true},
+  "vars": {
+    "ALLOWED_ORIGINS": "https://lirep-qa-staging.workers.dev",
+    "SUPABASE_URL": "https://supabase-staging.invalid"
+  },
+  "ratelimits": [
+    {
+      "name": "SUBMIT_RATE_LIMITER",
+      "namespace_id": "1702",
+      "simple": {"limit": 5, "period": 60}
+    }
+  ],
+  "triggers": {"crons": []}
+}
