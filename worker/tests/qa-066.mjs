@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import {spawnSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
+const script=fileURLToPath(new URL("./staging-preflight.mjs",import.meta.url));
+const env={...process.env,LIREP_STAGING_APPROVED:"NO"};
+const run=spawnSync(process.execPath,[script],{encoding:"utf8",env});
+assert.equal(run.status,2,"Unsafe staging must return a nonzero exit code");
+assert.match(run.stderr,/BLOCK - Supabase staging no configurado/);
+assert.match(run.stderr,/BLOCK - Autorización explícita ausente/);
+console.log("QA-066 PASS - Preflight real rechaza staging inseguro con código de salida 2");
+console.log("SIN DEPLOY - SIN ESCRITURAS - SIN ENVÍOS");
