@@ -44,7 +44,7 @@ let duplicate = false;
 globalThis.fetch = async (input, init = {}) => {
   const url = String(input);
   calls.push(url);
-  if (url.includes("siteverify")) return Response.json({ success: true, hostname: "lirep-qa.example" });
+  if (url.includes("siteverify")) return Response.json({ success: true, hostname: "lirep-public-api.vidadecanes-peru.workers.dev" });
   if (url.includes("lirep_public_origin_allowed")) return Response.json(true);
   if (url.includes("lirep_submit_public_complaint_gateway")) return Response.json([{ ...row, duplicate }]);
   if (url.includes("lirep_issue_receipt_token")) return Response.json("12345678-1234-4234-8234-123456789abc");
