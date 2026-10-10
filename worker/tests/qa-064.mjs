@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const stripJsonComments=text=>text.replace(/^\s*\/\/.*$/gm,"");
+const prod=JSON.parse(stripJsonComments(readFileSync(new URL("../wrangler.jsonc",import.meta.url),"utf8")));
+const stage=JSON.parse(stripJsonComments(readFileSync(new URL("../wrangler.staging.jsonc",import.meta.url),"utf8")));
+assert.notEqual(stage.name,prod.name,"Worker names must differ");
+assert.equal(stage.name,"lirep-qa-staging");
+assert.deepEqual(stage.triggers?.crons,[],"Staging cron must be disabled");
+assert.notEqual(stage.vars?.SUPABASE_URL,prod.vars?.SUPABASE_URL,"Staging must not use production database");
+assert.equal(stage.vars?.SUPABASE_URL,"https://supabase-staging.invalid","Do not activate without dedicated staging database");
+assert.ok(!JSON.stringify(stage).includes("hiidqmrgrioidvemixfe"),"Production Supabase project ID leaked into staging");
+assert.notEqual(stage.ratelimits?.[0]?.namespace_id,prod.ratelimits?.[0]?.namespace_id,"Rate limit namespace must be distinct");
+assert.equal(stage.preview_urls,false);
+console.log("QA-064 PASS - Worker, cron, Supabase y rate limit aislados (configuración estática)");
+console.log("STAGING NO DESPLEGABLE AÚN - URL de Supabase ficticia; credenciales no configuradas");
