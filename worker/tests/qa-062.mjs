@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const source=readFileSync(new URL("../src/index.js",import.meta.url),"utf8");
+assert.ok(source.includes("No pudimos confirmar el resultado del envío."),"Ambiguous delivery message missing");
+assert.ok(source.includes("Es posible que tu reclamo o queja ya se haya registrado."),"Must not claim rejection");
+assert.ok(source.includes("idempotencyKey||(idempotencyKey=uuid())"),"Retry key must be stable");
+assert.ok(source.includes("form.reset();syncMinorFields();idempotencyKey=null;"),"Key must reset after confirmed response only");
+const catchStart=source.indexOf('}catch(err){show(err.message===\\\"TURNSTILE_FAILED\\\"');
+assert.ok(catchStart>=0,"Submission error handler missing");
+const catchEnd=source.indexOf('finally{submit.disabled=false;}',catchStart);
+assert.ok(catchEnd>catchStart,"Submission finally block missing");
+const catchBlock=source.slice(catchStart,catchEnd);
+assert.ok(!catchBlock.includes("idempotencyKey=null"),"Do not reset idempotency key after ambiguous error");
+assert.ok(!catchBlock.includes("form.reset()"),"Do not clear form after ambiguous error");
+console.log("QA-062 PASS - Resultado incierto no se declara fallido; reintento conserva clave y formulario");
