@@ -32,7 +32,6 @@ jobs:
       - name: Validate repository
         run: |
           set -euo pipefail
-          npm ci --ignore-scripts
           npm run verify
 
   staging-deploy:
