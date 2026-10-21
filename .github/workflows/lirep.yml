@@ -1,90 +1,79 @@
-name: LIREP CI
+name: LIREP CI and Staging Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      publish_staging:
+        description: "Deploy QA-229 only to lirep-qa-staging"
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
   group: lirep-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   baseline:
     name: Validate LIREP
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Validate repository
-        shell: bash
         run: |
           set -euo pipefail
+          npm ci --ignore-scripts
+          npm run verify
 
-          echo "======================================"
-          echo " LIREP - CI BASELINE"
-          echo "======================================"
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Commit:     $GITHUB_SHA"
-          echo "Branch:     $GITHUB_REF_NAME"
-          echo
-
-          test -f README.md || {
-            echo "ERROR: README.md not found"
-            exit 1
-          }
-
-          npm run verify\n\n          echo "PASS - Repository initialized"
-          echo "PASS - main branch available"
-          echo "PASS - GitHub Actions operational"
-          echo
-          echo "LIREP CI baseline: OK"
-
-
-  production-smoke:
-    name: Verify deployed Worker
+  staging-deploy:
+    name: Deploy QA-229 to isolated staging
     needs: baseline
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_staging == true && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    environment: lirep-qa-staging
     steps:
-      - name: Wait for Cloudflare deployment
-        shell: bash
-        run: sleep 45
-
-      - name: Verify production health and QA tenant routing
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assert staging-only configuration and QA-229 source
         shell: bash
         run: |
           set -euo pipefail
-          BASE="https://lirep-public-api.vidadecanes-peru.workers.dev"
-
-          HEALTH="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/health")"
-          echo "$HEALTH"
-          echo "$HEALTH" | grep -Fq '"ok":true'
-          echo "$HEALTH" | grep -Fq '"version":"1.11.8"'
-
-          CONFIG="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/api/v1/form-config?public_prefix=LIREPQA1")"
-          echo "$CONFIG"
-          echo "$CONFIG" | grep -Fq '"ok":true'
-          echo "$CONFIG" | grep -Fq 'LIREPQA1'
-          echo "$CONFIG" | grep -Fq 'QA-001'
-          echo "$CONFIG" | grep -Fq 'QA001'
-
-          FORM="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/libro-de-reclamaciones?public_prefix=LIREPQA1")"
-          echo "$FORM" | grep -Fq 'PUBLIC_PREFIX_REQUIRED'
-          echo "$FORM" | grep -Fq 'new URLSearchParams(location.search)'
-          if echo "$FORM" | grep -Fq 'const PREFIX="VIDACANE"'; then
-            echo "FAIL - deployed form still contains production fallback"
-            exit 1
-          fi
-
-          echo "PASS - Worker 1.11.8 deployed"
-          echo "PASS - QA tenant config resolved"
-          echo "PASS - No production fallback in deployed form"
+          test -f worker/wrangler.staging.jsonc
+          test -f worker/src/index.js
+          node -e 'const fs=require("fs");const c=JSON.parse(fs.readFileSync("worker/wrangler.staging.jsonc","utf8").replace(/^\uFEFF/,""));if(c.name!=="lirep-qa-staging"||c.vars?.SUPABASE_URL!=="https://jitcayjaztceglqlmwvl.supabase.co"||!Array.isArray(c.triggers?.crons)||c.triggers.crons.length)process.exit(1)'
+          grep -Fq 'LIREP_QA229_RESEND_OUTCOME_UNKNOWN' worker/src/index.js
+          grep -Fq 'LIREP_QA229_ACCEPTED_COMPLETION_FAILED' worker/src/index.js
+          node --check worker/src/index.js
+          test -f worker/qa229-test.cjs
+          node --test worker/qa229-test.cjs
+      - name: Require configured Cloudflare secrets
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CF_TOKEN" || { echo "Missing CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CF_ACCOUNT" || { echo "Missing CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+      - name: Deploy staging only
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx wrangler deploy --config wrangler.staging.jsonc
+      - name: Verify staging health
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 https://lirep-qa-staging.vidadecanes-peru.workers.dev/health/backend | grep -Fq '"connected":true'
