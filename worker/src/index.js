@@ -329,10 +329,18 @@ export default {
   var height=Math.ceil(rect.bottom+window.scrollY+24);
   if(Number.isFinite(height)&&height>0)window.parent.postMessage({type:"lirep:resize",height:height,prefix:new URLSearchParams(location.search).get("public_prefix")},"*");
  }
- if("ResizeObserver" in window)new ResizeObserver(sendHeight).observe(document.body);
+ var measured=document.querySelector(".wrap")||document.querySelector("main");
+ if("ResizeObserver" in window){
+  var ro=new ResizeObserver(sendHeight);
+  if(measured)ro.observe(measured);
+  else ro.observe(document.body);
+ }
+ if("MutationObserver" in window&&measured)new MutationObserver(sendHeight).observe(measured,{childList:true,subtree:true,attributes:true,attributeFilter:["hidden","style","class"]});
  window.addEventListener("load",sendHeight);
  window.addEventListener("resize",sendHeight);
  document.addEventListener("DOMContentLoaded",sendHeight);
+ window.setTimeout(sendHeight,350);
+ window.setTimeout(sendHeight,1200);
  sendHeight();
 })();
 </script></body></html>`), {
