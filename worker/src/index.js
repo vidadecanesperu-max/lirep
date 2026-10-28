@@ -197,8 +197,8 @@ async function lirepRpc(name, payload, env) {
   return data;
 }
 async function sendSecureReceipt(prefix, code, env) {
-  // Production rollout remains disabled until end-to-end QA is certified.
-  if (prefix !== "LIREPQA1") return;
+  // Multiempresa: el RPC valida el prefijo y la configuración de correo de cada organización.
+  // Los trabajos se reclaman por ID para evitar envíos concurrentes duplicados.
   if (!env.RESEND_API_KEY) return;
   const queued = await lirepRpc("lirep_queue_receipt_email", {p_public_prefix:prefix,p_public_code:code}, env);
   if (!queued?.queued) return;
