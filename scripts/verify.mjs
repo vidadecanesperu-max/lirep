@@ -40,7 +40,7 @@ const scheduledFunction=worker.slice(scheduledStart,scheduledEnd<0?undefined:sch
 const schedulerSql=fs.readFileSync('supabase/migrations/20261008011500_v1_13_6_receipt_queue_scheduler.sql','utf8');
 const completionSql=fs.readFileSync('supabase/migrations/20261008015000_v1_13_7_evidence_schema_fix_and_qa_reconciliation.sql','utf8');
 for(const [name,passed] of [
- ['immediate QA-only email gate',emailFunction.includes('prefix !== "LIREPQA1"')],
+ ['immediate multiempresa opt-in gate',emailFunction.includes('prefix !== "LIREPQA1" && env.LIREP_ENABLE_MULTIEMPRESA_EMAIL !== "true"')],
  ['scheduled QA-only database discovery',schedulerSql.includes("o.public_prefix='LIREPQA1'")],
  ['immediate accepted-email retry guard',emailFunction.includes('if (accepted)')],
  ['scheduled accepted-email retry guard',scheduledFunction.includes('if (accepted)')],
