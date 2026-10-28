@@ -196,6 +196,11 @@ async function lirepRpc(name, payload, env) {
   if (!response.ok) throw new Error(data?.message || "RPC_FAILED");
   return data;
 }
+function approvedReceiptSender(email, env) {
+  const allowed = String(env.LIREP_APPROVED_FROM_EMAIL || "").trim().toLowerCase();
+  return allowed.length > 0 && String(email || "").trim().toLowerCase() === allowed;
+}
+
 async function sendSecureReceipt(prefix, code, env) {
   // QA permitido por defecto; multiempresa solo con activación explícita.
   if (prefix !== "LIREPQA1" && env.LIREP_ENABLE_MULTIEMPRESA_EMAIL !== "true") return;
@@ -208,6 +213,7 @@ async function sendSecureReceipt(prefix, code, env) {
   const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(job.public_code) + "</p><p><a href=\"" + escHtml(link) + "\">Ver y guardar constancia</a></p>";
   let accepted = false;
   try {
+    if (!approvedReceiptSender(job.from_email, env)) throw new Error("EMAIL_SENDER_NOT_APPROVED");
     const response = await fetch("https://api.resend.com/emails", {
       method:"POST",
       headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"content-type":"application/json"},
@@ -290,7 +296,8 @@ export default {
         const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(job.public_code) + "</p><p><a href='" + escHtml(link) + "'>Ver constancia</a></p>";
         let accepted = false;
         try {
-          const response = await fetch("https://api.resend.com/emails", {
+          if (!approvedReceiptSender(job.from_email, env)) throw new Error("EMAIL_SENDER_NOT_APPROVED");
+    const response = await fetch("https://api.resend.com/emails", {
             method:"POST",headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"content-type":"application/json"},
             body:JSON.stringify({from:job.from_name+" <"+job.from_email+">",to:[job.recipient],subject:"Constancia del Libro de Reclamaciones - "+job.public_code,html}),
             signal:AbortSignal.timeout(15000)
