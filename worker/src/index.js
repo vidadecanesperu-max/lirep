@@ -336,11 +336,19 @@ export default {
   else ro.observe(document.body);
  }
  if("MutationObserver" in window&&measured)new MutationObserver(sendHeight).observe(measured,{childList:true,subtree:true,attributes:true,attributeFilter:["hidden","style","class"]});
+ // WordPress can attach its message listener after the iframe has loaded.
+ // A parent handshake re-measures the actual form instead of relying on one first postMessage.
+ window.addEventListener("message",function(event){
+  if(event.source!==window.parent || !event.data || event.data.type!=="lirep:measure")return;
+  sendHeight();
+ });
  window.addEventListener("load",sendHeight);
  window.addEventListener("resize",sendHeight);
  document.addEventListener("DOMContentLoaded",sendHeight);
- window.setTimeout(sendHeight,350);
- window.setTimeout(sendHeight,1200);
+ window.setTimeout(sendHeight,150);
+ window.setTimeout(sendHeight,500);
+ window.setTimeout(sendHeight,1500);
+ window.setTimeout(sendHeight,3500);
  sendHeight();
 })();
 </script></body></html>`), {
