@@ -52,6 +52,28 @@ jobs:
           echo "LIREP CI baseline: OK"
 
 
+
+  live-observation:
+    name: Observe active Cloudflare Worker (read only)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read live health without changing production
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://lirep-public-api.vidadecanes-peru.workers.dev"
+          for PATH_SUFFIX in /health /health/backend; do
+            CODE="$(curl --max-time 20 --retry 2 --silent --show-error --output /tmp/lirep-health.json --write-out '%{http_code}' "$BASE$PATH_SUFFIX")"
+            echo "$PATH_SUFFIX HTTP $CODE"
+            cat /tmp/lirep-health.json
+            echo
+            echo "$PATH_SUFFIX HTTP $CODE" >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/lirep-health.json >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            test "$CODE" = "200"
+          done
+
   production-smoke:
     name: Verify deployed Worker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
