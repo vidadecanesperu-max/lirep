@@ -10,7 +10,8 @@
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://vidadecanes.pe",
-    "SUPABASE_URL": "https://hiidqmrgrioidvemixfe.supabase.co"
+    "SUPABASE_URL": "https://hiidqmrgrioidvemixfe.supabase.co",
+    "LIREP_ENABLE_MULTIEMPRESA_EMAIL": "false"
   },
   "ratelimits": [
     {

@@ -197,8 +197,8 @@ async function lirepRpc(name, payload, env) {
   return data;
 }
 async function sendSecureReceipt(prefix, code, env) {
-  // Production rollout remains disabled until end-to-end QA is certified.
-  if (prefix !== "LIREPQA1") return;
+  // QA permitido por defecto; multiempresa solo con activación explícita.
+  if (prefix !== "LIREPQA1" && env.LIREP_ENABLE_MULTIEMPRESA_EMAIL !== "true") return;
   if (!env.RESEND_API_KEY) return;
   const queued = await lirepRpc("lirep_queue_receipt_email", {p_public_prefix:prefix,p_public_code:code}, env);
   if (!queued?.queued) return;
@@ -279,7 +279,10 @@ export default {
     ctx.waitUntil((async () => {
       if (!env.RESEND_API_KEY) return;
       for (let i = 0; i < 5; i++) {
-        const id = await lirepRpc("lirep_next_pending_receipt_id", {}, env);
+        const discoveryRpc = env.LIREP_ENABLE_MULTIEMPRESA_EMAIL === "true"
+          ? "lirep_next_pending_receipt_id_multiempresa"
+          : "lirep_next_pending_receipt_id";
+        const id = await lirepRpc(discoveryRpc, {}, env);
         if (!id) break;
         const job = await lirepRpc("lirep_claim_receipt_email_by_id", {p_queue_id:id}, env);
         if (!job) continue;

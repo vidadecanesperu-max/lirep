@@ -43,15 +43,40 @@ jobs:
             exit 1
           }
 
-          npm run verify\n\n          echo "PASS - Repository initialized"
+          npm run verify
+
+          echo "PASS - Repository initialized"
           echo "PASS - main branch available"
           echo "PASS - GitHub Actions operational"
           echo
           echo "LIREP CI baseline: OK"
 
 
+
+  live-observation:
+    name: Observe active Cloudflare Worker (read only)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read live health without changing production
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://lirep-public-api.vidadecanes-peru.workers.dev"
+          for PATH_SUFFIX in /health /health/backend; do
+            CODE="$(curl --max-time 20 --retry 2 --silent --show-error --output /tmp/lirep-health.json --write-out '%{http_code}' "$BASE$PATH_SUFFIX")"
+            echo "$PATH_SUFFIX HTTP $CODE"
+            cat /tmp/lirep-health.json
+            echo
+            echo "$PATH_SUFFIX HTTP $CODE" >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/lirep-health.json >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            test "$CODE" = "200"
+          done
+
   production-smoke:
     name: Verify deployed Worker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: baseline
     runs-on: ubuntu-latest
     steps:
@@ -68,7 +93,7 @@ jobs:
           HEALTH="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/health")"
           echo "$HEALTH"
           echo "$HEALTH" | grep -Fq '"ok":true'
-          echo "$HEALTH" | grep -Fq '"version":"1.11.8"'
+          echo "$HEALTH" | grep -Fq '"version":"1.13.8"'
 
           CONFIG="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/api/v1/form-config?public_prefix=LIREPQA1")"
           echo "$CONFIG"
@@ -85,6 +110,6 @@ jobs:
             exit 1
           fi
 
-          echo "PASS - Worker 1.11.8 deployed"
+          echo "PASS - Worker 1.13.8 deployed"
           echo "PASS - QA tenant config resolved"
           echo "PASS - No production fallback in deployed form"
