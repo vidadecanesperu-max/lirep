@@ -14,6 +14,12 @@ if(pkg.version!==version){console.error('Version mismatch');process.exit(1)}
 const worker=fs.readFileSync('worker/src/index.js','utf8');
 const app=fs.readFileSync('app/index.html','utf8');
 const plugin=fs.readFileSync('wordpress/lirep/lirep.php','utf8');
+const workerConfig=JSON.parse(fs.readFileSync('worker/wrangler.jsonc','utf8'));
+const approvedEmail=workerConfig.vars?.LIREP_APPROVED_FROM_EMAIL;
+const sends=worker.match(/fetch\("https:\/\/api\.resend\.com\/emails"/g)||[];
+const senderGuards=worker.match(/approvedReceiptSender\(job\.from_email, env\)/g)||[];
+if(workerConfig.vars?.LIREP_ENABLE_MULTIEMPRESA_EMAIL!=="true"||approvedEmail!=="lirep@mail.vidadecanes.pe"||sends.length!==2||senderGuards.length!==2){console.error('SENDER APPROVAL SAFETY FAIL');process.exit(1);}
+
 
 const forbidden=[
   ['worker hardcoded tenant', worker, 'const PREFIX=\\\"VIDACANE\\\"'],
