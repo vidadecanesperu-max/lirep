@@ -279,7 +279,10 @@ export default {
     ctx.waitUntil((async () => {
       if (!env.RESEND_API_KEY) return;
       for (let i = 0; i < 5; i++) {
-        const id = await lirepRpc("lirep_next_pending_receipt_id", {}, env);
+        const discoveryRpc = env.LIREP_ENABLE_MULTIEMPRESA_EMAIL === "true"
+          ? "lirep_next_pending_receipt_id_multiempresa"
+          : "lirep_next_pending_receipt_id";
+        const id = await lirepRpc(discoveryRpc, {}, env);
         if (!id) break;
         const job = await lirepRpc("lirep_claim_receipt_email_by_id", {p_queue_id:id}, env);
         if (!job) continue;
