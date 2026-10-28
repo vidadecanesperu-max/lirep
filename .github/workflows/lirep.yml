@@ -43,7 +43,9 @@ jobs:
             exit 1
           }
 
-          npm run verify\n\n          echo "PASS - Repository initialized"
+          npm run verify
+
+          echo "PASS - Repository initialized"
           echo "PASS - main branch available"
           echo "PASS - GitHub Actions operational"
           echo
@@ -52,6 +54,7 @@ jobs:
 
   production-smoke:
     name: Verify deployed Worker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: baseline
     runs-on: ubuntu-latest
     steps:
@@ -68,7 +71,7 @@ jobs:
           HEALTH="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/health")"
           echo "$HEALTH"
           echo "$HEALTH" | grep -Fq '"ok":true'
-          echo "$HEALTH" | grep -Fq '"version":"1.11.8"'
+          echo "$HEALTH" | grep -Fq '"version":"1.13.8"'
 
           CONFIG="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/api/v1/form-config?public_prefix=LIREPQA1")"
           echo "$CONFIG"
@@ -85,6 +88,6 @@ jobs:
             exit 1
           fi
 
-          echo "PASS - Worker 1.11.8 deployed"
+          echo "PASS - Worker 1.13.8 deployed"
           echo "PASS - QA tenant config resolved"
           echo "PASS - No production fallback in deployed form"
