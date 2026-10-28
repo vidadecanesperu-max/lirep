@@ -38,10 +38,14 @@ const scheduledStart=worker.indexOf('async scheduled(');
 const scheduledEnd=worker.indexOf('async fetch(',scheduledStart);
 const scheduledFunction=worker.slice(scheduledStart,scheduledEnd<0?undefined:scheduledEnd);
 const schedulerSql=fs.readFileSync('supabase/migrations/20261008011500_v1_13_6_receipt_queue_scheduler.sql','utf8');
+const multiempresaSchedulerSql=fs.readFileSync('supabase/migrations/20261028193000_v1_13_12_multiempresa_receipt_retry_opt_in.sql','utf8');
 const completionSql=fs.readFileSync('supabase/migrations/20261008015000_v1_13_7_evidence_schema_fix_and_qa_reconciliation.sql','utf8');
 for(const [name,passed] of [
  ['immediate multiempresa opt-in gate',emailFunction.includes('prefix !== "LIREPQA1" && env.LIREP_ENABLE_MULTIEMPRESA_EMAIL !== "true"')],
  ['scheduled QA-only database discovery',schedulerSql.includes("o.public_prefix='LIREPQA1'")],
+ ['scheduled opt-in RPC selector',scheduledFunction.includes('LIREP_ENABLE_MULTIEMPRESA_EMAIL === "true"') && scheduledFunction.includes('lirep_next_pending_receipt_id_multiempresa')],
+ ['multiempresa retry discovery excludes unavailable senders',multiempresaSchedulerSql.includes('s.is_active = true') && multiempresaSchedulerSql.includes('s.from_email IS NOT NULL')],
+ ['multiempresa retry discovery service role only',multiempresaSchedulerSql.includes('TO service_role') && multiempresaSchedulerSql.includes('FROM PUBLIC, anon, authenticated')],
  ['immediate accepted-email retry guard',emailFunction.includes('if (accepted)')],
  ['scheduled accepted-email retry guard',scheduledFunction.includes('if (accepted)')],
  ['email evidence destination schema',completionSql.includes('external_message_id')&&completionSql.includes('destination')],
