@@ -1,0 +1,23 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const a1=fs.readFileSync("supabase/migrations/20261028223000_lirep_admin_a1_readonly_tenants.sql","utf8");
+const a2=fs.readFileSync("supabase/migrations/20261028233000_lirep_admin_a2_owner_governance.sql","utf8");
+const ui=fs.readFileSync("admin/index.html","utf8");
+const config=fs.readFileSync("admin/config.example.js","utf8");
+const bootstrap=fs.readFileSync("admin/OWNER-BOOTSTRAP-MANUAL.sql","utf8");
+for (const name of ["lirep_admin_my_organizations","lirep_admin_list_complaints"]){
+ assert(a1.includes(name) && a2.includes(name), "RPC missing "+name);
+}
+for(const name of ["lirep_admin_is_owner","lirep_admin_owner_memberships","lirep_admin_owner_set_membership"]){
+ assert(a2.includes(name), "Owner RPC missing "+name);
+}
+assert(a2.includes("auth.uid()") && a1.includes("auth.uid()"), "JWT identity check missing");
+assert(a2.includes("ACCESS_DENIED") && a1.includes("ACCESS_DENIED"), "Authorization refusal missing");
+assert(a2.includes("public.lirep_admin_access_audit") && a2.includes("insert into public.lirep_admin_access_audit"), "Audit missing");
+assert(a2.includes("lower(u.email)=lower(btrim(p_user_email))") && a2.includes("u.email_confirmed_at is not null"), "Verified user lookup missing");
+assert(ui.includes("lirep_admin_owner_set_membership") && ui.includes("lirep_admin_owner_memberships"), "Owner UI missing");
+assert(ui.includes("textContent=x") && ui.includes("td.textContent=value"), "Safe text rendering missing");
+assert(!ui.includes("localStorage") && !ui.includes("service_role"), "Unsafe admin frontend");
+assert(!config.includes("sb_secret_") && !config.includes("service_role"), "Unsafe frontend config");
+assert(bootstrap.includes("REEMPLAZAR_CON_EMAIL_VERIFICADO"), "Owner must be explicit");
+console.log("PASS LIREP ADMIN A1 + A2 static safety contract");
