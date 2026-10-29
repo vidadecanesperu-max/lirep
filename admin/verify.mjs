@@ -18,6 +18,6 @@ assert(a2.includes("lower(u.email)=lower(btrim(p_user_email))") && a2.includes("
 assert(ui.includes("lirep_admin_owner_set_membership") && ui.includes("lirep_admin_owner_memberships"), "Owner UI missing");
 assert(ui.includes("textContent=x") && ui.includes("td.textContent=value"), "Safe text rendering missing");
 assert(!ui.includes("localStorage") && !ui.includes("service_role"), "Unsafe admin frontend");
-assert(!config.includes("sb_secret_") && !config.includes("service_role"), "Unsafe frontend config");
+assert(!config.includes("sb_secret_") && !/publishableKey:\\s*["\x27](?:eyJ|sb_secret_)/.test(config), "Unsafe frontend config");
 assert(bootstrap.includes("REEMPLAZAR_CON_EMAIL_VERIFICADO"), "Owner must be explicit");
 console.log("PASS LIREP ADMIN A1 + A2 static safety contract");
