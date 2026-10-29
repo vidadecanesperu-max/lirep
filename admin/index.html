@@ -23,11 +23,13 @@
  .linkbutton{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
  .detail-grid p{min-width:0}
 }
-</style></head>
+.remember-label{display:flex;align-items:center;gap:10px;font-weight:500;margin:12px 0 5px}.remember-label input{width:auto;margin:0}.remember-hint{font-size:.8rem;color:#64748b;margin:0 0 14px}</style></head>
 <body><header><strong>LIREP ADMIN</strong> <small>· Consola multiempresa</small></header><main>
 <section id="login" class="panel"><h1>Acceso administrativo</h1>
 <form id="loginForm"><label>Correo electrónico<input id="email" type="email" autocomplete="username" required></label>
 <label>Contraseña<input id="password" type="password" autocomplete="current-password" required></label>
+<label class="remember-label"><input id="rememberSession" type="checkbox"> Recordar mi sesión en este dispositivo (máximo 7 días)</label>
+<p class="remember-hint">Úsalo únicamente en un equipo personal. No guardamos tu contraseña.</p>
 <button id="signIn" type="submit">Ingresar</button></form>
 <p class="muted"><small>Acceso exclusivo a usuarios autorizados. No se utilizan credenciales del formulario público.</small></p></section>
 <section id="workspace" hidden><div class="top"><h1>Bandeja de reclamaciones</h1><button id="logout" type="button">Cerrar sesión</button></div>
@@ -63,16 +65,23 @@
 const cfg=window.LIREP_ADMIN_CONFIG||{}, base=String(cfg.supabaseUrl||"").replace(/\/$/,""), key=String(cfg.publishableKey||"");
 const $=id=>document.getElementById(id);
 const storageKey="lirep-admin-session-v1";
-let token="",refreshToken="",expiresAt=0,orgs=[],records=[],currentCase=null;
+const rememberMaxSeconds=7*24*60*60;
+let token="",refreshToken="",expiresAt=0,rememberedUntil=0,rememberSession=false,orgs=[],records=[],currentCase=null;
 let refreshing=null;
 function persistSession(){
- if(!token||!refreshToken){sessionStorage.removeItem(storageKey);return;}
- sessionStorage.setItem(storageKey,JSON.stringify({access_token:token,refresh_token:refreshToken,expires_at:expiresAt}));
+ if(!token||!refreshToken)return;
+ const payload=JSON.stringify({access_token:token,refresh_token:refreshToken,expires_at:expiresAt,remembered_until:rememberedUntil});
+ const target=rememberSession?localStorage:sessionStorage;
+ const other=rememberSession?sessionStorage:localStorage;
+ other.removeItem(storageKey);target.setItem(storageKey,payload);
 }
-function clearSession(){token="";refreshToken="";expiresAt=0;sessionStorage.removeItem(storageKey);}
+function clearSession(){
+ token="";refreshToken="";expiresAt=0;rememberedUntil=0;rememberSession=false;
+ sessionStorage.removeItem(storageKey);localStorage.removeItem(storageKey);
+}
 async function refreshSession(){
  if(refreshing)return refreshing;
- if(!refreshToken)throw new Error("SESION_CADUCADA");
+ if(!refreshToken || (rememberSession&&Date.now()/1000>=rememberedUntil))throw new Error("SESION_CADUCADA");
  refreshing=(async()=>{
   const res=await fetch(base+"/auth/v1/token?grant_type=refresh_token",{
    method:"POST",headers:{"content-type":"application/json",apikey:key},
@@ -87,7 +96,7 @@ async function refreshSession(){
  try{await refreshing;}catch(e){clearSession();throw e}finally{refreshing=null;}
 }
 async function authorizedSession(){
- if(!token)throw new Error("SESION_CADUCADA");
+ if(!token || (rememberSession&&Date.now()/1000>=rememberedUntil))throw new Error("SESION_CADUCADA");
  if(expiresAt && Date.now()/1000 > expiresAt-90)await refreshSession();
 }
 
@@ -207,13 +216,20 @@ async function enterWorkspace(){
  for(const o of orgs){const opt=document.createElement("option");opt.value=o.id;opt.textContent=o.name+" · "+o.role;select.append(opt)}
  $("login").hidden=true;$("workspace").hidden=false;await load();await loadMembers();
 }
-$("loginForm").addEventListener("submit",async event=>{event.preventDefault();if(!base.startsWith("https://")||!key){alert("Falta config.js con URL y clave pública de Supabase.");return;}const button=$("signIn");button.disabled=true;try{const auth=await api("/auth/v1/token?grant_type=password",{email:$("email").value.trim(),password:$("password").value},false);if(!auth.access_token)throw new Error("No se recibió sesión");token=auth.access_token;refreshToken=auth.refresh_token||"";expiresAt=Math.floor(Date.now()/1000)+Number(auth.expires_in||3600);persistSession();await enterWorkspace();}catch(e){const msg="Acceso no disponible: "+e.message;logout();$("loginForm").querySelector("p")?.remove();alert(msg);}finally{button.disabled=false;}});
+$("loginForm").addEventListener("submit",async event=>{event.preventDefault();if(!base.startsWith("https://")||!key){alert("Falta config.js con URL y clave pública de Supabase.");return;}const button=$("signIn");button.disabled=true;try{const auth=await api("/auth/v1/token?grant_type=password",{email:$("email").value.trim(),password:$("password").value},false);if(!auth.access_token)throw new Error("No se recibió sesión");token=auth.access_token;refreshToken=auth.refresh_token||"";expiresAt=Math.floor(Date.now()/1000)+Number(auth.expires_in||3600);rememberSession=$("rememberSession").checked;rememberedUntil=rememberSession?Math.floor(Date.now()/1000)+rememberMaxSeconds:0;persistSession();await enterWorkspace();}catch(e){const msg="Acceso no disponible: "+e.message;logout();$("loginForm").querySelector("p")?.remove();alert(msg);}finally{button.disabled=false;}});
 $("organization").addEventListener("change",async()=>{currentCase=null;$("casePanel").hidden=true;await load();await loadMembers();});$("query").addEventListener("input",render);$("reload").addEventListener("click",load);$("logout").addEventListener("click",logout);
 (async function restore(){
  try{
-  const saved=JSON.parse(sessionStorage.getItem(storageKey)||"null");
+  // Migrate existing A7 sessionStorage sessions, otherwise restore opt-in remembered session.
+  const temporary=sessionStorage.getItem(storageKey);
+  const persistent=localStorage.getItem(storageKey);
+  const saved=JSON.parse(temporary||persistent||"null");
   if(!saved||!saved.access_token||!saved.refresh_token)return;
+  rememberSession=!temporary&&Boolean(persistent);
+  rememberedUntil=rememberSession?Number(saved.remembered_until||0):0;
+  if(rememberSession&&Date.now()/1000>=rememberedUntil){clearSession();return;}
   token=saved.access_token;refreshToken=saved.refresh_token;expiresAt=Number(saved.expires_at||0);
+  $("rememberSession").checked=rememberSession;
   await authorizedSession();await enterWorkspace();
  }catch(e){logout();}
 })();
