@@ -40,6 +40,12 @@
 <p class="casehint">Los datos de consumidores son confidenciales. Los borradores se guardan internamente y NO constituyen una respuesta enviada.</p>
 <div id="caseDetail" class="detail-grid"></div>
 <h3>Historial interno</h3><div id="caseEntries"></div>
+<section id="officialPanel" style="margin-top:20px;border-top:1px solid #dfe5ee;padding-top:16px">
+<h3>Respuesta oficial · A10</h3>
+<p class="casehint">Los borradores se presentan para aprobación. Aprobar NO envía correos ni cambia el estado legal del reclamo.</p>
+<div id="officialList" aria-live="polite"></div>
+<p id="officialNotice" role="status" aria-live="polite"></p>
+</section>
 <form id="entryForm">
 <label>Tipo de registro<select id="entryKind" required><option value="internal_note">Nota interna</option><option value="response_draft">Borrador de respuesta (no enviado)</option></select></label>
 <label>Contenido<textarea id="entryBody" maxlength="10000" required></textarea></label>
@@ -155,7 +161,7 @@ async function openCase(id){
   ])detailField(out,label,value,wide);
   const role=orgs.find(o=>o.id===org)?.role;
   $("entryForm").hidden=!["platform_admin","company_admin","operator"].includes(role);
-  await loadCaseEntries();$("caseStatus").textContent="";
+  await loadCaseEntries();await loadOfficialResponses();$("caseStatus").textContent="";
  }catch(e){$("caseStatus").textContent="Error al consultar la ficha: "+e.message;}
 }
 async function loadCaseEntries(){
@@ -166,7 +172,15 @@ async function loadCaseEntries(){
  for(const item of items){
   const div=document.createElement("div");div.className="caseitem";
   const label=document.createElement("small");label.textContent=(item.kind==="response_draft"?"Borrador de respuesta":"Nota interna")+" · "+fmt(item.created_at);
-  const body=document.createElement("p");body.textContent=item.body;div.append(label,body);container.append(div);
+  const body=document.createElement("p");body.textContent=item.body;div.append(label,body);
+  const role=orgs.find(o=>o.id===$("organization").value)?.role;
+  if(item.kind==="response_draft" && ["platform_admin","company_admin","operator"].includes(role)){
+    const button=document.createElement("button");button.type="button";button.className="linkbutton";
+    button.textContent="Presentar para aprobación";button.style.marginTop="10px";
+    button.addEventListener("click",()=>submitOfficialDraft(item.id,button));
+    div.append(button);
+  }
+  container.append(div);
  }
  if(!items.length)container.textContent="Todavía no hay registros internos.";
 }
@@ -185,6 +199,80 @@ $("entryForm").addEventListener("submit",async event=>{
  }catch(e){$("caseStatus").textContent="Error: "+e.message}
  finally{button.disabled=false;}
 });
+async function submitOfficialDraft(entryId,button){
+ if(!currentCase)return;
+ if(!confirm("¿Presentar este borrador para aprobación? El contenido quedará congelado y no se enviará por correo."))return;
+ const org=$("organization").value,caseId=currentCase;
+ button.disabled=true;$("officialNotice").textContent="Presentando borrador...";
+ try{
+  const out=await api("/rest/v1/rpc/lirep_admin_a10_submit",{
+   p_organization_id:org,p_complaint_id:caseId,p_entry_id:entryId
+  },true);
+  if(!out.ok)throw new Error("Presentación no confirmada");
+  if(currentCase===caseId&&$("organization").value===org){
+    $("officialNotice").textContent="Presentado para aprobación. Ningún correo enviado.";
+    await loadOfficialResponses();
+  }
+ }catch(e){$("officialNotice").textContent="No se pudo presentar: "+e.message;}
+ finally{button.disabled=false;}
+}
+async function reviewOfficial(responseId,approve,button){
+ if(!currentCase)return;
+ let note="";
+ if(approve){
+   if(!confirm("¿Aprobar el texto oficial? No se enviará correo todavía."))return;
+ }else{
+   const entered=prompt("Motivo del rechazo (obligatorio):");
+   if(entered===null)return;
+   note=entered.trim();
+   if(!note||note.length>2000){$("officialNotice").textContent="Indica un motivo válido (máximo 2000 caracteres).";return;}
+ }
+ button.disabled=true;
+ const org=$("organization").value,caseId=currentCase;
+ try{
+  const out=await api("/rest/v1/rpc/lirep_admin_a10_review",{
+   p_organization_id:org,p_response_id:responseId,p_approve:approve,p_note:note||null
+  },true);
+  if(!out.ok)throw new Error("Revisión no confirmada");
+  if(currentCase===caseId&&$("organization").value===org){
+   $("officialNotice").textContent=approve?"Respuesta aprobada. NO enviada por correo.":"Respuesta rechazada y registrada.";
+   await loadOfficialResponses();
+  }
+ }catch(e){$("officialNotice").textContent="No se pudo revisar: "+e.message;}
+ finally{button.disabled=false;}
+}
+async function loadOfficialResponses(){
+ if(!currentCase)return;
+ const org=$("organization").value,caseId=currentCase;
+ const parent=$("officialList");parent.replaceChildren();
+ try{
+  const list=await api("/rest/v1/rpc/lirep_admin_a10_list",{
+   p_organization_id:org,p_complaint_id:caseId
+  },true);
+  if(currentCase!==caseId||$("organization").value!==org)return;
+  if(!Array.isArray(list))throw new Error("Respuesta inesperada");
+  if(!list.length){parent.textContent="No hay respuestas oficiales presentadas.";return;}
+  const role=orgs.find(o=>o.id===org)?.role;
+  const canApprove=["platform_admin","company_admin"].includes(role);
+  const labels={pending_approval:"Pendiente de aprobación",approved:"Aprobada (NO enviada)",rejected:"Rechazada",cancelled:"Cancelada"};
+  for(const entry of list){
+   const wrap=document.createElement("div");wrap.className="caseitem";
+   const tag=document.createElement("strong");tag.textContent=(labels[entry.status]||entry.status)+" · "+fmt(entry.submitted_at);
+   const body=document.createElement("p");body.textContent=entry.body;
+   wrap.append(tag,body);
+   if(entry.review_note){const reason=document.createElement("p");reason.textContent="Motivo: "+entry.review_note;wrap.append(reason);}
+   if(entry.status==="pending_approval"&&canApprove){
+     const row=document.createElement("div");row.className="top";row.style.marginTop="10px";
+     for(const [label,ok] of [["Aprobar respuesta",true],["Rechazar respuesta",false]]){
+       const b=document.createElement("button");b.type="button";b.className="linkbutton";b.textContent=label;
+       b.addEventListener("click",()=>reviewOfficial(entry.id,ok,b));row.append(b);
+     }
+     wrap.append(row);
+   }
+   parent.append(wrap);
+  }
+ }catch(e){parent.textContent="Error consultando respuestas: "+e.message;}
+}
 async function loadMembers(){
  if($("ownerPanel").hidden)return;
  const organization=$("organization").value;
