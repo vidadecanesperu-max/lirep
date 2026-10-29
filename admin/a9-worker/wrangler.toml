@@ -1,0 +1,14 @@
+name = "lirep-admin-notifications"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+[vars]
+SUPABASE_URL = "https://hiidqmrgrioidvemixfe.supabase.co"
+A9_SEND_ENABLED = "false"
+A9_APPROVED_FROM_EMAIL = "lirep@mail.vidadecanes.pe"
+
+# NO CRON TRIGGER IN THIS TEMPLATE.
+# Requires explicit enablement, verified sender and configured Wrangler secrets:
+# SUPABASE_SERVICE_ROLE_KEY and RESEND_API_KEY.
+# Do not paste credentials into wrangler.toml.
