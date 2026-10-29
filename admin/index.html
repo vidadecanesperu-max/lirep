@@ -3,7 +3,27 @@
 <title>LIREP ADMIN · Bandeja de reclamaciones</title>
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#182236;background:#f6f7fb}*{box-sizing:border-box}body{margin:0}header{background:#15243b;color:white;padding:18px max(20px,calc((100vw - 1120px)/2))}header strong{font-size:1.35rem}main{max-width:1120px;margin:32px auto;padding:0 20px}.panel{background:#fff;border:1px solid #dfe5ee;border-radius:14px;padding:24px;box-shadow:0 2px 15px #14243b09}h1{font-size:1.55rem;margin:0 0 20px}label{font-weight:600;font-size:.9rem}input,select{display:block;margin-top:7px;margin-bottom:16px;width:100%;padding:12px;border-radius:9px;border:1px solid #b8c5d6;font:inherit}button{border:0;border-radius:9px;background:#15243b;color:#fff;font:inherit;font-weight:650;padding:12px 18px;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.muted{color:#5e6877}.error{color:#a71933}#login{max-width:450px;margin:48px auto}#workspace[hidden],#login[hidden]{display:none}.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}.filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.filters>*{flex:1;min-width:180px}.filters input,.filters select{margin-bottom:0}.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:left;padding:13px 10px;border-bottom:1px solid #e8edf3;font-size:.92rem}th{color:#526071;background:#f5f7fa}small{font-size:.78rem}#notice{min-height:24px;margin-top:15px}.pill{display:inline-block;padding:4px 9px;border-radius:20px;background:#eaf1fd;font-size:.8rem}@media(max-width:620px){main{margin:16px auto}.panel{padding:16px}.top{align-items:stretch}.top button{width:100%}}
-.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.detail-grid p{margin:0;padding:12px;background:#f5f7fb;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}.detail-grid .wide{grid-column:1/-1}textarea{width:100%;min-height:110px;padding:12px;border:1px solid #b8c5d6;border-radius:9px;font:inherit;resize:vertical}#caseEntries{white-space:pre-wrap;overflow-wrap:anywhere}.caseitem{padding:13px;margin:10px 0;border:1px solid #e5eaf0;border-radius:9px;background:#fcfdff}.caseitem small{color:#657080}.caseitem p{margin:8px 0 0}.linkbutton{padding:7px 12px;background:#e7eef9;color:#132338}.casehint{font-size:.86rem;color:#5e6877}@media(max-width:620px){.detail-grid{grid-template-columns:1fr}.detail-grid .wide{grid-column:1}}</style></head>
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.detail-grid p{margin:0;padding:12px;background:#f5f7fb;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}.detail-grid .wide{grid-column:1/-1}textarea{width:100%;min-height:110px;padding:12px;border:1px solid #b8c5d6;border-radius:9px;font:inherit;resize:vertical}#caseEntries{white-space:pre-wrap;overflow-wrap:anywhere}.caseitem{padding:13px;margin:10px 0;border:1px solid #e5eaf0;border-radius:9px;background:#fcfdff}.caseitem small{color:#657080}.caseitem p{margin:8px 0 0}.linkbutton{padding:7px 12px;background:#e7eef9;color:#132338}.casehint{font-size:.86rem;color:#5e6877}@media(max-width:620px){.detail-grid{grid-template-columns:1fr}.detail-grid .wide{grid-column:1}}
+/* Mobile-first accessible cards: no nested horizontal scrolling. */
+@media(max-width:700px){
+ html,body,main,.panel{max-width:100%;overflow-x:clip}
+ .filters{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+ .filters>*{min-width:0;width:100%}
+ .filters label{min-width:0}
+ .filters select,.filters input{max-width:100%;min-width:0}
+ .filters button{width:100%}
+ .tablewrap{overflow-x:visible;max-width:100%}
+ table{min-width:0;width:100%;display:block}
+ thead{display:none}
+ tbody{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+ tbody tr{display:grid;grid-template-columns:minmax(0,1fr);gap:0;border:1px solid #dfe5ee;border-radius:12px;padding:9px 12px;background:#fff;min-width:0}
+ tbody td{display:grid;grid-template-columns:minmax(0,100px) minmax(0,1fr);gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #eef1f5;min-width:0;overflow-wrap:anywhere;word-break:break-word}
+ tbody td:last-child{border-bottom:0}
+ tbody td::before{content:attr(data-label);font-size:.78rem;color:#58677c;font-weight:700}
+ .linkbutton{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
+ .detail-grid p{min-width:0}
+}
+</style></head>
 <body><header><strong>LIREP ADMIN</strong> <small>· Consola multiempresa</small></header><main>
 <section id="login" class="panel"><h1>Acceso administrativo</h1>
 <form id="loginForm"><label>Correo electrónico<input id="email" type="email" autocomplete="username" required></label>
@@ -84,7 +104,7 @@ async function api(path,body,auth){
  if(!response.ok)throw new Error(data.msg||data.error_description||data.message||("HTTP "+response.status));
  return data;
 }
-function render(){const q=$("query").value.toLocaleLowerCase("es").trim();const rows=$("rows");rows.replaceChildren();const visible=records.filter(r=>([r.public_code,r.status,r.establishment,r.complaint_type].join(" ")).toLocaleLowerCase("es").includes(q));for(const r of visible){const tr=document.createElement("tr");for(const x of [r.public_code,r.complaint_type,r.status,r.establishment,fmt(r.submitted_at),fmt(r.response_due_at)]){const td=document.createElement("td");td.textContent=x||"—";tr.append(td)}const cell=tr.cells[0];const btn=document.createElement("button");btn.type="button";btn.className="linkbutton";btn.textContent=r.public_code||"Abrir";btn.addEventListener("click",()=>openCase(r.id));cell.textContent="";cell.append(btn);rows.append(tr)}status(visible.length+" registros visibles",false);}
+function render(){const q=$("query").value.toLocaleLowerCase("es").trim();const rows=$("rows");rows.replaceChildren();const visible=records.filter(r=>([r.public_code,r.status,r.establishment,r.complaint_type].join(" ")).toLocaleLowerCase("es").includes(q));for(const r of visible){const tr=document.createElement("tr");for(const x of [r.public_code,r.complaint_type,r.status,r.establishment,fmt(r.submitted_at),fmt(r.response_due_at)]){const td=document.createElement("td");td.dataset.label=["Código","Tipo","Estado","Establecimiento","Registro","Vencimiento"][tr.cells.length];td.textContent=x||"—";tr.append(td)}const cell=tr.cells[0];const btn=document.createElement("button");btn.type="button";btn.className="linkbutton";btn.textContent=r.public_code||"Abrir";btn.addEventListener("click",()=>openCase(r.id));cell.textContent="";cell.append(btn);rows.append(tr)}status(visible.length+" registros visibles",false);}
 async function load(){if(!token||!orgs.length)return;status("Consultando reclamaciones...",false);try{const result=await api("/rest/v1/rpc/lirep_admin_list_complaints",{p_organization_id:$("organization").value,p_limit:100},true);if(!Array.isArray(result))throw new Error("Respuesta inesperada");records=result;render();}catch(e){records=[];$("rows").replaceChildren();status("No se pudo consultar: "+e.message,true);}}
 function detailField(container,label,value,wide=false){
  const p=document.createElement("p");if(wide)p.className="wide";
@@ -153,7 +173,7 @@ async function loadMembers(){
   for(const member of members){
    const tr=document.createElement("tr");
    for(const value of [member.email,member.role,member.active?"Activo":"Revocado"]){
-    const td=document.createElement("td");td.textContent=value;tr.append(td);
+    const td=document.createElement("td");td.dataset.label=["Correo","Rol","Acceso"][tr.cells.length];td.textContent=value;tr.append(td);
    }
    tbody.append(tr);
   }
