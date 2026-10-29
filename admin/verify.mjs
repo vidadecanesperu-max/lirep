@@ -33,4 +33,6 @@ assert(ui.includes("sessionStorage.removeItem(storageKey)") && ui.includes("awai
 assert(ui.includes("td.dataset.label") && ui.includes("grid-template-columns:minmax(0,1fr)"),"Mobile table card layout missing");
 assert(ui.includes('id="rememberSession"') && ui.includes("rememberMaxSeconds=7*24*60*60"),"Opt-in remember me missing");
 assert(ui.includes("rememberSession?localStorage:sessionStorage") && ui.includes("localStorage.removeItem(storageKey)"),"Opt-in persistence or cleanup missing");
-console.log("PASS LIREP ADMIN A1 + A2 + A6, remember-me and responsive contract");
+assert(ui.includes('id="notificationPanel"') && ui.includes("lirep_admin_a9_settings"),"A9 notification panel missing");
+assert(ui.includes("p_enabled:false") && ui.includes("lirep_admin_a9_delivery_status"),"A9 disabled-by-default settings/status missing");
+console.log("PASS LIREP ADMIN A1-A9 interface contract");
