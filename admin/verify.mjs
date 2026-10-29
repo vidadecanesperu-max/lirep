@@ -28,7 +28,7 @@ assert(a6.includes("organization_id=p_organization_id") && a6.includes("AUTH")==
 assert(a6.includes("ACCESS_DENIED") && a6.includes("auth.uid()"),"A6 authorization check missing");
 assert(a6.includes("'saved_internal_only'") && !a6.includes("api.resend.com"),"A6 must not claim to deliver replies");
 assert(ui.includes("lirep_admin_case_detail") && ui.includes("lirep_admin_case_add_entry"),"A6 UI missing");
-assert(ui.includes("sessionStorage.setItem(storageKey") && ui.includes("grant_type=refresh_token"),"Session resume/rotation missing");
+assert(ui.includes("target.setItem(storageKey") && ui.includes("grant_type=refresh_token"),"Session resume/rotation missing");
 assert(ui.includes("sessionStorage.removeItem(storageKey)") && ui.includes("await enterWorkspace();"),"Session logout/restore missing");
 assert(ui.includes("td.dataset.label") && ui.includes("grid-template-columns:minmax(0,1fr)"),"Mobile table card layout missing");
 assert(ui.includes('id="rememberSession"') && ui.includes("rememberMaxSeconds=7*24*60*60"),"Opt-in remember me missing");
