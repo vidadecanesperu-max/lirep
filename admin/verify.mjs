@@ -30,4 +30,5 @@ assert(a6.includes("'saved_internal_only'") && !a6.includes("api.resend.com"),"A
 assert(ui.includes("lirep_admin_case_detail") && ui.includes("lirep_admin_case_add_entry"),"A6 UI missing");
 assert(ui.includes("sessionStorage.setItem(storageKey") && ui.includes("grant_type=refresh_token"),"Session resume/rotation missing");
 assert(ui.includes("sessionStorage.removeItem(storageKey)") && ui.includes("await enterWorkspace();"),"Session logout/restore missing");
-console.log("PASS LIREP ADMIN A1 + A2 + A6 session safety contract");
+assert(ui.includes("td.dataset.label") && ui.includes("grid-template-columns:minmax(0,1fr)"),"Mobile table card layout missing");
+console.log("PASS LIREP ADMIN A1 + A2 + A6 session and responsive safety contract");
