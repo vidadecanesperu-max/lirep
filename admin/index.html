@@ -12,7 +12,20 @@
 <p class="muted"><small>Acceso exclusivo a usuarios autorizados. No se utilizan credenciales del formulario público.</small></p></section>
 <section id="workspace" hidden><div class="top"><h1>Bandeja de reclamaciones</h1><button id="logout" type="button">Cerrar sesión</button></div>
 <div class="panel"><div class="filters"><label>Empresa<select id="organization"></select></label><label>Buscar código o estado<input id="query" type="search" placeholder="Código, estado, establecimiento"></label><button id="reload" type="button">Actualizar</button></div>
-<div id="notice" role="status" aria-live="polite"></div><div class="tablewrap"><table><thead><tr><th>Código</th><th>Tipo</th><th>Estado</th><th>Establecimiento</th><th>Registro</th><th>Vencimiento</th></tr></thead><tbody id="rows"></tbody></table></div><p class="muted"><small>Solo lectura · máximo 100 registros recientes por empresa · acceso aislado por membresía.</small></p></div></section></main>
+<div id="notice" role="status" aria-live="polite"></div><div class="tablewrap"><table><thead><tr><th>Código</th><th>Tipo</th><th>Estado</th><th>Establecimiento</th><th>Registro</th><th>Vencimiento</th></tr></thead><tbody id="rows"></tbody></table></div><p class="muted"><small>Solo lectura · máximo 100 registros recientes por empresa · acceso aislado por membresía.</small></p></div>
+<section id="ownerPanel" class="panel" hidden style="margin-top:22px">
+<h2>Administración general · Usuarios de empresa</h2>
+<p class="muted">Solo el administrador general puede asignar o revocar accesos. Las acciones quedan auditadas.</p>
+<form id="membershipForm" class="filters">
+<label>Correo del usuario (confirmado en Supabase Auth)<input id="memberEmail" type="email" autocomplete="off" placeholder="usuario@empresa.com" required></label>
+<label>Permiso<select id="memberRole"><option value="company_admin">Administrador de empresa</option><option value="operator">Operador</option><option value="viewer">Lector</option></select></label>
+<label>Acceso<select id="memberActive"><option value="true">Habilitar</option><option value="false">Revocar</option></select></label>
+<button type="submit" id="saveMember">Guardar permiso</button>
+</form><p id="memberNotice" class="muted" aria-live="polite"></p>
+<h3>Usuarios vinculados a la empresa seleccionada</h3>
+<div class="tablewrap"><table><thead><tr><th>Correo</th><th>Rol</th><th>Acceso</th></tr></thead><tbody id="memberRows"></tbody></table></div>
+</section>
+</section></main>
 <script src="./config.js"></script><script>
 (function(){
 "use strict";
@@ -23,8 +36,43 @@ function fmt(date){if(!date)return "—";const d=new Date(date);return Number.is
 async function api(path,body,auth){const headers={"content-type":"application/json",apikey:key};if(auth)headers.Authorization="Bearer "+token;const response=await fetch(base+path,{method:"POST",headers,body:JSON.stringify(body)});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.msg||data.error_description||data.message||("HTTP "+response.status));return data;}
 function render(){const q=$("query").value.toLocaleLowerCase("es").trim();const rows=$("rows");rows.replaceChildren();const visible=records.filter(r=>([r.public_code,r.status,r.establishment,r.complaint_type].join(" ")).toLocaleLowerCase("es").includes(q));for(const r of visible){const tr=document.createElement("tr");for(const x of [r.public_code,r.complaint_type,r.status,r.establishment,fmt(r.submitted_at),fmt(r.response_due_at)]){const td=document.createElement("td");td.textContent=x||"—";tr.append(td)}rows.append(tr)}status(visible.length+" registros visibles",false);}
 async function load(){if(!token||!orgs.length)return;status("Consultando reclamaciones...",false);try{const result=await api("/rest/v1/rpc/lirep_admin_list_complaints",{p_organization_id:$("organization").value,p_limit:100},true);if(!Array.isArray(result))throw new Error("Respuesta inesperada");records=result;render();}catch(e){records=[];$("rows").replaceChildren();status("No se pudo consultar: "+e.message,true);}}
-function logout(){token="";orgs=[];records=[];$("password").value="";$("workspace").hidden=true;$("login").hidden=false;$("rows").replaceChildren();}
-$("loginForm").addEventListener("submit",async event=>{event.preventDefault();if(!base.startsWith("https://")||!key){alert("Falta config.js con URL y clave pública de Supabase.");return;}const button=$("signIn");button.disabled=true;try{const auth=await api("/auth/v1/token?grant_type=password",{email:$("email").value.trim(),password:$("password").value},false);if(!auth.access_token)throw new Error("No se recibió sesión");token=auth.access_token;const data=await api("/rest/v1/rpc/lirep_admin_my_organizations",{},true);if(!Array.isArray(data)||!data.length){logout();throw new Error("Tu usuario no tiene empresas autorizadas");}orgs=data;const select=$("organization");select.replaceChildren();for(const o of orgs){const opt=document.createElement("option");opt.value=o.id;opt.textContent=o.name+" · "+o.role;select.append(opt)}$("login").hidden=true;$("workspace").hidden=false;await load();}catch(e){const msg="Acceso no disponible: "+e.message;logout();$("loginForm").querySelector("p")?.remove();alert(msg);}finally{button.disabled=false;}});
-$("organization").addEventListener("change",load);$("query").addEventListener("input",render);$("reload").addEventListener("click",load);$("logout").addEventListener("click",logout);
+async function loadMembers(){
+ if($("ownerPanel").hidden)return;
+ const organization=$("organization").value;
+ $("memberNotice").textContent="Consultando usuarios...";
+ try{
+  const members=await api("/rest/v1/rpc/lirep_admin_owner_memberships",{p_organization_id:organization},true);
+  const tbody=$("memberRows");tbody.replaceChildren();
+  for(const member of members){
+   const tr=document.createElement("tr");
+   for(const value of [member.email,member.role,member.active?"Activo":"Revocado"]){
+    const td=document.createElement("td");td.textContent=value;tr.append(td);
+   }
+   tbody.append(tr);
+  }
+  $("memberNotice").textContent=members.length+" usuarios registrados";
+ }catch(e){$("memberNotice").textContent="No se pudo cargar: "+e.message;}
+}
+$("membershipForm").addEventListener("submit",async function(event){
+ event.preventDefault();if($("ownerPanel").hidden)return;
+ const button=$("saveMember");button.disabled=true;
+ $("memberNotice").textContent="Guardando permiso...";
+ try{
+  const result=await api("/rest/v1/rpc/lirep_admin_owner_set_membership",{
+   p_organization_id:$("organization").value,
+   p_user_email:$("memberEmail").value.trim(),
+   p_role:$("memberRole").value,
+   p_active:$("memberActive").value==="true"
+  },true);
+  if(!result.ok)throw new Error("No se confirmó el cambio");
+  $("memberNotice").textContent="Permiso "+result.action+" registrado correctamente";
+  $("memberEmail").value="";
+  await loadMembers();
+ }catch(e){$("memberNotice").textContent="Error: "+e.message;}
+ finally{button.disabled=false;}
+});
+function logout(){token="";orgs=[];records=[];$("ownerPanel").hidden=true;$("password").value="";$("workspace").hidden=true;$("login").hidden=false;$("rows").replaceChildren();}
+$("loginForm").addEventListener("submit",async event=>{event.preventDefault();if(!base.startsWith("https://")||!key){alert("Falta config.js con URL y clave pública de Supabase.");return;}const button=$("signIn");button.disabled=true;try{const auth=await api("/auth/v1/token?grant_type=password",{email:$("email").value.trim(),password:$("password").value},false);if(!auth.access_token)throw new Error("No se recibió sesión");token=auth.access_token;const data=await api("/rest/v1/rpc/lirep_admin_my_organizations",{},true);if(!Array.isArray(data)||!data.length){logout();throw new Error("Tu usuario no tiene empresas autorizadas");}orgs=data;const isOwner=data.some(o=>o.role==="platform_admin");$("ownerPanel").hidden=!isOwner;const select=$("organization");select.replaceChildren();for(const o of orgs){const opt=document.createElement("option");opt.value=o.id;opt.textContent=o.name+" · "+o.role;select.append(opt)}$("login").hidden=true;$("workspace").hidden=false;await load();await loadMembers();}catch(e){const msg="Acceso no disponible: "+e.message;logout();$("loginForm").querySelector("p")?.remove();alert(msg);}finally{button.disabled=false;}});
+$("organization").addEventListener("change",async()=>{await load();await loadMembers();});$("query").addEventListener("input",render);$("reload").addEventListener("click",load);$("logout").addEventListener("click",logout);
 })();
 </script></body></html>
