@@ -28,4 +28,6 @@ assert(a6.includes("organization_id=p_organization_id") && a6.includes("AUTH")==
 assert(a6.includes("ACCESS_DENIED") && a6.includes("auth.uid()"),"A6 authorization check missing");
 assert(a6.includes("'saved_internal_only'") && !a6.includes("api.resend.com"),"A6 must not claim to deliver replies");
 assert(ui.includes("lirep_admin_case_detail") && ui.includes("lirep_admin_case_add_entry"),"A6 UI missing");
-console.log("PASS LIREP ADMIN A1 + A2 + A6 static safety contract");
+assert(ui.includes("sessionStorage.setItem(storageKey") && ui.includes("grant_type=refresh_token"),"Session resume/rotation missing");
+assert(ui.includes("sessionStorage.removeItem(storageKey)") && ui.includes("await enterWorkspace();"),"Session logout/restore missing");
+console.log("PASS LIREP ADMIN A1 + A2 + A6 session safety contract");
