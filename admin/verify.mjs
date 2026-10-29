@@ -31,4 +31,6 @@ assert(ui.includes("lirep_admin_case_detail") && ui.includes("lirep_admin_case_a
 assert(ui.includes("sessionStorage.setItem(storageKey") && ui.includes("grant_type=refresh_token"),"Session resume/rotation missing");
 assert(ui.includes("sessionStorage.removeItem(storageKey)") && ui.includes("await enterWorkspace();"),"Session logout/restore missing");
 assert(ui.includes("td.dataset.label") && ui.includes("grid-template-columns:minmax(0,1fr)"),"Mobile table card layout missing");
-console.log("PASS LIREP ADMIN A1 + A2 + A6 session and responsive safety contract");
+assert(ui.includes('id="rememberSession"') && ui.includes("rememberMaxSeconds=7*24*60*60"),"Opt-in remember me missing");
+assert(ui.includes("rememberSession?localStorage:sessionStorage") && ui.includes("localStorage.removeItem(storageKey)"),"Opt-in persistence or cleanup missing");
+console.log("PASS LIREP ADMIN A1 + A2 + A6, remember-me and responsive contract");
