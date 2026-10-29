@@ -3,7 +3,7 @@
 <title>LIREP ADMIN · Bandeja de reclamaciones</title>
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#182236;background:#f6f7fb}*{box-sizing:border-box}body{margin:0}header{background:#15243b;color:white;padding:18px max(20px,calc((100vw - 1120px)/2))}header strong{font-size:1.35rem}main{max-width:1120px;margin:32px auto;padding:0 20px}.panel{background:#fff;border:1px solid #dfe5ee;border-radius:14px;padding:24px;box-shadow:0 2px 15px #14243b09}h1{font-size:1.55rem;margin:0 0 20px}label{font-weight:600;font-size:.9rem}input,select{display:block;margin-top:7px;margin-bottom:16px;width:100%;padding:12px;border-radius:9px;border:1px solid #b8c5d6;font:inherit}button{border:0;border-radius:9px;background:#15243b;color:#fff;font:inherit;font-weight:650;padding:12px 18px;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.muted{color:#5e6877}.error{color:#a71933}#login{max-width:450px;margin:48px auto}#workspace[hidden],#login[hidden]{display:none}.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}.filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.filters>*{flex:1;min-width:180px}.filters input,.filters select{margin-bottom:0}.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:left;padding:13px 10px;border-bottom:1px solid #e8edf3;font-size:.92rem}th{color:#526071;background:#f5f7fa}small{font-size:.78rem}#notice{min-height:24px;margin-top:15px}.pill{display:inline-block;padding:4px 9px;border-radius:20px;background:#eaf1fd;font-size:.8rem}@media(max-width:620px){main{margin:16px auto}.panel{padding:16px}.top{align-items:stretch}.top button{width:100%}}
-</style></head>
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.detail-grid p{margin:0;padding:12px;background:#f5f7fb;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}.detail-grid .wide{grid-column:1/-1}textarea{width:100%;min-height:110px;padding:12px;border:1px solid #b8c5d6;border-radius:9px;font:inherit;resize:vertical}#caseEntries{white-space:pre-wrap;overflow-wrap:anywhere}.caseitem{padding:13px;margin:10px 0;border:1px solid #e5eaf0;border-radius:9px;background:#fcfdff}.caseitem small{color:#657080}.caseitem p{margin:8px 0 0}.linkbutton{padding:7px 12px;background:#e7eef9;color:#132338}.casehint{font-size:.86rem;color:#5e6877}@media(max-width:620px){.detail-grid{grid-template-columns:1fr}.detail-grid .wide{grid-column:1}}</style></head>
 <body><header><strong>LIREP ADMIN</strong> <small>· Consola multiempresa</small></header><main>
 <section id="login" class="panel"><h1>Acceso administrativo</h1>
 <form id="loginForm"><label>Correo electrónico<input id="email" type="email" autocomplete="username" required></label>
@@ -13,6 +13,17 @@
 <section id="workspace" hidden><div class="top"><h1>Bandeja de reclamaciones</h1><button id="logout" type="button">Cerrar sesión</button></div>
 <div class="panel"><div class="filters"><label>Empresa<select id="organization"></select></label><label>Buscar código o estado<input id="query" type="search" placeholder="Código, estado, establecimiento"></label><button id="reload" type="button">Actualizar</button></div>
 <div id="notice" role="status" aria-live="polite"></div><div class="tablewrap"><table><thead><tr><th>Código</th><th>Tipo</th><th>Estado</th><th>Establecimiento</th><th>Registro</th><th>Vencimiento</th></tr></thead><tbody id="rows"></tbody></table></div><p class="muted"><small>Solo lectura · máximo 100 registros recientes por empresa · acceso aislado por membresía.</small></p></div>
+<section id="casePanel" class="panel" hidden style="margin-top:22px">
+<div class="top"><h2 id="caseHeading">Ficha del reclamo</h2><button type="button" id="closeCase">Cerrar ficha</button></div>
+<p class="casehint">Los datos de consumidores son confidenciales. Los borradores se guardan internamente y NO constituyen una respuesta enviada.</p>
+<div id="caseDetail" class="detail-grid"></div>
+<h3>Historial interno</h3><div id="caseEntries"></div>
+<form id="entryForm">
+<label>Tipo de registro<select id="entryKind" required><option value="internal_note">Nota interna</option><option value="response_draft">Borrador de respuesta (no enviado)</option></select></label>
+<label>Contenido<textarea id="entryBody" maxlength="10000" required></textarea></label>
+<button id="addEntry" type="submit">Guardar registro interno</button>
+</form><p id="caseStatus" role="status"></p>
+</section>
 <section id="ownerPanel" class="panel" hidden style="margin-top:22px">
 <h2>Administración general · Usuarios de empresa</h2>
 <p class="muted">Solo el administrador general puede asignar o revocar accesos. Las acciones quedan auditadas.</p>
@@ -30,12 +41,69 @@
 (function(){
 "use strict";
 const cfg=window.LIREP_ADMIN_CONFIG||{}, base=String(cfg.supabaseUrl||"").replace(/\/$/,""), key=String(cfg.publishableKey||"");
-const $=id=>document.getElementById(id);let token="",orgs=[],records=[];
+const $=id=>document.getElementById(id);let token="",orgs=[],records=[],currentCase=null;
 function status(message,error){$("notice").textContent=message;$("notice").className=error?"error":"muted";}
 function fmt(date){if(!date)return "—";const d=new Date(date);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("es-PE",{dateStyle:"medium",timeStyle:"short",timeZone:"America/Lima"}).format(d);}
 async function api(path,body,auth){const headers={"content-type":"application/json",apikey:key};if(auth)headers.Authorization="Bearer "+token;const response=await fetch(base+path,{method:"POST",headers,body:JSON.stringify(body)});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.msg||data.error_description||data.message||("HTTP "+response.status));return data;}
-function render(){const q=$("query").value.toLocaleLowerCase("es").trim();const rows=$("rows");rows.replaceChildren();const visible=records.filter(r=>([r.public_code,r.status,r.establishment,r.complaint_type].join(" ")).toLocaleLowerCase("es").includes(q));for(const r of visible){const tr=document.createElement("tr");for(const x of [r.public_code,r.complaint_type,r.status,r.establishment,fmt(r.submitted_at),fmt(r.response_due_at)]){const td=document.createElement("td");td.textContent=x||"—";tr.append(td)}rows.append(tr)}status(visible.length+" registros visibles",false);}
+function render(){const q=$("query").value.toLocaleLowerCase("es").trim();const rows=$("rows");rows.replaceChildren();const visible=records.filter(r=>([r.public_code,r.status,r.establishment,r.complaint_type].join(" ")).toLocaleLowerCase("es").includes(q));for(const r of visible){const tr=document.createElement("tr");for(const x of [r.public_code,r.complaint_type,r.status,r.establishment,fmt(r.submitted_at),fmt(r.response_due_at)]){const td=document.createElement("td");td.textContent=x||"—";tr.append(td)}const cell=tr.cells[0];const btn=document.createElement("button");btn.type="button";btn.className="linkbutton";btn.textContent=r.public_code||"Abrir";btn.addEventListener("click",()=>openCase(r.id));cell.textContent="";cell.append(btn);rows.append(tr)}status(visible.length+" registros visibles",false);}
 async function load(){if(!token||!orgs.length)return;status("Consultando reclamaciones...",false);try{const result=await api("/rest/v1/rpc/lirep_admin_list_complaints",{p_organization_id:$("organization").value,p_limit:100},true);if(!Array.isArray(result))throw new Error("Respuesta inesperada");records=result;render();}catch(e){records=[];$("rows").replaceChildren();status("No se pudo consultar: "+e.message,true);}}
+function detailField(container,label,value,wide=false){
+ const p=document.createElement("p");if(wide)p.className="wide";
+ const strong=document.createElement("strong");strong.textContent=label+": ";
+ const span=document.createElement("span");span.textContent=value==null||value===""?"—":String(value);
+ p.append(strong,span);container.append(p);
+}
+async function openCase(id){
+ currentCase=id;$("casePanel").hidden=false;$("casePanel").scrollIntoView({behavior:"smooth",block:"start"});
+ $("caseStatus").textContent="Cargando ficha...";$("caseDetail").replaceChildren();
+ try{
+  const org=$("organization").value;
+  const d=await api("/rest/v1/rpc/lirep_admin_case_detail",{p_organization_id:org,p_complaint_id:id},true);
+  $("caseHeading").textContent="Ficha · "+d.public_code;
+  const out=$("caseDetail"),c=d.consumer||{};
+  for(const [label,value,wide] of [
+   ["Estado",d.status,false],["Tipo",d.complaint_type,false],
+   ["Presentación",fmt(d.submitted_at),false],["Vencimiento",fmt(d.response_due_at),false],
+   ["Establecimiento",d.establishment,false],["Canal de respuesta",d.preferred_response_channel,false],
+   ["Consumidor",[c.first_names,c.last_names].filter(Boolean).join(" "),false],
+   ["Documento",[c.document_type,c.document_number].filter(Boolean).join(" "),false],
+   ["Correo",c.email,false],["Teléfono",c.phone,false],
+   ["Dirección",c.address,true],
+   ["Producto o servicio",d.product_service_description,true],
+   ["Detalle del reclamo",d.detail,true],["Solicitud del consumidor",d.consumer_request,true]
+  ])detailField(out,label,value,wide);
+  const role=orgs.find(o=>o.id===org)?.role;
+  $("entryForm").hidden=!["platform_admin","company_admin","operator"].includes(role);
+  await loadCaseEntries();$("caseStatus").textContent="";
+ }catch(e){$("caseStatus").textContent="Error al consultar la ficha: "+e.message;}
+}
+async function loadCaseEntries(){
+ const items=await api("/rest/v1/rpc/lirep_admin_case_entries_list",{
+  p_organization_id:$("organization").value,p_complaint_id:currentCase
+ },true);
+ const container=$("caseEntries");container.replaceChildren();
+ for(const item of items){
+  const div=document.createElement("div");div.className="caseitem";
+  const label=document.createElement("small");label.textContent=(item.kind==="response_draft"?"Borrador de respuesta":"Nota interna")+" · "+fmt(item.created_at);
+  const body=document.createElement("p");body.textContent=item.body;div.append(label,body);container.append(div);
+ }
+ if(!items.length)container.textContent="Todavía no hay registros internos.";
+}
+$("closeCase").addEventListener("click",()=>{currentCase=null;$("casePanel").hidden=true;});
+$("entryForm").addEventListener("submit",async event=>{
+ event.preventDefault();if(!currentCase)return;
+ const button=$("addEntry");button.disabled=true;$("caseStatus").textContent="Guardando...";
+ try{
+  const result=await api("/rest/v1/rpc/lirep_admin_case_add_entry",{
+   p_organization_id:$("organization").value,p_complaint_id:currentCase,
+   p_kind:$("entryKind").value,p_body:$("entryBody").value
+  },true);
+  if(!result.ok)throw new Error("No se confirmó el registro");
+  $("entryBody").value="";await loadCaseEntries();
+  $("caseStatus").textContent="Guardado como registro INTERNO. No se envió ninguna respuesta.";
+ }catch(e){$("caseStatus").textContent="Error: "+e.message}
+ finally{button.disabled=false;}
+});
 async function loadMembers(){
  if($("ownerPanel").hidden)return;
  const organization=$("organization").value;
@@ -71,8 +139,8 @@ $("membershipForm").addEventListener("submit",async function(event){
  }catch(e){$("memberNotice").textContent="Error: "+e.message;}
  finally{button.disabled=false;}
 });
-function logout(){token="";orgs=[];records=[];$("ownerPanel").hidden=true;$("password").value="";$("workspace").hidden=true;$("login").hidden=false;$("rows").replaceChildren();}
+function logout(){token="";orgs=[];records=[];currentCase=null;$("casePanel").hidden=true;$("ownerPanel").hidden=true;$("password").value="";$("workspace").hidden=true;$("login").hidden=false;$("rows").replaceChildren();}
 $("loginForm").addEventListener("submit",async event=>{event.preventDefault();if(!base.startsWith("https://")||!key){alert("Falta config.js con URL y clave pública de Supabase.");return;}const button=$("signIn");button.disabled=true;try{const auth=await api("/auth/v1/token?grant_type=password",{email:$("email").value.trim(),password:$("password").value},false);if(!auth.access_token)throw new Error("No se recibió sesión");token=auth.access_token;const data=await api("/rest/v1/rpc/lirep_admin_my_organizations",{},true);if(!Array.isArray(data)||!data.length){logout();throw new Error("Tu usuario no tiene empresas autorizadas");}orgs=data;const isOwner=data.some(o=>o.role==="platform_admin");$("ownerPanel").hidden=!isOwner;const select=$("organization");select.replaceChildren();for(const o of orgs){const opt=document.createElement("option");opt.value=o.id;opt.textContent=o.name+" · "+o.role;select.append(opt)}$("login").hidden=true;$("workspace").hidden=false;await load();await loadMembers();}catch(e){const msg="Acceso no disponible: "+e.message;logout();$("loginForm").querySelector("p")?.remove();alert(msg);}finally{button.disabled=false;}});
-$("organization").addEventListener("change",async()=>{await load();await loadMembers();});$("query").addEventListener("input",render);$("reload").addEventListener("click",load);$("logout").addEventListener("click",logout);
+$("organization").addEventListener("change",async()=>{currentCase=null;$("casePanel").hidden=true;await load();await loadMembers();});$("query").addEventListener("input",render);$("reload").addEventListener("click",load);$("logout").addEventListener("click",logout);
 })();
 </script></body></html>
