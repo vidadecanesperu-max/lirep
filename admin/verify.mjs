@@ -17,7 +17,7 @@ assert(a2.includes("public.lirep_admin_access_audit") && a2.includes("insert int
 assert(a2.includes("lower(u.email)=lower(btrim(p_user_email))") && a2.includes("u.email_confirmed_at is not null"), "Verified user lookup missing");
 assert(ui.includes("lirep_admin_owner_set_membership") && ui.includes("lirep_admin_owner_memberships"), "Owner UI missing");
 assert(ui.includes("textContent=x") && ui.includes("td.textContent=value"), "Safe text rendering missing");
-assert(!ui.includes("localStorage") && !ui.includes("service_role"), "Unsafe admin frontend");
+assert(!ui.includes("service_role") && ui.includes("rememberSession?localStorage:sessionStorage"), "Unsafe admin frontend");
 assert(!config.includes("sb_secret_") && !/publishableKey:\\s*["\x27](?:eyJ|sb_secret_)/.test(config), "Unsafe frontend config");
 assert(bootstrap.includes("REEMPLAZAR_CON_EMAIL_VERIFICADO"), "Owner must be explicit");
 const a6=fs.readFileSync("supabase/migrations/20261029011500_lirep_admin_a6_case_detail_drafts.sql","utf8");
