@@ -44,6 +44,7 @@ jobs:
           }
 
           npm run verify
+          node admin/verify.mjs
 
           echo "PASS - Repository initialized"
           echo "PASS - main branch available"

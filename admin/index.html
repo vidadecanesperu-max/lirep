@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LIREP ADMIN · Bandeja de reclamaciones</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#182236;background:#f6f7fb}*{box-sizing:border-box}body{margin:0}header{background:#15243b;color:white;padding:18px max(20px,calc((100vw - 1120px)/2))}header strong{font-size:1.35rem}main{max-width:1120px;margin:32px auto;padding:0 20px}.panel{background:#fff;border:1px solid #dfe5ee;border-radius:14px;padding:24px;box-shadow:0 2px 15px #14243b09}h1{font-size:1.55rem;margin:0 0 20px}label{font-weight:600;font-size:.9rem}input,select{display:block;margin-top:7px;margin-bottom:16px;width:100%;padding:12px;border-radius:9px;border:1px solid #b8c5d6;font:inherit}button{border:0;border-radius:9px;background:#15243b;color:#fff;font:inherit;font-weight:650;padding:12px 18px;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.muted{color:#5e6877}.error{color:#a71933}#login{max-width:450px;margin:48px auto}#workspace[hidden],#login[hidden]{display:none}.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}.filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.filters>*{flex:1;min-width:180px}.filters input,.filters select{margin-bottom:0}.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:left;padding:13px 10px;border-bottom:1px solid #e8edf3;font-size:.92rem}th{color:#526071;background:#f5f7fa}small{font-size:.78rem}#notice{min-height:24px;margin-top:15px}.pill{display:inline-block;padding:4px 9px;border-radius:20px;background:#eaf1fd;font-size:.8rem}@media(max-width:620px){main{margin:16px auto}.panel{padding:16px}.top{align-items:stretch}.top button{width:100%}}
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.detail-grid p{margin:0;padding:12px;background:#f5f7fb;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}.detail-grid .wide{grid-column:1/-1}textarea{width:100%;min-height:110px;padding:12px;border:1px solid #b8c5d6;border-radius:9px;font:inherit;resize:vertical}#caseEntries{white-space:pre-wrap;overflow-wrap:anywhere}.caseitem{padding:13px;margin:10px 0;border:1px solid #e5eaf0;border-radius:9px;background:#fcfdff}.caseitem small{color:#657080}.caseitem p{margin:8px 0 0}.linkbutton{padding:7px 12px;background:#e7eef9;color:#132338}.casehint{font-size:.86rem;color:#5e6877}@media(max-width:620px){.detail-grid{grid-template-columns:1fr}.detail-grid .wide{grid-column:1}}
+/* Mobile-first accessible cards: no nested horizontal scrolling. */
+@media(max-width:700px){
+ html,body,main,.panel{max-width:100%;overflow-x:clip}
+ .filters{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+ .filters>*{min-width:0;width:100%}
+ .filters label{min-width:0}
+ .filters select,.filters input{max-width:100%;min-width:0}
+ .filters button{width:100%}
+ .tablewrap{overflow-x:visible;max-width:100%}
+ table{min-width:0;width:100%;display:block}
+ thead{display:none}
+ tbody{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+ tbody tr{display:grid;grid-template-columns:minmax(0,1fr);gap:0;border:1px solid #dfe5ee;border-radius:12px;padding:9px 12px;background:#fff;min-width:0}
+ tbody td{display:grid;grid-template-columns:minmax(0,100px) minmax(0,1fr);gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #eef1f5;min-width:0;overflow-wrap:anywhere;word-break:break-word}
+ tbody td:last-child{border-bottom:0}
+ tbody td::before{content:attr(data-label);font-size:.78rem;color:#58677c;font-weight:700}
+ .linkbutton{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
+ .detail-grid p{min-width:0}
+}
+.remember-label{display:flex;align-items:center;gap:10px;font-weight:500;margin:12px 0 5px}.remember-label input{width:auto;margin:0}.remember-hint{font-size:.8rem;color:#64748b;margin:0 0 14px}</style></head>
+<body><header><strong>LIREP ADMIN</strong> <small>· Consola multiempresa</small></header><main>
+<section id="login" class="panel"><h1>Acceso administrativo</h1>
+<form id="loginForm"><label>Correo electrónico<input id="email" type="email" autocomplete="username" required></label>
+<label>Contraseña<input id="password" type="password" autocomplete="current-password" required></label>
+<label class="remember-label"><input id="rememberSession" type="checkbox"> Recordar mi sesión en este dispositivo (máximo 7 días)</label>
+<p class="remember-hint">Úsalo únicamente en un equipo personal. No guardamos tu contraseña.</p>
+<button id="signIn" type="submit">Ingresar</button></form>
+<p class="muted"><small>Acceso exclusivo a usuarios autorizados. No se utilizan credenciales del formulario público.</small></p></section>
+<section id="workspace" hidden><div class="top"><h1>Bandeja de reclamaciones</h1><button id="logout" type="button">Cerrar sesión</button></div>
+<div class="panel"><div class="filters"><label>Empresa<select id="organization"></select></label><label>Buscar código o estado<input id="query" type="search" placeholder="Código, estado, establecimiento"></label><button id="reload" type="button">Actualizar</button></div>
+<div id="notice" role="status" aria-live="polite"></div><div class="tablewrap"><table><thead><tr><th>Código</th><th>Tipo</th><th>Estado</th><th>Establecimiento</th><th>Registro</th><th>Vencimiento</th></tr></thead><tbody id="rows"></tbody></table></div><p class="muted"><small>Solo lectura · máximo 100 registros recientes por empresa · acceso aislado por membresía.</small></p></div>
+<section id="casePanel" class="panel" hidden style="margin-top:22px">
+<div class="top"><h2 id="caseHeading">Ficha del reclamo</h2><button type="button" id="closeCase">Cerrar ficha</button></div>
+<p class="casehint">Los datos de consumidores son confidenciales. Los borradores se guardan internamente y NO constituyen una respuesta enviada.</p>
+<div id="caseDetail" class="detail-grid"></div>
+<h3>Historial interno</h3><div id="caseEntries"></div>
+<section id="officialPanel" style="margin-top:20px;border-top:1px solid #dfe5ee;padding-top:16px">
+<h3>Respuesta oficial · A10</h3>
+<p class="casehint">Los borradores se presentan para aprobación. Aprobar NO envía correos ni cambia el estado legal del reclamo.</p>
+<div id="officialList" aria-live="polite"></div>
+<p id="officialNotice" role="status" aria-live="polite"></p>
+</section>
+<form id="entryForm">
+<label>Tipo de registro<select id="entryKind" required><option value="internal_note">Nota interna</option><option value="response_draft">Borrador de respuesta (no enviado)</option></select></label>
+<label>Contenido<textarea id="entryBody" maxlength="10000" required></textarea></label>
+<button id="addEntry" type="submit">Guardar registro interno</button>
+</form><p id="caseStatus" role="status"></p>
+</section>
+<section id="ownerPanel" class="panel" hidden style="margin-top:22px">
+<h2>Administración general · Usuarios de empresa</h2>
+<p class="muted">Solo el administrador general puede asignar o revocar accesos. Las acciones quedan auditadas.</p>
+<form id="membershipForm" class="filters">
+<label>Correo del usuario (confirmado en Supabase Auth)<input id="memberEmail" type="email" autocomplete="off" placeholder="usuario@empresa.com" required></label>
+<label>Permiso<select id="memberRole"><option value="company_admin">Administrador de empresa</option><option value="operator">Operador</option><option value="viewer">Lector</option></select></label>
+<label>Acceso<select id="memberActive"><option value="true">Habilitar</option><option value="false">Revocar</option></select></label>
+<button type="submit" id="saveMember">Guardar permiso</button>
+</form><p id="memberNotice" class="muted" aria-live="polite"></p>
+<h3>Usuarios vinculados a la empresa seleccionada</h3>
+<div class="tablewrap"><table><thead><tr><th>Correo</th><th>Rol</th><th>Acceso</th></tr></thead><tbody id="memberRows"></tbody></table></div>
+</section>
+<section id="notificationPanel" class="panel" hidden style="margin-top:22px">
+<h2>Notificaciones de nuevas reclamaciones</h2>
+<p class="muted">Configura hasta cinco correos por empresa. Los envíos están desactivados durante esta fase; guardar destinatarios no envía mensajes.</p>
+<form id="notificationForm">
+<label for="notificationRecipients">Destinatarios administrativos (uno por línea)</label>
+<textarea id="notificationRecipients" autocomplete="off" placeholder="administracion@empresa.com" rows="4" maxlength="1500"></textarea>
+<p class="casehint">Solo administradores de la empresa pueden modificar esta configuración.</p>
+<button type="submit" id="saveNotification">Guardar destinatarios (envíos desactivados)</button>
+</form>
+<p id="notificationNotice" role="status" aria-live="polite"></p>
+<h3>Estado de notificaciones recientes</h3>
+<div id="notificationDeliveries" class="casehint">Sin consultar</div>
+</section>
+</section></main>
+<script src="./config.js"></script><script>
+(function(){
+"use strict";
+const cfg=window.LIREP_ADMIN_CONFIG||{}, base=String(cfg.supabaseUrl||"").replace(/\/$/,""), key=String(cfg.publishableKey||"");
+const $=id=>document.getElementById(id);
+const storageKey="lirep-admin-session-v1";
+const rememberMaxSeconds=7*24*60*60;
+let token="",refreshToken="",expiresAt=0,rememberedUntil=0,rememberSession=false,orgs=[],records=[],currentCase=null;
+let refreshing=null;
+function persistSession(){
+ if(!token||!refreshToken)return;
+ const payload=JSON.stringify({access_token:token,refresh_token:refreshToken,expires_at:expiresAt,remembered_until:rememberedUntil});
+ const target=rememberSession?localStorage:sessionStorage;
+ const other=rememberSession?sessionStorage:localStorage;
+ other.removeItem(storageKey);target.setItem(storageKey,payload);
+}
+function clearSession(){
+ token="";refreshToken="";expiresAt=0;rememberedUntil=0;rememberSession=false;
+ sessionStorage.removeItem(storageKey);localStorage.removeItem(storageKey);
+}
+async function refreshSession(){
+ if(refreshing)return refreshing;
+ if(!refreshToken || (rememberSession&&Date.now()/1000>=rememberedUntil))throw new Error("SESION_CADUCADA");
+ refreshing=(async()=>{
+  const res=await fetch(base+"/auth/v1/token?grant_type=refresh_token",{
+   method:"POST",headers:{"content-type":"application/json",apikey:key},
+   body:JSON.stringify({refresh_token:refreshToken})
+  });
+  const auth=await res.json().catch(()=>({}));
+  if(!res.ok||!auth.access_token||!auth.refresh_token)throw new Error("SESION_CADUCADA");
+  token=auth.access_token;refreshToken=auth.refresh_token;
+  expiresAt=Math.floor(Date.now()/1000)+Number(auth.expires_in||3600);
+  persistSession();
+ })();
+ try{await refreshing;}catch(e){clearSession();throw e}finally{refreshing=null;}
+}
+async function authorizedSession(){
+ if(!token || (rememberSession&&Date.now()/1000>=rememberedUntil))throw new Error("SESION_CADUCADA");
+ if(expiresAt && Date.now()/1000 > expiresAt-90)await refreshSession();
+}
+
+function status(message,error){$("notice").textContent=message;$("notice").className=error?"error":"muted";}
+function fmt(date){if(!date)return "—";const d=new Date(date);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("es-PE",{dateStyle:"medium",timeStyle:"short",timeZone:"America/Lima"}).format(d);}
+async function api(path,body,auth){
+ if(auth)await authorizedSession();
+ const request=()=>fetch(base+path,{method:"POST",
+  headers:{"content-type":"application/json",apikey:key,...(auth?{Authorization:"Bearer "+token}:{})},
+  body:JSON.stringify(body)});
+ let response=await request();
+ if(auth&&response.status===401&&refreshToken){await refreshSession();response=await request();}
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(data.msg||data.error_description||data.message||("HTTP "+response.status));
+ return data;
+}
+function render(){const q=$("query").value.toLocaleLowerCase("es").trim();const rows=$("rows");rows.replaceChildren();const visible=records.filter(r=>([r.public_code,r.status,r.establishment,r.complaint_type].join(" ")).toLocaleLowerCase("es").includes(q));for(const r of visible){const tr=document.createElement("tr");for(const x of [r.public_code,r.complaint_type,r.status,r.establishment,fmt(r.submitted_at),fmt(r.response_due_at)]){const td=document.createElement("td");td.dataset.label=["Código","Tipo","Estado","Establecimiento","Registro","Vencimiento"][tr.cells.length];td.textContent=x||"—";tr.append(td)}const cell=tr.cells[0];const btn=document.createElement("button");btn.type="button";btn.className="linkbutton";btn.textContent=r.public_code||"Abrir";btn.addEventListener("click",()=>openCase(r.id));cell.textContent="";cell.append(btn);rows.append(tr)}status(visible.length+" registros visibles",false);}
+async function load(){if(!token||!orgs.length)return;status("Consultando reclamaciones...",false);try{const result=await api("/rest/v1/rpc/lirep_admin_list_complaints",{p_organization_id:$("organization").value,p_limit:100},true);if(!Array.isArray(result))throw new Error("Respuesta inesperada");records=result;render();}catch(e){records=[];$("rows").replaceChildren();status("No se pudo consultar: "+e.message,true);}}
+function detailField(container,label,value,wide=false){
+ const p=document.createElement("p");if(wide)p.className="wide";
+ const strong=document.createElement("strong");strong.textContent=label+": ";
+ const span=document.createElement("span");span.textContent=value==null||value===""?"—":String(value);
+ p.append(strong,span);container.append(p);
+}
+async function openCase(id){
+ currentCase=id;$("casePanel").hidden=false;$("casePanel").scrollIntoView({behavior:"smooth",block:"start"});
+ $("caseStatus").textContent="Cargando ficha...";$("caseDetail").replaceChildren();
+ try{
+  const org=$("organization").value;
+  const d=await api("/rest/v1/rpc/lirep_admin_case_detail",{p_organization_id:org,p_complaint_id:id},true);
+  $("caseHeading").textContent="Ficha · "+d.public_code;
+  const out=$("caseDetail"),c=d.consumer||{};
+  for(const [label,value,wide] of [
+   ["Estado",d.status,false],["Tipo",d.complaint_type,false],
+   ["Presentación",fmt(d.submitted_at),false],["Vencimiento",fmt(d.response_due_at),false],
+   ["Establecimiento",d.establishment,false],["Canal de respuesta",d.preferred_response_channel,false],
+   ["Consumidor",[c.first_names,c.last_names].filter(Boolean).join(" "),false],
+   ["Documento",[c.document_type,c.document_number].filter(Boolean).join(" "),false],
+   ["Correo",c.email,false],["Teléfono",c.phone,false],
+   ["Dirección",c.address,true],
+   ["Producto o servicio",d.product_service_description,true],
+   ["Detalle del reclamo",d.detail,true],["Solicitud del consumidor",d.consumer_request,true]
+  ])detailField(out,label,value,wide);
+  const role=orgs.find(o=>o.id===org)?.role;
+  $("entryForm").hidden=!["platform_admin","company_admin","operator"].includes(role);
+  await loadCaseEntries();await loadOfficialResponses();$("caseStatus").textContent="";
+ }catch(e){$("caseStatus").textContent="Error al consultar la ficha: "+e.message;}
+}
+async function loadCaseEntries(){
+ const items=await api("/rest/v1/rpc/lirep_admin_case_entries_list",{
+  p_organization_id:$("organization").value,p_complaint_id:currentCase
+ },true);
+ const container=$("caseEntries");container.replaceChildren();
+ for(const item of items){
+  const div=document.createElement("div");div.className="caseitem";
+  const label=document.createElement("small");label.textContent=(item.kind==="response_draft"?"Borrador de respuesta":"Nota interna")+" · "+fmt(item.created_at);
+  const body=document.createElement("p");body.textContent=item.body;div.append(label,body);
+  const role=orgs.find(o=>o.id===$("organization").value)?.role;
+  if(item.kind==="response_draft" && ["platform_admin","company_admin","operator"].includes(role)){
+    const button=document.createElement("button");button.type="button";button.className="linkbutton";
+    button.textContent="Presentar para aprobación";button.style.marginTop="10px";
+    button.addEventListener("click",()=>submitOfficialDraft(item.id,button));
+    div.append(button);
+  }
+  container.append(div);
+ }
+ if(!items.length)container.textContent="Todavía no hay registros internos.";
+}
+$("closeCase").addEventListener("click",()=>{currentCase=null;$("casePanel").hidden=true;});
+$("entryForm").addEventListener("submit",async event=>{
+ event.preventDefault();if(!currentCase)return;
+ const button=$("addEntry");button.disabled=true;$("caseStatus").textContent="Guardando...";
+ try{
+  const result=await api("/rest/v1/rpc/lirep_admin_case_add_entry",{
+   p_organization_id:$("organization").value,p_complaint_id:currentCase,
+   p_kind:$("entryKind").value,p_body:$("entryBody").value
+  },true);
+  if(!result.ok)throw new Error("No se confirmó el registro");
+  $("entryBody").value="";await loadCaseEntries();
+  $("caseStatus").textContent="Guardado como registro INTERNO. No se envió ninguna respuesta.";
+ }catch(e){$("caseStatus").textContent="Error: "+e.message}
+ finally{button.disabled=false;}
+});
+async function submitOfficialDraft(entryId,button){
+ if(!currentCase)return;
+ if(!confirm("¿Presentar este borrador para aprobación? El contenido quedará congelado y no se enviará por correo."))return;
+ const org=$("organization").value,caseId=currentCase;
+ button.disabled=true;$("officialNotice").textContent="Presentando borrador...";
+ try{
+  const out=await api("/rest/v1/rpc/lirep_admin_a10_submit",{
+   p_organization_id:org,p_complaint_id:caseId,p_entry_id:entryId
+  },true);
+  if(!out.ok)throw new Error("Presentación no confirmada");
+  if(currentCase===caseId&&$("organization").value===org){
+    $("officialNotice").textContent="Presentado para aprobación. Ningún correo enviado.";
+    await loadOfficialResponses();
+  }
+ }catch(e){$("officialNotice").textContent="No se pudo presentar: "+e.message;}
+ finally{button.disabled=false;}
+}
+async function reviewOfficial(responseId,approve,button){
+ if(!currentCase)return;
+ let note="";
+ if(approve){
+   if(!confirm("¿Aprobar el texto oficial? No se enviará correo todavía."))return;
+ }else{
+   const entered=prompt("Motivo del rechazo (obligatorio):");
+   if(entered===null)return;
+   note=entered.trim();
+   if(!note||note.length>2000){$("officialNotice").textContent="Indica un motivo válido (máximo 2000 caracteres).";return;}
+ }
+ button.disabled=true;
+ const org=$("organization").value,caseId=currentCase;
+ try{
+  const out=await api("/rest/v1/rpc/lirep_admin_a10_review",{
+   p_organization_id:org,p_response_id:responseId,p_approve:approve,p_note:note||null
+  },true);
+  if(!out.ok)throw new Error("Revisión no confirmada");
+  if(currentCase===caseId&&$("organization").value===org){
+   $("officialNotice").textContent=approve?"Respuesta aprobada. NO enviada por correo.":"Respuesta rechazada y registrada.";
+   await loadOfficialResponses();
+  }
+ }catch(e){$("officialNotice").textContent="No se pudo revisar: "+e.message;}
+ finally{button.disabled=false;}
+}
+async function loadOfficialResponses(){
+ if(!currentCase)return;
+ const org=$("organization").value,caseId=currentCase;
+ const parent=$("officialList");parent.replaceChildren();
+ try{
+  const list=await api("/rest/v1/rpc/lirep_admin_a10_list",{
+   p_organization_id:org,p_complaint_id:caseId
+  },true);
+  if(currentCase!==caseId||$("organization").value!==org)return;
+  if(!Array.isArray(list))throw new Error("Respuesta inesperada");
+  if(!list.length){parent.textContent="No hay respuestas oficiales presentadas.";return;}
+  const role=orgs.find(o=>o.id===org)?.role;
+  const canApprove=["platform_admin","company_admin"].includes(role);
+  const labels={pending_approval:"Pendiente de aprobación",approved:"Aprobada (NO enviada)",rejected:"Rechazada",cancelled:"Cancelada"};
+  for(const entry of list){
+   const wrap=document.createElement("div");wrap.className="caseitem";
+   const tag=document.createElement("strong");tag.textContent=(labels[entry.status]||entry.status)+" · "+fmt(entry.submitted_at);
+   const body=document.createElement("p");body.textContent=entry.body;
+   wrap.append(tag,body);
+   if(entry.review_note){const reason=document.createElement("p");reason.textContent="Motivo: "+entry.review_note;wrap.append(reason);}
+   if(entry.status==="pending_approval"&&canApprove){
+     const row=document.createElement("div");row.className="top";row.style.marginTop="10px";
+     for(const [label,ok] of [["Aprobar respuesta",true],["Rechazar respuesta",false]]){
+       const b=document.createElement("button");b.type="button";b.className="linkbutton";b.textContent=label;
+       b.addEventListener("click",()=>reviewOfficial(entry.id,ok,b));row.append(b);
+     }
+     wrap.append(row);
+   }
+   parent.append(wrap);
+  }
+ }catch(e){parent.textContent="Error consultando respuestas: "+e.message;}
+}
+async function loadMembers(){
+ if($("ownerPanel").hidden)return;
+ const organization=$("organization").value;
+ $("memberNotice").textContent="Consultando usuarios...";
+ try{
+  const members=await api("/rest/v1/rpc/lirep_admin_owner_memberships",{p_organization_id:organization},true);
+  const tbody=$("memberRows");tbody.replaceChildren();
+  for(const member of members){
+   const tr=document.createElement("tr");
+   for(const value of [member.email,member.role,member.active?"Activo":"Revocado"]){
+    const td=document.createElement("td");td.dataset.label=["Correo","Rol","Acceso"][tr.cells.length];td.textContent=value;tr.append(td);
+   }
+   tbody.append(tr);
+  }
+  $("memberNotice").textContent=members.length+" usuarios registrados";
+ }catch(e){$("memberNotice").textContent="No se pudo cargar: "+e.message;}
+}
+$("membershipForm").addEventListener("submit",async function(event){
+ event.preventDefault();if($("ownerPanel").hidden)return;
+ const button=$("saveMember");button.disabled=true;
+ $("memberNotice").textContent="Guardando permiso...";
+ try{
+  const result=await api("/rest/v1/rpc/lirep_admin_owner_set_membership",{
+   p_organization_id:$("organization").value,
+   p_user_email:$("memberEmail").value.trim(),
+   p_role:$("memberRole").value,
+   p_active:$("memberActive").value==="true"
+  },true);
+  if(!result.ok)throw new Error("No se confirmó el cambio");
+  $("memberNotice").textContent="Permiso "+result.action+" registrado correctamente";
+  $("memberEmail").value="";
+  await loadMembers();
+ }catch(e){$("memberNotice").textContent="Error: "+e.message;}
+ finally{button.disabled=false;}
+});
+async function loadNotifications(){
+ const panel=$("notificationPanel");
+ panel.hidden=true;
+ if(!token||!orgs.length)return;
+ const id=$("organization").value;
+ const active=orgs.find(o=>o.id===id);
+ if(!active || !["platform_admin","company_admin"].includes(active.role))return;
+ panel.hidden=false;
+ $("notificationRecipients").value="";
+ $("notificationNotice").textContent="Consultando configuración...";
+ $("notificationDeliveries").textContent="Consultando estado...";
+ try{
+  const settings=await api("/rest/v1/rpc/lirep_admin_a9_settings",{p_organization_id:id},true);
+  if($("organization").value!==id)return;
+  $("notificationRecipients").value=(settings.recipients||[]).join("\n");
+  $("notificationNotice").textContent=settings.enabled
+   ?"Configuración activa en base de datos; el Worker permanece desactivado."
+   :"Configuración guardada sin activar los envíos.";
+  const queue=await api("/rest/v1/rpc/lirep_admin_a9_delivery_status",{p_organization_id:id},true);
+  if($("organization").value!==id)return;
+  const div=$("notificationDeliveries");div.replaceChildren();
+  if(!Array.isArray(queue)||!queue.length){div.textContent="No hay notificaciones generadas.";return;}
+  for(const n of queue.slice(0,15)){
+   const p=document.createElement("p");p.className="caseitem";
+   p.textContent=[n.code,n.recipient,n.status,"Intentos: "+n.attempts].join(" · ");
+   div.append(p);
+  }
+ }catch(e){
+  if($("organization").value===id)$("notificationNotice").textContent="No se pudo consultar A9: "+e.message;
+ }
+}
+$("notificationForm").addEventListener("submit",async(event)=>{
+ event.preventDefault();
+ if($("notificationPanel").hidden)return;
+ const id=$("organization").value;
+ const addresses=[...new Set($("notificationRecipients").value.split(/[\n;,]+/).map(x=>x.trim().toLowerCase()).filter(Boolean))];
+ if(addresses.length>5){$("notificationNotice").textContent="Máximo 5 destinatarios.";return;}
+ if(addresses.some(x=>!/^\S+@\S+\.\S+$/.test(x))){$("notificationNotice").textContent="Hay direcciones inválidas.";return;}
+ const button=$("saveNotification");button.disabled=true;
+ try{
+  await api("/rest/v1/rpc/lirep_admin_a9_set_settings",{
+   p_organization_id:id,p_recipients:addresses,p_enabled:false
+  },true);
+  if($("organization").value===id){
+   $("notificationNotice").textContent="Destinatarios guardados. Envíos DESACTIVADOS.";
+   await loadNotifications();
+  }
+ }catch(e){$("notificationNotice").textContent="Error: "+e.message;}
+ finally{button.disabled=false;}
+});
+function logout(){clearSession();orgs=[];records=[];currentCase=null;$("casePanel").hidden=true;$("ownerPanel").hidden=true;$("notificationPanel").hidden=true;$("password").value="";$("workspace").hidden=true;$("login").hidden=false;$("rows").replaceChildren();}
+async function enterWorkspace(){
+ const data=await api("/rest/v1/rpc/lirep_admin_my_organizations",{},true);
+ if(!Array.isArray(data)||!data.length)throw new Error("Tu usuario no tiene empresas autorizadas");
+ orgs=data;const isOwner=data.some(o=>o.role==="platform_admin");
+ $("ownerPanel").hidden=!isOwner;const select=$("organization");select.replaceChildren();
+ for(const o of orgs){const opt=document.createElement("option");opt.value=o.id;opt.textContent=o.name+" · "+o.role;select.append(opt)}
+ $("login").hidden=true;$("workspace").hidden=false;await load();await loadMembers();await loadNotifications();
+}
+$("loginForm").addEventListener("submit",async event=>{event.preventDefault();if(!base.startsWith("https://")||!key){alert("Falta config.js con URL y clave pública de Supabase.");return;}const button=$("signIn");button.disabled=true;try{const auth=await api("/auth/v1/token?grant_type=password",{email:$("email").value.trim(),password:$("password").value},false);if(!auth.access_token)throw new Error("No se recibió sesión");token=auth.access_token;refreshToken=auth.refresh_token||"";expiresAt=Math.floor(Date.now()/1000)+Number(auth.expires_in||3600);rememberSession=$("rememberSession").checked;rememberedUntil=rememberSession?Math.floor(Date.now()/1000)+rememberMaxSeconds:0;persistSession();await enterWorkspace();}catch(e){const msg="Acceso no disponible: "+e.message;logout();$("loginForm").querySelector("p")?.remove();alert(msg);}finally{button.disabled=false;}});
+$("organization").addEventListener("change",async()=>{currentCase=null;$("casePanel").hidden=true;await load();await loadMembers();await loadNotifications();});$("query").addEventListener("input",render);$("reload").addEventListener("click",load);$("logout").addEventListener("click",logout);
+(async function restore(){
+ try{
+  // Migrate existing A7 sessionStorage sessions, otherwise restore opt-in remembered session.
+  const temporary=sessionStorage.getItem(storageKey);
+  const persistent=localStorage.getItem(storageKey);
+  const saved=JSON.parse(temporary||persistent||"null");
+  if(!saved||!saved.access_token||!saved.refresh_token)return;
+  rememberSession=!temporary&&Boolean(persistent);
+  rememberedUntil=rememberSession?Number(saved.remembered_until||0):0;
+  if(rememberSession&&Date.now()/1000>=rememberedUntil){clearSession();return;}
+  token=saved.access_token;refreshToken=saved.refresh_token;expiresAt=Number(saved.expires_at||0);
+  $("rememberSession").checked=rememberSession;
+  await authorizedSession();await enterWorkspace();
+ }catch(e){logout();}
+})();
+})();
+</script></body></html>
