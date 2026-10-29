@@ -58,6 +58,19 @@
 <h3>Usuarios vinculados a la empresa seleccionada</h3>
 <div class="tablewrap"><table><thead><tr><th>Correo</th><th>Rol</th><th>Acceso</th></tr></thead><tbody id="memberRows"></tbody></table></div>
 </section>
+<section id="notificationPanel" class="panel" hidden style="margin-top:22px">
+<h2>Notificaciones de nuevas reclamaciones</h2>
+<p class="muted">Configura hasta cinco correos por empresa. Los envíos están desactivados durante esta fase; guardar destinatarios no envía mensajes.</p>
+<form id="notificationForm">
+<label for="notificationRecipients">Destinatarios administrativos (uno por línea)</label>
+<textarea id="notificationRecipients" autocomplete="off" placeholder="administracion@empresa.com" rows="4" maxlength="1500"></textarea>
+<p class="casehint">Solo administradores de la empresa pueden modificar esta configuración.</p>
+<button type="submit" id="saveNotification">Guardar destinatarios (envíos desactivados)</button>
+</form>
+<p id="notificationNotice" role="status" aria-live="polite"></p>
+<h3>Estado de notificaciones recientes</h3>
+<div id="notificationDeliveries" class="casehint">Sin consultar</div>
+</section>
 </section></main>
 <script src="./config.js"></script><script>
 (function(){
@@ -207,17 +220,67 @@ $("membershipForm").addEventListener("submit",async function(event){
  }catch(e){$("memberNotice").textContent="Error: "+e.message;}
  finally{button.disabled=false;}
 });
-function logout(){clearSession();orgs=[];records=[];currentCase=null;$("casePanel").hidden=true;$("ownerPanel").hidden=true;$("password").value="";$("workspace").hidden=true;$("login").hidden=false;$("rows").replaceChildren();}
+async function loadNotifications(){
+ const panel=$("notificationPanel");
+ panel.hidden=true;
+ if(!token||!orgs.length)return;
+ const id=$("organization").value;
+ const active=orgs.find(o=>o.id===id);
+ if(!active || !["platform_admin","company_admin"].includes(active.role))return;
+ panel.hidden=false;
+ $("notificationRecipients").value="";
+ $("notificationNotice").textContent="Consultando configuración...";
+ $("notificationDeliveries").textContent="Consultando estado...";
+ try{
+  const settings=await api("/rest/v1/rpc/lirep_admin_a9_settings",{p_organization_id:id},true);
+  if($("organization").value!==id)return;
+  $("notificationRecipients").value=(settings.recipients||[]).join("\n");
+  $("notificationNotice").textContent=settings.enabled
+   ?"Configuración activa en base de datos; el Worker permanece desactivado."
+   :"Configuración guardada sin activar los envíos.";
+  const queue=await api("/rest/v1/rpc/lirep_admin_a9_delivery_status",{p_organization_id:id},true);
+  if($("organization").value!==id)return;
+  const div=$("notificationDeliveries");div.replaceChildren();
+  if(!Array.isArray(queue)||!queue.length){div.textContent="No hay notificaciones generadas.";return;}
+  for(const n of queue.slice(0,15)){
+   const p=document.createElement("p");p.className="caseitem";
+   p.textContent=[n.code,n.recipient,n.status,"Intentos: "+n.attempts].join(" · ");
+   div.append(p);
+  }
+ }catch(e){
+  if($("organization").value===id)$("notificationNotice").textContent="No se pudo consultar A9: "+e.message;
+ }
+}
+$("notificationForm").addEventListener("submit",async(event)=>{
+ event.preventDefault();
+ if($("notificationPanel").hidden)return;
+ const id=$("organization").value;
+ const addresses=[...new Set($("notificationRecipients").value.split(/[\n;,]+/).map(x=>x.trim().toLowerCase()).filter(Boolean))];
+ if(addresses.length>5){$("notificationNotice").textContent="Máximo 5 destinatarios.";return;}
+ if(addresses.some(x=>!/^\S+@\S+\.\S+$/.test(x))){$("notificationNotice").textContent="Hay direcciones inválidas.";return;}
+ const button=$("saveNotification");button.disabled=true;
+ try{
+  await api("/rest/v1/rpc/lirep_admin_a9_set_settings",{
+   p_organization_id:id,p_recipients:addresses,p_enabled:false
+  },true);
+  if($("organization").value===id){
+   $("notificationNotice").textContent="Destinatarios guardados. Envíos DESACTIVADOS.";
+   await loadNotifications();
+  }
+ }catch(e){$("notificationNotice").textContent="Error: "+e.message;}
+ finally{button.disabled=false;}
+});
+function logout(){clearSession();orgs=[];records=[];currentCase=null;$("casePanel").hidden=true;$("ownerPanel").hidden=true;$("notificationPanel").hidden=true;$("password").value="";$("workspace").hidden=true;$("login").hidden=false;$("rows").replaceChildren();}
 async function enterWorkspace(){
  const data=await api("/rest/v1/rpc/lirep_admin_my_organizations",{},true);
  if(!Array.isArray(data)||!data.length)throw new Error("Tu usuario no tiene empresas autorizadas");
  orgs=data;const isOwner=data.some(o=>o.role==="platform_admin");
  $("ownerPanel").hidden=!isOwner;const select=$("organization");select.replaceChildren();
  for(const o of orgs){const opt=document.createElement("option");opt.value=o.id;opt.textContent=o.name+" · "+o.role;select.append(opt)}
- $("login").hidden=true;$("workspace").hidden=false;await load();await loadMembers();
+ $("login").hidden=true;$("workspace").hidden=false;await load();await loadMembers();await loadNotifications();
 }
 $("loginForm").addEventListener("submit",async event=>{event.preventDefault();if(!base.startsWith("https://")||!key){alert("Falta config.js con URL y clave pública de Supabase.");return;}const button=$("signIn");button.disabled=true;try{const auth=await api("/auth/v1/token?grant_type=password",{email:$("email").value.trim(),password:$("password").value},false);if(!auth.access_token)throw new Error("No se recibió sesión");token=auth.access_token;refreshToken=auth.refresh_token||"";expiresAt=Math.floor(Date.now()/1000)+Number(auth.expires_in||3600);rememberSession=$("rememberSession").checked;rememberedUntil=rememberSession?Math.floor(Date.now()/1000)+rememberMaxSeconds:0;persistSession();await enterWorkspace();}catch(e){const msg="Acceso no disponible: "+e.message;logout();$("loginForm").querySelector("p")?.remove();alert(msg);}finally{button.disabled=false;}});
-$("organization").addEventListener("change",async()=>{currentCase=null;$("casePanel").hidden=true;await load();await loadMembers();});$("query").addEventListener("input",render);$("reload").addEventListener("click",load);$("logout").addEventListener("click",logout);
+$("organization").addEventListener("change",async()=>{currentCase=null;$("casePanel").hidden=true;await load();await loadMembers();await loadNotifications();});$("query").addEventListener("input",render);$("reload").addEventListener("click",load);$("logout").addEventListener("click",logout);
 (async function restore(){
  try{
   // Migrate existing A7 sessionStorage sessions, otherwise restore opt-in remembered session.
