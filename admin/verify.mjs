@@ -20,4 +20,12 @@ assert(ui.includes("textContent=x") && ui.includes("td.textContent=value"), "Saf
 assert(!ui.includes("localStorage") && !ui.includes("service_role"), "Unsafe admin frontend");
 assert(!config.includes("sb_secret_") && !/publishableKey:\\s*["\x27](?:eyJ|sb_secret_)/.test(config), "Unsafe frontend config");
 assert(bootstrap.includes("REEMPLAZAR_CON_EMAIL_VERIFICADO"), "Owner must be explicit");
-console.log("PASS LIREP ADMIN A1 + A2 static safety contract");
+const a6=fs.readFileSync("supabase/migrations/20261029011500_lirep_admin_a6_case_detail_drafts.sql","utf8");
+for(const name of ["lirep_admin_case_detail","lirep_admin_case_entries_list","lirep_admin_case_add_entry","lirep_admin_can_access"]){
+ assert(a6.includes(name), "A6 RPC missing "+name);
+}
+assert(a6.includes("organization_id=p_organization_id") && a6.includes("AUTH")===false, "A6 organization guard missing");
+assert(a6.includes("ACCESS_DENIED") && a6.includes("auth.uid()"),"A6 authorization check missing");
+assert(a6.includes("'saved_internal_only'") && !a6.includes("api.resend.com"),"A6 must not claim to deliver replies");
+assert(ui.includes("lirep_admin_case_detail") && ui.includes("lirep_admin_case_add_entry"),"A6 UI missing");
+console.log("PASS LIREP ADMIN A1 + A2 + A6 static safety contract");
