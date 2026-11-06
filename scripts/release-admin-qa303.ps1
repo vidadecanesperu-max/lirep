@@ -26,15 +26,11 @@ foreach ($Path in @($OriginalIndex, $OriginalConfig)) {
     }
 }
 
-$Qa299 = Get-ChildItem -LiteralPath $Work -Directory -Filter "QA299-STAGING-*" |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
-
-if ($null -eq $Qa299) {
-    throw "No se encontro la copia QA299 validada."
+$Qa299 = Join-Path $Work "QA299-STAGING-20261106-122139"
+if (-not (Test-Path -LiteralPath $Qa299 -PathType Container)) {
+    throw "No se encontro la copia QA299 exacta que supero las pruebas."
 }
-
-$Qa299Index = Join-Path $Qa299.FullName "index.html"
+$Qa299Index = Join-Path $Qa299 "index.html"
 if (-not (Test-Path -LiteralPath $Qa299Index -PathType Leaf)) {
     throw "Falta el index.html de QA299."
 }
@@ -138,7 +134,7 @@ $Manifest = [pscustomobject]@{
     qa = "QA303"
     project = $Project
     environment = "production"
-    source = $Qa299.FullName
+    source = $Qa299
     source_config_sha256 = $ConfigHash
     index_sha256 = (Get-FileHash -LiteralPath $SiteIndex -Algorithm SHA256).Hash
     config_sha256 = (Get-FileHash -LiteralPath $SiteConfig -Algorithm SHA256).Hash
