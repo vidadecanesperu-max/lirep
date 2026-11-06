@@ -177,23 +177,49 @@ if ($LASTEXITCODE -ne 0) {
     }
 }
 try {
-    $ParsedProjects = $ProjectJsonText | ConvertFrom-Json
+    $ParsedProjects = ConvertFrom-Json -InputObject $ProjectJsonText
 } catch {
-    throw "La respuesta de Cloudflare Pages no es JSON valido."
+    throw "La respuesta de Cloudflare Pages no es JSON valido. Revise: npx wrangler@4 pages project list"
 }
+
+# Wrangler puede devolver una lista directamente o un objeto contenedor.
+$Projects = @()
 if ($ParsedProjects -is [array]) {
-    $Projects = $ParsedProjects
+    $Projects = @($ParsedProjects)
+} elseif ($null -ne $ParsedProjects.projects) {
+    $Projects = @($ParsedProjects.projects)
 } elseif ($null -ne $ParsedProjects.result) {
-    $Projects = @($ParsedProjects.result)
+    if ($ParsedProjects.result -is [array]) {
+        $Projects = @($ParsedProjects.result)
+    } elseif ($null -ne $ParsedProjects.result.projects) {
+        $Projects = @($ParsedProjects.result.projects)
+    } else {
+        $Projects = @($ParsedProjects.result)
+    }
+} elseif ($null -ne $ParsedProjects.items) {
+    $Projects = @($ParsedProjects.items)
 } else {
     $Projects = @($ParsedProjects)
 }
+
+$ProjectNames = @(
+    $Projects |
+        Where-Object { $null -ne $_.name -and $_.name -ne "" } |
+        ForEach-Object { [string]$_.name }
+)
+Write-Host ("Proyectos Pages visibles en esta cuenta: " +
+    $(if ($ProjectNames.Count -eq 0) { "(ninguno)" } else { $ProjectNames -join ", " }))
+
 $TargetProject = @($Projects | Where-Object { $_.name -ceq $Project })
 if ($TargetProject.Count -ne 1) {
-    throw "No se encontro exactamente un proyecto Pages con el nombre requerido."
+    Write-Host "Inventario de Cloudflare (solo lectura):"
+    & $Npx --yes wrangler@4 pages project list
+    throw "Proyecto $Project no visible en la cuenta Cloudflare autenticada. No crear ni desplegar otro proyecto. Revisar cuenta y nombre real."
 }
 if ($TargetProject[0].production_branch -cne $ProductionBranch) {
-    throw "La rama de produccion no es main. No se realizara ningun despliegue."
+    throw ("Rama de produccion inesperada: " +
+        [string]$TargetProject[0].production_branch +
+        ". No se realizara ningun despliegue.")
 }
 
 Write-Host "PASS | Proyecto Pages existente y rama main verificados"
