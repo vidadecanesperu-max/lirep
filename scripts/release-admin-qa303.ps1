@@ -4,7 +4,7 @@
 # FUENTE: QA299 validado con Supabase staging
 # DESTINO: lirep-admin-360 (solo panel; Worker no se toca)
 # ============================================================
-param([switch]$PreviewOnly)
+$PreviewOnly = $false # Cambiar a $true solo para publicar la vista previa.
 
 $ErrorActionPreference = "Stop"
 $Work = "C:\Users\Smerling\Documents\LIREP-QA295-20261105-225109"
@@ -170,7 +170,15 @@ if ($LASTEXITCODE -ne 0) {
 
 $ProjectJsonText = (& $Npx --yes wrangler@4 pages project list --json | Out-String)
 if ($LASTEXITCODE -ne 0) {
-    throw "No se pudo consultar el inventario de Cloudflare Pages."
+    Write-Host "Se requiere autenticar Cloudflare para listar Pages."
+    & $Npx --yes wrangler@4 login
+    if ($LASTEXITCODE -ne 0) {
+        throw "No se completo el acceso a Cloudflare."
+    }
+    $ProjectJsonText = (& $Npx --yes wrangler@4 pages project list --json | Out-String)
+    if ($LASTEXITCODE -ne 0) {
+        throw "No se pudo consultar el inventario de Cloudflare Pages."
+    }
 }
 try {
     $ParsedProjects = $ProjectJsonText | ConvertFrom-Json
