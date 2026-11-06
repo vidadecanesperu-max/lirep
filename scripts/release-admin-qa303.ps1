@@ -168,12 +168,31 @@ if ($LASTEXITCODE -ne 0) {
     }
 }
 
-$ProjectList = (& $Npx --yes wrangler@4 pages project list | Out-String)
-if ($LASTEXITCODE -ne 0 -or $ProjectList -notmatch [regex]::Escape($Project)) {
-    throw "No se encontro el proyecto Pages existente. Se evita crear uno nuevo."
+$ProjectJsonText = (& $Npx --yes wrangler@4 pages project list --json | Out-String)
+if ($LASTEXITCODE -ne 0) {
+    throw "No se pudo consultar el inventario de Cloudflare Pages."
+}
+try {
+    $ParsedProjects = $ProjectJsonText | ConvertFrom-Json
+} catch {
+    throw "La respuesta de Cloudflare Pages no es JSON valido."
+}
+if ($ParsedProjects -is [array]) {
+    $Projects = $ParsedProjects
+} elseif ($null -ne $ParsedProjects.result) {
+    $Projects = @($ParsedProjects.result)
+} else {
+    $Projects = @($ParsedProjects)
+}
+$TargetProject = @($Projects | Where-Object { $_.name -ceq $Project })
+if ($TargetProject.Count -ne 1) {
+    throw "No se encontro exactamente un proyecto Pages con el nombre requerido."
+}
+if ($TargetProject[0].production_branch -cne $ProductionBranch) {
+    throw "La rama de produccion no es main. No se realizara ningun despliegue."
 }
 
-Write-Host "PASS | Proyecto Pages existente identificado"
+Write-Host "PASS | Proyecto Pages existente y rama main verificados"
 
 # Primera etapa: desplegar a rama de vista previa.
 Write-Host ""
