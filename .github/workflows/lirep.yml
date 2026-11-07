@@ -43,6 +43,27 @@ jobs:
           node --check wordpress/lirep/assets/js/lirep-embed.js
           node wordpress/tests/qa-embed.mjs
 
+  worker-dry-run:
+    name: Bundle QA Worker without deploying
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Wrangler in CI only
+        working-directory: worker
+        run: npm install --no-save --ignore-scripts
+      - name: Validate QA and production Cloudflare Worker bundles
+        working-directory: worker
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --dry-run --config wrangler.qa.jsonc --outdir /tmp/lirep-qa-bundle
+          npx wrangler deploy --dry-run --config wrangler.jsonc --outdir /tmp/lirep-prod-bundle
+          test -d /tmp/lirep-qa-bundle
+          test -d /tmp/lirep-prod-bundle
+          echo "PASS | Cloudflare Worker QA and production bundle; no deploy, no secrets, no cost"
+
   live-observation:
     name: Observe active Cloudflare Worker (read only)
     if: github.event_name == 'pull_request'
