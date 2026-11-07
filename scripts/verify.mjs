@@ -14,6 +14,9 @@ const required = [
   'worker/src/onboarding.js',
   'worker/tests/qa-onboarding.mjs',
   'supabase/migrations/20261107000100_v1_7_0_self_onboarding.sql',
+  'supabase/migrations/20261107000600_v1_7_0_existing_tenant_self_link.sql',
+  'supabase/migrations/20261107000700_v1_7_1_reservation_window.sql',
+  'supabase/migrations/20261107000800_v1_7_1_multitenant_claim_release_gate.sql',
   'supabase/migrations/README.md',
 ];
 const missing = required.filter(p => !fs.existsSync(p));
