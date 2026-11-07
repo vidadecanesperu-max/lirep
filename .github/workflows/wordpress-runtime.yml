@@ -49,6 +49,13 @@ jobs:
             if (strpos($html, "<script>") !== false) { throw new Exception("INLINE_SCRIPT_NOT_ALLOWED"); }
             if (strpos($html, "noopener noreferrer") === false) { throw new Exception("FALLBACK_LINK_MISSING"); }
             if (!did_action("elementor/loaded")) { throw new Exception("ELEMENTOR_NOT_LOADED"); }
+            if (!function_exists("lirep_onboarding_ajax")) { throw new Exception("ONBOARDING_NOT_LOADED"); }
+            $empty = lirep_onboarding_challenge();
+            if (!is_wp_error($empty)) { throw new Exception("CHALLENGE_SHOULD_FAIL_CLOSED"); }
+            update_option("lirep_onboarding_state", ["id" => "qa", "challenge" => str_repeat("a",64)]);
+            $proof = lirep_onboarding_challenge();
+            if (!($proof instanceof WP_REST_Response) || $proof->get_data()["challenge"] !== str_repeat("a",64)) { throw new Exception("CHALLENGE_RESPONSE_INVALID"); }
+            delete_option("lirep_onboarding_state");
             echo "PASS | WordPress " . get_bloginfo("version") . " + Elementor Free + LIREP shortcode\n";
           '
       - name: Stop test environment
