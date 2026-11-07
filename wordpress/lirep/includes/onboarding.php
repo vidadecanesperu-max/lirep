@@ -98,7 +98,7 @@ function lirep_onboarding_ajax() {
             'domain' => $domain,
         );
         update_option('lirep_onboarding_state', $new_state, false);
-        wp_send_json_success(array('message' => 'Enviamos un enlace de verificación a tu correo. Después comprueba el estado.'));
+        wp_send_json_success(array('message' => 'Solicitud preparada. Ahora pulsa «Verificar dominio y continuar»; después recibirás un enlace de correo.'));
     }
 
     if (!in_array($action, array('status','verify-domain','cancel'), true) ||
@@ -174,15 +174,15 @@ function lirep_onboarding_page() {
         </section>
       <?php elseif ($pending) : ?>
         <section class="lirep-panel" id="lirep-pending">
-          <h2>Verifica tu correo y dominio</h2>
-          <p>Enviamos el enlace a <strong><?php echo esc_html($state['email']); ?></strong>. Revisa también correo no deseado.</p>
+          <h2>Verifica el dominio y después el correo</h2>
+          <p>Primero verifica el dominio. Después enviaremos un enlace a <strong><?php echo esc_html($state['email']); ?></strong>.</p>
           <p>Dominio por verificar: <code><?php echo esc_html($domain); ?></code></p>
           <div class="lirep-actions">
             <button type="button" class="button button-primary" id="lirep-status">Comprobar estado</button>
-            <button type="button" class="button" id="lirep-verify">Verificar dominio y activar</button>
+            <button type="button" class="button" id="lirep-verify">Verificar dominio y continuar</button>
             <button type="button" class="button" id="lirep-cancel">Reiniciar activación</button>
           </div>
-          <p id="lirep-progress" role="status">Pendiente de verificación de correo.</p>
+          <p id="lirep-progress" role="status">Pendiente de verificación de dominio.</p>
         </section>
       <?php else : ?>
         <section class="lirep-panel">
