@@ -8,6 +8,12 @@ const required = [
   'wordpress/lirep/readme.txt',
   'wordpress/tests/qa-plugin.php',
   'wordpress/tests/qa-embed.mjs',
+  'wordpress/lirep/includes/onboarding.php',
+  'wordpress/lirep/assets/js/lirep-onboarding.js',
+  'wordpress/lirep/assets/css/lirep-onboarding.css',
+  'worker/src/onboarding.js',
+  'worker/tests/qa-onboarding.mjs',
+  'supabase/migrations/20261107000100_v1_7_0_self_onboarding.sql',
   'supabase/migrations/README.md',
 ];
 const missing = required.filter(p => !fs.existsSync(p));
@@ -20,6 +26,8 @@ const worker = fs.readFileSync('worker/src/index.js', 'utf8');
 const app = fs.readFileSync('app/index.html', 'utf8');
 const plugin = fs.readFileSync('wordpress/lirep/lirep.php', 'utf8');
 const embed = fs.readFileSync('wordpress/lirep/assets/js/lirep-embed.js', 'utf8');
+const onboarding = fs.readFileSync('worker/src/onboarding.js', 'utf8');
+const wizard = fs.readFileSync('wordpress/lirep/includes/onboarding.php', 'utf8');
 const workerConfig = JSON.parse(fs.readFileSync('worker/wrangler.jsonc', 'utf8'));
 const approvedEmail = workerConfig.vars?.LIREP_APPROVED_FROM_EMAIL;
 const sends = worker.match(/fetch\("https:\/\/api\.resend\.com\/emails"/g) || [];
@@ -67,6 +75,12 @@ for (const [name, passed] of [
   ['WordPress release integrity', plugin.includes("hash_file('sha256'") && plugin.includes('hash_equals')],
   ['WordPress updater official source', plugin.includes('update_plugins_github.com') && plugin.includes('LIREP_RELEASE_API')],
   ['WordPress automatic security opt-in', plugin.includes('lirep_auto_security_updates') && plugin.includes('lirep_security')],
+  ['WordPress 1.7.0 header', plugin.includes('* Version: 1.7.0')],
+  ['WordPress self-service wizard', plugin.includes("includes/onboarding.php") && wizard.includes('lirep_onboarding_challenge')],
+  ['WordPress no service-role secrets', !wizard.includes('SUPABASE_SERVICE_ROLE_KEY')],
+  ['Worker onboarding disabled by default', workerConfig.vars?.LIREP_SELF_ONBOARDING === 'false' && onboarding.includes('ONBOARDING_NOT_ENABLED')],
+  ['Worker email after domain proof', onboarding.indexOf('lirep_onboarding_verify_domain') < onboarding.indexOf('lirep_onboarding_set_email_token')],
+  ['Worker tenant-specific CSP', worker.includes('frame-ancestors') && worker.includes('lirep_public_allowed_origins')],
 ]) { if (!passed) { console.error('QA FAIL:', name); process.exit(1); } }
-console.log('LIREP baseline + WordPress 1.6.0 static security checks PASS');
+console.log('LIREP baseline + WordPress 1.7.0 static security checks PASS');
 console.log(`LIREP ${version} repository version consistency PASS`);
