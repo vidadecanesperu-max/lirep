@@ -1,6 +1,6 @@
 <?php
 /**
- * LIREP v1.7.0 — WordPress self-service onboarding.
+ * LIREP v1.7.1 — WordPress self-service onboarding.
  * No Supabase keys, platform credentials or service-role secrets are stored here.
  */
 if (!defined('ABSPATH')) { exit; }
@@ -75,7 +75,7 @@ function lirep_onboarding_ajax() {
     if (!current_user_can('manage_options')) {
         wp_send_json_error(array('message' => 'Acceso no autorizado.'), 403);
     }
-    check_ajax_referer('lirep_onboarding_v170', 'nonce');
+    check_ajax_referer('lirep_onboarding_v171', 'nonce');
     $action = isset($_POST['operation']) ? sanitize_key(wp_unslash($_POST['operation'])) : '';
     $state = get_option('lirep_onboarding_state', array());
     if (!is_array($state)) { $state = array(); }
@@ -168,7 +168,7 @@ function lirep_onboarding_assets($hook) {
     wp_enqueue_script('lirep-onboarding', plugins_url('assets/js/lirep-onboarding.js', dirname(__DIR__) . '/lirep.php'), array(), LIREP_VERSION, true);
     wp_localize_script('lirep-onboarding', 'LIREP_SETUP', array(
         'ajax' => admin_url('admin-ajax.php'),
-        'nonce' => wp_create_nonce('lirep_onboarding_v170'),
+        'nonce' => wp_create_nonce('lirep_onboarding_v171'),
     ));
 }
 
@@ -185,7 +185,7 @@ function lirep_onboarding_page() {
     ?>
     <div class="wrap lirep-setup">
       <div class="lirep-setup-head">
-        <div><p class="lirep-kicker">360 INTEGRAL SOLUTIONS · LIREP 1.7.0</p>
+        <div><p class="lirep-kicker">360 INTEGRAL SOLUTIONS · LIREP 1.7.1</p>
           <h1>Libro de Reclamaciones</h1>
           <p>Activación autónoma y segura para WordPress y Elementor.</p></div>
         <span class="lirep-state"><?php echo $prefix ? 'Activo' : ($pending ? 'Verificación pendiente' : 'Sin activar'); ?></span>

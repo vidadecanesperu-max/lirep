@@ -75,12 +75,12 @@ for (const [name, passed] of [
   ['WordPress release integrity', plugin.includes("hash_file('sha256'") && plugin.includes('hash_equals')],
   ['WordPress updater official source', plugin.includes('update_plugins_github.com') && plugin.includes('LIREP_RELEASE_API')],
   ['WordPress automatic security opt-in', plugin.includes('lirep_auto_security_updates') && plugin.includes('lirep_security')],
-  ['WordPress 1.7.0 header', plugin.includes('* Version: 1.7.0')],
+  ['WordPress 1.7.1 header', plugin.includes('* Version: 1.7.1')],
   ['WordPress self-service wizard', plugin.includes("includes/onboarding.php") && wizard.includes('lirep_onboarding_challenge')],
   ['WordPress no service-role secrets', !wizard.includes('SUPABASE_SERVICE_ROLE_KEY')],
   ['Worker onboarding disabled by default', workerConfig.vars?.LIREP_SELF_ONBOARDING === 'false' && onboarding.includes('ONBOARDING_NOT_ENABLED')],
   ['Worker email after domain proof', onboarding.indexOf('lirep_onboarding_verify_domain') < onboarding.indexOf('lirep_onboarding_set_email_token')],
   ['Worker tenant-specific CSP', worker.includes('frame-ancestors') && worker.includes('lirep_public_allowed_origins')],
 ]) { if (!passed) { console.error('QA FAIL:', name); process.exit(1); } }
-console.log('LIREP baseline + WordPress 1.7.0 static security checks PASS');
+console.log('LIREP baseline + WordPress 1.7.1 static security checks PASS');
 console.log(`LIREP ${version} repository version consistency PASS`);

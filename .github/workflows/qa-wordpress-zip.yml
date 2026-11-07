@@ -47,7 +47,7 @@ jobs:
           echo 'PASS: The downloaded GitHub artifact ZIP can be uploaded directly to WordPress.'
       - uses: actions/upload-artifact@v4
         with:
-          name: LIREP-1.7.0-QA-INSTALABLE-NO-PRODUCCION
+          name: LIREP-1.7.1-QA-INSTALABLE-NO-PRODUCCION
           path: dist/installable/
           if-no-files-found: error
           retention-days: 30

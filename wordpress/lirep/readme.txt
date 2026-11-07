@@ -3,7 +3,7 @@ Contributors: vidadecanesperu-max
 Tags: libro de reclamaciones, peru, reclamos, elementor, shortcode
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -41,7 +41,7 @@ El ZIP se puede instalar en WordPress compatible, pero para recibir reclamacione
 La búsqueda de versiones utiliza GitHub Releases. Las actualizaciones normales se muestran en Plugins. Las automáticas de seguridad requieren activar la opción y publicar una versión oficial marcada [LIREP-SECURITY], con asset lirep.zip y digest SHA-256.
 
 == Changelog ==
-= 1.7.0 =
+= 1.7.1 =
 * Mantiene los ajustes 1.5.0 y la separación producción/QA.
 * Assets externos compatibles con políticas CSP que bloquean JavaScript inline.
 * Soporte de Elementor dinámico y Gutenberg por shortcode.
@@ -49,5 +49,5 @@ La búsqueda de versiones utiliza GitHub Releases. Las actualizaciones normales 
 * Actualizaciones oficiales desde GitHub Releases con comprobación SHA-256 y opt-in de seguridad.
 * Enlace accesible al formulario externo como alternativa al iframe.
 
-== Registro autogestionado (1.7.0) ==
+== Registro autogestionado (1.7.1) ==
 En Ajustes > LIREP el administrador de WordPress registra la empresa, verifica su correo y dominio y recibe un identificador automático. El servicio debe habilitar la API de onboarding en Cloudflare y Supabase antes de usar este flujo. Nunca se solicitan claves de Supabase al usuario.

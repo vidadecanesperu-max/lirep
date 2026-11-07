@@ -59,7 +59,7 @@ function qa($condition, $name) {
     echo "PASS | {$name}\n";
 }
 qa(isset($GLOBALS['shortcodes']['lirep']), 'Shortcode registered');
-qa(LIREP_VERSION === '1.7.0', 'Self-service version loaded');
+qa(LIREP_VERSION === '1.7.1', 'Self-service version loaded');
 qa(function_exists('lirep_onboarding_ajax') && function_exists('lirep_onboarding_challenge'), 'Self-service endpoints registered');
 qa(in_array('lirep_enqueue_assets', $GLOBALS['filters']['wp_enqueue_scripts'], true), 'Frontend assets preloaded');
 qa(in_array('lirep_enqueue_assets', $GLOBALS['filters']['elementor/preview/enqueue_scripts'], true), 'Elementor preview assets preloaded');
