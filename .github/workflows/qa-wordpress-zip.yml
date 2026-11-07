@@ -1,0 +1,53 @@
+name: LIREP WordPress QA ZIP (no release)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'wordpress/**'
+      - '.github/workflows/qa-wordpress-zip.yml'
+  workflow_dispatch:
+concurrency:
+  group: lirep-wp-qa-zip-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  qa-zip:
+    name: Build isolated WordPress QA package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP and JavaScript
+        run: |
+          set -euo pipefail
+          php -l wordpress/lirep/lirep.php
+          php -l wordpress/lirep/includes/onboarding.php
+          node --check wordpress/lirep/assets/js/lirep-onboarding.js
+          php wordpress/tests/qa-plugin.php
+      - name: Prepare WordPress-installable artifact (NO NESTED ZIP)
+        run: |
+          set -euo pipefail
+          mkdir -p dist/installable
+          cp -a wordpress/lirep dist/installable/lirep
+          test -f dist/installable/lirep/lirep.php
+          test -f dist/installable/lirep/includes/onboarding.php
+          test -f dist/installable/lirep/assets/js/lirep-onboarding.js
+          # The artifact download itself is the WordPress ZIP:
+          # root = lirep/, plugin main = lirep/lirep.php.
+          # Never upload an inner .zip, checksum or extra wrapper.
+          (cd dist/installable && zip -q -r ../preflight.zip lirep)
+          unzip -t dist/preflight.zip
+          unzip -Z1 dist/preflight.zip | grep -Fx 'lirep/lirep.php'
+          if unzip -Z1 dist/preflight.zip | grep -Eq '(^[^/]+\.zip$|^dist/|^wordpress/)'; then
+            echo 'FAIL: Unexpected wrapper or nested archive'; exit 1
+          fi
+          test "$(stat -c%s dist/preflight.zip)" -lt 2097152
+          sha256sum dist/preflight.zip
+          echo 'PASS: The downloaded GitHub artifact ZIP can be uploaded directly to WordPress.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LIREP-1.7.1-QA-INSTALABLE-NO-PRODUCCION
+          path: dist/installable/
+          if-no-files-found: error
+          retention-days: 30
