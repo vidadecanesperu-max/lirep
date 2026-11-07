@@ -127,6 +127,7 @@ function lirep_onboarding_ajax() {
         }
     }
     wp_send_json_success(array(
+        'notice' => isset($result['notice']) ? sanitize_key($result['notice']) : '',
         'state' => isset($status['state']) ? sanitize_key($status['state']) : 'pending',
         'email_verified' => !empty($status['email_verified']),
         'domain_verified' => !empty($status['domain_verified']),
