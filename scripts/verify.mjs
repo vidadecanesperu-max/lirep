@@ -60,7 +60,7 @@ for (const [name, passed] of [
   ['WordPress no shortcode tenant override', !plugin.includes("$atts['prefix']")],
   ['WordPress no-referrer', plugin.includes('referrerpolicy="no-referrer"')],
   ['WordPress QA separate', plugin.includes('lirep_normalize_worker_base') && plugin.includes('current_user_can(\'manage_options\')')],
-  ['WordPress external embed assets', plugin.includes("wp_enqueue_script('lirep-embed'") && !plugin.includes("'<script>"))],
+  ['WordPress external embed assets', plugin.includes("wp_enqueue_script('lirep-embed'") && !plugin.includes("'<script>")],
   ['WordPress message origin', embed.includes('event.origin !== origin')],
   ['WordPress message source', embed.includes('event.source !== frame.contentWindow')],
   ['WordPress message tenant', embed.includes('data.prefix !== prefix')],
