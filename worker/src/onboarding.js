@@ -220,7 +220,7 @@ export async function handleOnboarding(request, env) {
     if (route === "verify-domain") {
       const state = await status(env, input.id, input.status_token);
       if (state.state === "expired") throw new Error("EXPIRED");
-      if (state.state === "pending") {
+      if (state.state === "pending" && !state.domain_verified) {
         if (!validDomain(state.domain) || !validChallengeUrl(input.challenge_url, state.domain)) {
           throw new Error("INVALID_DOMAIN");
         }
