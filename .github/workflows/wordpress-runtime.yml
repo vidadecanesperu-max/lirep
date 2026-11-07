@@ -1,0 +1,56 @@
+name: LIREP WordPress + Elementor runtime QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'wordpress/**'
+      - '.wp-env.json'
+      - '.github/workflows/wordpress-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wordpress-runtime:
+    name: WordPress 7.1.4 + Elementor Free
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install WordPress local test runner
+        shell: bash
+        run: npm install --no-save --ignore-scripts @wordpress/env
+      - name: Start isolated WordPress 7.1.4
+        shell: bash
+        run: npx wp-env start
+      - name: Install and activate Elementor Free
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wp-env run cli wp plugin activate lirep
+          npx wp-env run cli wp plugin install elementor --activate
+          npx wp-env run cli wp plugin is-active lirep
+          npx wp-env run cli wp plugin is-active elementor
+      - name: WordPress and shortcode integration checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wp-env run cli wp eval '
+            if (version_compare(get_bloginfo("version"), "7.1.4", "<")) { throw new Exception("WP_VERSION_TOO_OLD"); }
+            if (!shortcode_exists("lirep")) { throw new Exception("SHORTCODE_MISSING"); }
+            update_option("lirep_public_prefix", "VIDACANE");
+            $html = do_shortcode("[lirep]");
+            if (strpos($html, "VIDACANE") === false || strpos($html, "lirep-frame") === false) { throw new Exception("SHORTCODE_RENDER_FAILED"); }
+            if (strpos($html, "<script>") !== false) { throw new Exception("INLINE_SCRIPT_NOT_ALLOWED"); }
+            if (strpos($html, "noopener noreferrer") === false) { throw new Exception("FALLBACK_LINK_MISSING"); }
+            if (!did_action("elementor/loaded")) { throw new Exception("ELEMENTOR_NOT_LOADED"); }
+            echo "PASS | WordPress " . get_bloginfo("version") . " + Elementor Free + LIREP shortcode\n";
+          '
+      - name: Stop test environment
+        if: always()
+        run: npx wp-env stop || true
