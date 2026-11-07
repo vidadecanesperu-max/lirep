@@ -87,7 +87,9 @@
     busy(verify, true);
     try {
       const data = await run("verify-domain");
-      if (data.state === "active" && data.invitation_sent) {
+      if (data.notice === "EMAIL_SENT") {
+        modal("Dominio verificado. Enviamos un enlace al correo indicado. Verifícalo y vuelve a pulsar «Verificar dominio y continuar» para completar la activación.");
+      } else if (data.state === "active" && data.invitation_sent) {
         modal("¡LIREP activado! Se envió el acceso administrativo al correo verificado.");
         close.onclick = () => { dismiss(); window.location.reload(); };
       } else modal("Dominio verificado. Revisa el estado de la activación.");
