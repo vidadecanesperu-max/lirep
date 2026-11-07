@@ -139,7 +139,13 @@ await qa("Verified domain sends email, without provisioning yet", async () => {
   assert.equal(mailCount, 1);
 });
 await qa("Email link verifies after domain challenge", async () => {
-  const r = await handleOnboarding(new Request(base + "/api/v1/onboarding/verify-email?token=" + "f".repeat(64)), env);
+  const page = await handleOnboarding(new Request(base + "/api/v1/onboarding/verify-email?token=" + "f".repeat(64)), env);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /Confirma tu correo/);
+  const r = await handleOnboarding(new Request(base + "/api/v1/onboarding/verify-email", {
+    method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: "f".repeat(64) }),
+  }), env);
   assert.equal(r.status, 200);
   assert.match(await r.text(), /Correo verificado/);
   statusValue = { ...statusValue, email_verified: true };
