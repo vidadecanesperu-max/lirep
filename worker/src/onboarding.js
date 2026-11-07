@@ -165,11 +165,19 @@ async function deliverInvite(env, id, statusToken, state) {
 export async function handleOnboarding(request, env) {
   const url = new URL(request.url);
   if (!url.pathname.startsWith(BASE_PATH)) return null;
+  const route = url.pathname.slice(BASE_PATH.length);
+  if (route === "capabilities" && request.method === "GET") {
+    const enabled = env.LIREP_SELF_ONBOARDING === "true" &&
+      Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY &&
+        env.ONBOARD_RATE_LIMITER && env.RESEND_API_KEY &&
+        env.LIREP_APPROVED_FROM_EMAIL &&
+        /^https:\/\/[a-z0-9.-]+\/$/i.test(String(env.LIREP_ADMIN_URL || "")));
+    return json({ ok: true, enabled, version: "1.7.1" });
+  }
   if (env.LIREP_SELF_ONBOARDING !== "true") return json({ ok: false, error: "ONBOARDING_NOT_ENABLED" }, 503);
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !env.ONBOARD_RATE_LIMITER) {
     return json({ ok: false, error: "ONBOARDING_NOT_CONFIGURED" }, 503);
   }
-  const route = url.pathname.slice(BASE_PATH.length);
   if (route === "verify-email" && request.method === "GET") {
     const token = url.searchParams.get("token") || "";
     return /^[a-f0-9]{64}$/.test(token) ? verifyPage(null, token) : verifyPage(false);
