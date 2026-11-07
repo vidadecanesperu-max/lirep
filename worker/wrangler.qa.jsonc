@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lirep-onboarding-qa",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-07",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://lirep-onboarding-qa.vidadecanes-peru.workers.dev",
+    "SUPABASE_URL": "https://jitcayjaztceglqlmwvl.supabase.co",
+    "LIREP_ENABLE_MULTIEMPRESA_EMAIL": "false",
+    "LIREP_SELF_ONBOARDING": "true",
+    "LIREP_APPROVED_FROM_EMAIL": "lirep@mail.vidadecanes.pe"
+  },
+  "ratelimits": [
+    {
+      "name": "ONBOARD_RATE_LIMITER",
+      "namespace_id": "1703",
+      "simple": {
+        "limit": 12,
+        "period": 60
+      }
+    },
+    {
+      "name": "SUBMIT_RATE_LIMITER",
+      "namespace_id": "1704",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
+    }
+  ]
+}
