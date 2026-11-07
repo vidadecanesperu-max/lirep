@@ -61,6 +61,8 @@ function qa($condition, $name) {
 qa(isset($GLOBALS['shortcodes']['lirep']), 'Shortcode registered');
 qa(LIREP_VERSION === '1.7.1', 'Self-service version loaded');
 qa(function_exists('lirep_onboarding_ajax') && function_exists('lirep_onboarding_challenge'), 'Self-service endpoints registered');
+qa(strpos(lirep_onboarding_error_message('domain_challenge_failed'), 'REST') !== false, 'Domain proof guidance localized');
+qa(strpos(lirep_onboarding_error_message('review_required'), 'revisión') !== false, 'Existing company conflict guidance localized');
 qa(in_array('lirep_enqueue_assets', $GLOBALS['filters']['wp_enqueue_scripts'], true), 'Frontend assets preloaded');
 qa(in_array('lirep_enqueue_assets', $GLOBALS['filters']['elementor/preview/enqueue_scripts'], true), 'Elementor preview assets preloaded');
 qa(lirep_valid_prefix(' vidacane ') === 'VIDACANE', 'Tenant normalized');

@@ -49,6 +49,24 @@ function lirep_onboarding_is_ready() {
     return $ready;
 }
 
+/** Friendly, actionable errors for self-service company administrators. */
+function lirep_onboarding_error_message($reason) {
+    $messages = array(
+        'onboarding_not_enabled' => 'El registro autónomo todavía no está disponible. El plugin está instalado correctamente.',
+        'onboarding_not_configured' => 'La activación todavía no está disponible. Inténtalo más tarde.',
+        'review_required' => 'La empresa o el dominio ya figuran en LIREP con otros datos. Por seguridad, esta vinculación necesita revisión.',
+        'invalid_domain' => 'No se pudo validar el dominio HTTPS de WordPress.',
+        'invalid_input' => 'Revisa el RUC, los datos de la empresa y la dirección de la política de privacidad.',
+        'domain_challenge_failed' => 'No se pudo verificar el dominio. Comprueba que la API REST de WordPress funcione por HTTPS y no esté bloqueada por un plugin de seguridad.',
+        'email_rate_limited' => 'Ya se solicitó la verificación. Espera dos minutos y revisa el correo no deseado antes de reintentar.',
+        'invalid_token' => 'La solicitud de activación ya no es válida. Reinicia el registro.',
+        'expired' => 'La solicitud caducó. Reinicia el registro desde Ajustes → LIREP.',
+        'rate_limited' => 'Demasiados intentos. Espera un momento antes de continuar.',
+    );
+    return isset($messages[$reason]) ? $messages[$reason] :
+        'El servicio de activación está temporalmente no disponible. Inténtalo más tarde.';
+}
+
 function lirep_onboarding_call($route, $payload) {
     $allowed = array('start', 'status', 'verify-domain', 'cancel');
     if (!in_array($route, $allowed, true)) {
@@ -66,7 +84,7 @@ function lirep_onboarding_call($route, $payload) {
     $result = json_decode(wp_remote_retrieve_body($response), true);
     if (!is_array($result) || empty($result['ok'])) {
         $reason = is_array($result) && isset($result['error']) ? sanitize_key($result['error']) : 'service_unavailable';
-        return new WP_Error('lirep_' . $reason, 'LIREP: ' . strtoupper($reason));
+        return new WP_Error('lirep_' . $reason, lirep_onboarding_error_message($reason));
     }
     return $result;
 }

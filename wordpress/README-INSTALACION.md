@@ -44,3 +44,11 @@ El plugin se ha preparado con validación sintáctica y pruebas automatizadas ai
 ## Nuevo asistente 1.7.1
 
 El administrador abre Ajustes → LIREP, introduce RUC, razón social, dirección, correo y política de privacidad. Verifica primero el dominio, confirma el correo recibido y vuelve a pulsar «Verificar dominio y continuar». El prefijo se asigna automáticamente y se publica mediante `[lirep]`. Los clientes no necesitan solicitar un alta manual. **Este circuito requiere que la migración 1.7.1 y el Worker 1.7.1 estén desplegados y que LIREP_SELF_ONBOARDING=true tras QA**; sin ello el asistente falla cerrado.
+
+
+## Seguridad y autoservicio 1.7.1
+
+- Si el Worker no publica `GET /api/v1/onboarding/capabilities` con `enabled=true`, el plugin **oculta el formulario** y no solicita datos de la empresa. Se comprueba automáticamente cada cinco minutos.
+- El primer registro reserva dominio y RUC por un máximo de **15 minutos** sin verificar el dominio; al demostrar control del dominio se amplía a 24 horas para verificar el correo.
+- Una empresa ya registrada puede vincular un nuevo dominio sin intervención de plataforma si coincide el RUC y el correo pertenece a un **company_admin** existente con correo confirmado. Los conflictos requieren revisión, sin permitir apropiación entre empresas.
+- La versión QA no debe habilitarse contra el Worker de producción ni mezclarse con Supabase de producción. No hay actualizaciones automáticas hasta publicar una GitHub Release oficial verificada.

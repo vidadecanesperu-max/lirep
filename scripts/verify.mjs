@@ -77,6 +77,7 @@ for (const [name, passed] of [
   ['WordPress automatic security opt-in', plugin.includes('lirep_auto_security_updates') && plugin.includes('lirep_security')],
   ['WordPress 1.7.1 header', plugin.includes('* Version: 1.7.1')],
   ['WordPress self-service wizard', plugin.includes("includes/onboarding.php") && wizard.includes('lirep_onboarding_challenge')],
+  ['WordPress onboarding readiness gate', wizard.includes('lirep_onboarding_is_ready') && wizard.includes('Servicio de activación en preparación')],
   ['WordPress no service-role secrets', !wizard.includes('SUPABASE_SERVICE_ROLE_KEY')],
   ['Worker onboarding disabled by default', workerConfig.vars?.LIREP_SELF_ONBOARDING === 'false' && onboarding.includes('ONBOARDING_NOT_ENABLED')],
   ['Worker email after domain proof', onboarding.indexOf('lirep_onboarding_verify_domain') < onboarding.indexOf('lirep_onboarding_set_email_token')],
