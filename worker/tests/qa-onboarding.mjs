@@ -94,7 +94,7 @@ await qa("Invalid domain blocked before database", async () => {
   assert.equal(rpcCount, n);
 });
 let session;
-await qa("Registration generates random secrets and sends verification email", async () => {
+await qa("Registration generates secrets without sending email before proof", async () => {
   const r = await handleOnboarding(req("start", {
     domain: "demo.example.com",
     challenge_url: "https://demo.example.com/wp-json/lirep/v1/challenge",
