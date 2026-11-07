@@ -28,6 +28,27 @@ function lirep_onboarding_register_rest() {
 }
 add_action('rest_api_init', 'lirep_onboarding_register_rest');
 
+/**
+ * Fail closed until the official backend explicitly advertises onboarding readiness.
+ * This prevents collecting company data when the service is not operational.
+ */
+function lirep_onboarding_is_ready() {
+    $cache = get_transient('lirep_onboarding_ready_v171');
+    if ('yes' === $cache) { return true; }
+    if ('no' === $cache) { return false; }
+    $response = wp_safe_remote_get(LIREP_PROD_BASE . '/api/v1/onboarding/capabilities', array(
+        'timeout' => 7, 'redirection' => 0, 'limit_response_size' => 1024,
+        'headers' => array('Accept' => 'application/json'),
+    ));
+    $ready = false;
+    if (!is_wp_error($response) && 200 === (int) wp_remote_retrieve_response_code($response)) {
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        $ready = is_array($data) && !empty($data['ok']) && true === ($data['enabled'] ?? false);
+    }
+    set_transient('lirep_onboarding_ready_v171', $ready ? 'yes' : 'no', 5 * MINUTE_IN_SECONDS);
+    return $ready;
+}
+
 function lirep_onboarding_call($route, $payload) {
     $allowed = array('start', 'status', 'verify-domain', 'cancel');
     if (!in_array($route, $allowed, true)) {
@@ -60,6 +81,9 @@ function lirep_onboarding_ajax() {
     if (!is_array($state)) { $state = array(); }
 
     if ('start' === $action) {
+        if (!lirep_onboarding_is_ready()) {
+            wp_send_json_error(array('message' => 'El registro autónomo de LIREP todavía no está habilitado. Inténtalo cuando el servicio esté disponible.'), 503);
+        }
         if (lirep_valid_prefix(get_option('lirep_public_prefix', ''))) {
             wp_send_json_error(array('message' => 'Esta instalación ya está vinculada a LIREP.'), 409);
         }
@@ -157,6 +181,7 @@ function lirep_onboarding_page() {
     $pending = !$prefix && is_array($state) && !empty($state['id']);
     $domain = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
     $privacy = get_privacy_policy_url();
+    $ready = $prefix || $pending ? true : lirep_onboarding_is_ready();
     ?>
     <div class="wrap lirep-setup">
       <div class="lirep-setup-head">
@@ -185,6 +210,12 @@ function lirep_onboarding_page() {
           </div>
           <p id="lirep-progress" role="status">Pendiente de verificación de dominio.</p>
         </section>
+      <?php elseif (!$ready) : ?>
+        <section class="lirep-panel">
+          <h2>Servicio de activación en preparación</h2>
+          <p>El plugin está instalado correctamente, pero el registro autónomo todavía no está habilitado en LIREP. No necesitas introducir datos de tu empresa por ahora.</p>
+          <p>Esta pantalla habilitará el formulario automáticamente cuando el servicio oficial esté disponible.</p>
+        </section>
       <?php else : ?>
         <section class="lirep-panel">
           <h2>Registrar mi empresa</h2>
@@ -204,7 +235,7 @@ function lirep_onboarding_page() {
             </div>
             <label class="lirep-consent"><input name="consent" type="checkbox" value="1" required>
               Declaro que tengo autorización para registrar esta empresa y administrar este dominio.</label>
-            <button type="submit" class="button button-primary button-hero">Registrar y enviar verificación</button>
+            <button type="submit" class="button button-primary button-hero">Iniciar registro seguro</button>
           </form>
         </section>
       <?php endif; ?>
