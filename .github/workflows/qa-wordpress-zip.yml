@@ -25,17 +25,29 @@ jobs:
           php -l wordpress/lirep/includes/onboarding.php
           node --check wordpress/lirep/assets/js/lirep-onboarding.js
           php wordpress/tests/qa-plugin.php
-      - name: Build and verify QA archive
+      - name: Prepare WordPress-installable artifact (NO NESTED ZIP)
         run: |
           set -euo pipefail
-          mkdir -p dist
-          (cd wordpress && zip -X -r ../dist/lirep-1.7.0-QA.zip lirep -x '*.DS_Store' '*/__MACOSX/*')
-          unzip -t dist/lirep-1.7.0-QA.zip
-          unzip -Z1 dist/lirep-1.7.0-QA.zip | grep -Fx 'lirep/lirep.php'
-          sha256sum dist/lirep-1.7.0-QA.zip > dist/lirep-1.7.0-QA.zip.sha256
-          test "$(stat -c%s dist/lirep-1.7.0-QA.zip)" -lt 2097152
+          mkdir -p dist/installable
+          cp -a wordpress/lirep dist/installable/lirep
+          test -f dist/installable/lirep/lirep.php
+          test -f dist/installable/lirep/includes/onboarding.php
+          test -f dist/installable/lirep/assets/js/lirep-onboarding.js
+          # The artifact download itself is the WordPress ZIP:
+          # root = lirep/, plugin main = lirep/lirep.php.
+          # Never upload an inner .zip, checksum or extra wrapper.
+          (cd dist/installable && zip -q -r ../preflight.zip lirep)
+          unzip -t dist/preflight.zip
+          unzip -Z1 dist/preflight.zip | grep -Fx 'lirep/lirep.php'
+          if unzip -Z1 dist/preflight.zip | grep -Eq '(^[^/]+\.zip$|^dist/|^wordpress/)'; then
+            echo 'FAIL: Unexpected wrapper or nested archive'; exit 1
+          fi
+          test "$(stat -c%s dist/preflight.zip)" -lt 2097152
+          sha256sum dist/preflight.zip
+          echo 'PASS: The downloaded GitHub artifact ZIP can be uploaded directly to WordPress.'
       - uses: actions/upload-artifact@v4
         with:
-          name: lirep-wordpress-1.7.0-QA
-          path: dist/*
+          name: LIREP-1.7.0-QA-INSTALABLE-NO-PRODUCCION
+          path: dist/installable/
+          if-no-files-found: error
           retention-days: 30
