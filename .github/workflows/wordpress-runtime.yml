@@ -60,6 +60,26 @@ jobs:
             $proof = lirep_onboarding_challenge();
             if (!($proof instanceof WP_REST_Response) || $proof->get_data()["challenge"] !== str_repeat("a",64)) { throw new Exception("CHALLENGE_RESPONSE_INVALID"); }
             delete_option("lirep_onboarding_state");
+            update_option("lirep_public_prefix", "");
+            wp_set_current_user(1);
+            $GLOBALS["lirep_mock_ready"] = false;
+            add_filter("pre_http_request", function($pre, $args, $url) {
+              if (strpos($url, "/api/v1/onboarding/capabilities") === false) return $pre;
+              return ["headers" => ["content-type" => "application/json"],
+                "body" => wp_json_encode(["ok" => true, "enabled" => $GLOBALS["lirep_mock_ready"]]),
+                "response" => ["code" => 200, "message" => "OK"],
+                "cookies" => []];
+            }, 10, 3);
+            delete_transient("lirep_onboarding_ready_v171");
+            if (lirep_onboarding_is_ready()) { throw new Exception("DISABLED_ONBOARDING_SHOULD_FAIL_CLOSED"); }
+            ob_start(); lirep_onboarding_page(); $disabledPage = ob_get_clean();
+            if (strpos($disabledPage, "Servicio de activación en preparación") === false ||
+                strpos($disabledPage, "lirep-start-form") !== false) { throw new Exception("DISABLED_WIZARD_VISIBLE"); }
+            $GLOBALS["lirep_mock_ready"] = true;
+            delete_transient("lirep_onboarding_ready_v171");
+            if (!lirep_onboarding_is_ready()) { throw new Exception("READY_BACKEND_REJECTED"); }
+            ob_start(); lirep_onboarding_page(); $readyPage = ob_get_clean();
+            if (strpos($readyPage, "lirep-start-form") === false) { throw new Exception("READY_WIZARD_HIDDEN"); }
             echo "PASS | WordPress " . get_bloginfo("version") . " + Elementor Free + LIREP shortcode\n";
           '
       - name: Stop test environment
