@@ -1,0 +1,22 @@
+.lirep-setup{max-width:1120px;margin:24px auto 64px;color:#17243a}
+.lirep-setup-head{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:28px 32px;background:#14253e;color:#fff;border-radius:16px;margin-bottom:20px}
+.lirep-setup-head h1{font-size:29px;color:#fff;margin:6px 0 10px;font-weight:750}
+.lirep-setup-head p{margin:0;color:#d8e5f5}
+.lirep-setup .lirep-kicker{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#9ec3ef}
+.lirep-state{border-radius:999px;background:#eef6ff;color:#14395e;padding:9px 14px;font-weight:700;white-space:nowrap}
+.lirep-panel{background:#fff;border:1px solid #e0e6ef;border-radius:16px;padding:28px 32px;margin:18px 0;box-shadow:0 4px 20px rgba(20,37,62,.04)}
+.lirep-panel h2{font-size:21px;margin:0 0 12px}.lirep-panel p{line-height:1.65}
+.lirep-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;margin:24px 0}
+.lirep-form-grid label{display:flex;flex-direction:column;gap:7px;font-weight:600}
+.lirep-form-grid input{min-height:42px;width:100%;max-width:none;border:1px solid #b9c8dc;border-radius:8px;padding:8px 12px}
+.lirep-form-grid input:focus{border-color:#235ac2;box-shadow:0 0 0 2px rgba(35,90,194,.13)}
+.lirep-consent{display:flex;align-items:flex-start;gap:9px;margin:20px 0;font-weight:500}
+.lirep-actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+.lirep-setup .button-primary{background:#14253e;border-color:#14253e}
+.lirep-setup .button-primary:hover{background:#25456c;border-color:#25456c}
+.lirep-dialog[hidden]{display:none!important}
+.lirep-dialog{position:fixed;inset:0;z-index:100000;background:rgba(11,22,39,.68);display:flex;align-items:center;justify-content:center;padding:18px}
+.lirep-dialog-card{width:min(100%,480px);background:#fff;padding:32px;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.22)}
+.lirep-dialog-card h2{font-size:22px;margin:0 0 14px}
+.lirep-dialog-card p{line-height:1.6;overflow-wrap:anywhere}
+@media(max-width:782px){.lirep-setup{margin:12px 10px}.lirep-setup-head{padding:20px;align-items:flex-start;flex-direction:column}.lirep-panel{padding:20px}.lirep-form-grid{grid-template-columns:1fr}.lirep-actions .button{width:100%;text-align:center}}
