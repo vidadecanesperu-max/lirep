@@ -34,6 +34,11 @@ jobs:
           set -euo pipefail
           npm run verify
           php -l wordpress/lirep/lirep.php
+          php -l wordpress/lirep/includes/onboarding.php
+          node --check worker/src/index.js
+          node --check worker/src/onboarding.js
+          node --check wordpress/lirep/assets/js/lirep-onboarding.js
+          node worker/tests/qa-onboarding.mjs
           php wordpress/tests/qa-plugin.php
           node --check wordpress/lirep/assets/js/lirep-embed.js
           node wordpress/tests/qa-embed.mjs
