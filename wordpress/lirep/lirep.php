@@ -167,6 +167,11 @@ function lirep_enqueue_assets() {
     wp_enqueue_script('lirep-embed', plugins_url('assets/js/lirep-embed.js', __FILE__), array(), LIREP_VERSION, true);
 }
 
+// Elementor can render shortcodes asynchronously in its editor; preload tiny local assets.
+add_action('wp_enqueue_scripts', 'lirep_enqueue_assets');
+add_action('elementor/preview/enqueue_scripts', 'lirep_enqueue_assets');
+add_action('elementor/editor/after_enqueue_scripts', 'lirep_enqueue_assets');
+
 function lirep_shortcode($atts = array()) {
     $atts = shortcode_atts(array('entorno' => 'produccion'), $atts, 'lirep');
     $environment = strtolower(trim((string) $atts['entorno']));

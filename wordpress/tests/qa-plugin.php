@@ -59,6 +59,8 @@ function qa($condition, $name) {
     echo "PASS | {$name}\n";
 }
 qa(isset($GLOBALS['shortcodes']['lirep']), 'Shortcode registered');
+qa(in_array('lirep_enqueue_assets', $GLOBALS['filters']['wp_enqueue_scripts'], true), 'Frontend assets preloaded');
+qa(in_array('lirep_enqueue_assets', $GLOBALS['filters']['elementor/preview/enqueue_scripts'], true), 'Elementor preview assets preloaded');
 qa(lirep_valid_prefix(' vidacane ') === 'VIDACANE', 'Tenant normalized');
 qa(lirep_valid_prefix('VIDACAN1') === 'VIDACAN1', '8-character prefix');
 qa(lirep_valid_prefix('VIDACANE<script>') === '', 'Injection rejected');
