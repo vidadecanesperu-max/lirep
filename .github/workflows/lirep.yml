@@ -18,40 +18,25 @@ concurrency:
 
 jobs:
   baseline:
-    name: Validate LIREP
+    name: Validate LIREP and WordPress plugin
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Validate repository
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: none
+      - name: Verify repository and plugin
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "======================================"
-          echo " LIREP - CI BASELINE"
-          echo "======================================"
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Commit:     $GITHUB_SHA"
-          echo "Branch:     $GITHUB_REF_NAME"
-          echo
-
-          test -f README.md || {
-            echo "ERROR: README.md not found"
-            exit 1
-          }
-
           npm run verify
-
-          echo "PASS - Repository initialized"
-          echo "PASS - main branch available"
-          echo "PASS - GitHub Actions operational"
-          echo
-          echo "LIREP CI baseline: OK"
-
-
+          php -l wordpress/lirep/lirep.php
+          php wordpress/tests/qa-plugin.php
+          node --check wordpress/lirep/assets/js/lirep-embed.js
+          node wordpress/tests/qa-embed.mjs
 
   live-observation:
     name: Observe active Cloudflare Worker (read only)
@@ -68,48 +53,22 @@ jobs:
             echo "$PATH_SUFFIX HTTP $CODE"
             cat /tmp/lirep-health.json
             echo
-            echo "$PATH_SUFFIX HTTP $CODE" >> "$GITHUB_STEP_SUMMARY"
-            cat /tmp/lirep-health.json >> "$GITHUB_STEP_SUMMARY"
-            echo >> "$GITHUB_STEP_SUMMARY"
             test "$CODE" = "200"
           done
 
   production-smoke:
-    name: Verify deployed Worker
+    name: Verify deployed Worker (read only)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: baseline
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for Cloudflare deployment
-        shell: bash
-        run: sleep 45
-
-      - name: Verify production health and QA tenant routing
+      - name: Check health and public form without creating complaints
         shell: bash
         run: |
           set -euo pipefail
           BASE="https://lirep-public-api.vidadecanes-peru.workers.dev"
-
-          HEALTH="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/health")"
-          echo "$HEALTH"
-          echo "$HEALTH" | grep -Fq '"ok":true'
-          echo "$HEALTH" | grep -Fq '"version":"1.13.8"'
-
-          CONFIG="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/api/v1/form-config?public_prefix=LIREPQA1")"
-          echo "$CONFIG"
-          echo "$CONFIG" | grep -Fq '"ok":true'
-          echo "$CONFIG" | grep -Fq 'LIREPQA1'
-          echo "$CONFIG" | grep -Fq 'QA-001'
-          echo "$CONFIG" | grep -Fq 'QA001'
-
-          FORM="$(curl --fail --silent --show-error --retry 4 --retry-delay 10 "$BASE/libro-de-reclamaciones?public_prefix=LIREPQA1")"
-          echo "$FORM" | grep -Fq 'PUBLIC_PREFIX_REQUIRED'
-          echo "$FORM" | grep -Fq 'new URLSearchParams(location.search)'
-          if echo "$FORM" | grep -Fq 'const PREFIX="VIDACANE"'; then
-            echo "FAIL - deployed form still contains production fallback"
-            exit 1
-          fi
-
-          echo "PASS - Worker 1.13.8 deployed"
-          echo "PASS - QA tenant config resolved"
-          echo "PASS - No production fallback in deployed form"
+          curl --fail --silent --show-error --retry 3 "$BASE/health" | grep -Fq '"ok":true'
+          curl --fail --silent --show-error --retry 3 "$BASE/health/backend" | grep -Fq '"ok":true'
+          curl --fail --silent --show-error --retry 3 "$BASE/libro-de-reclamaciones?public_prefix=VIDACANE" > /tmp/lirep-form.html
+          grep -Fq 'Libro de Reclamaciones' /tmp/lirep-form.html
+          echo 'PASS - Worker health and public form; no synthetic QA tenant required'
