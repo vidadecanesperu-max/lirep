@@ -203,13 +203,28 @@ export async function handleOnboarding(request, env) {
         p_email_hash: await sha256(emailToken), p_challenge_hash: await sha256(challenge),
       });
       const verifyUrl = url.origin + BASE_PATH + "verify-email?token=" + emailToken;
+      try {
       await sendEmail(env, String(input.contact_email).trim().toLowerCase(),
         "Verifica tu correo para activar LIREP",
         "<h2>Confirma tu correo para activar LIREP</h2><p>Dominio: " + escapeHtml(domain) +
         '</p><p><a href="' + escapeHtml(verifyUrl) +
         '">Verificar correo</a></p><p>El enlace caduca en 24 horas.</p>');
+      } catch (error) {
+        await rpc(env, "lirep_onboarding_cancel", {
+          p_id: created.id, p_status_hash: await sha256(statusToken),
+        }).catch(() => {});
+        throw error;
+      }
       return json({ ok: true, id: created.id, status_token: statusToken, challenge,
         expires_in_seconds: created.expires_in_seconds }, 201);
+    }
+    if (route === "cancel") {
+      const state = await status(env, input.id, input.status_token);
+      if (state.state !== "pending") throw new Error("NOT_VERIFIED");
+      const canceled = await rpc(env, "lirep_onboarding_cancel", {
+        p_id: input.id, p_status_hash: await sha256(input.status_token),
+      });
+      return json({ ok: canceled === true });
     }
     if (route === "status") {
       const state = await status(env, input.id, input.status_token);
