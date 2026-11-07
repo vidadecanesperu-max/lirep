@@ -9,6 +9,7 @@ const env = {
   SUPABASE_SERVICE_ROLE_KEY: "qa-secret-never-exposed",
   RESEND_API_KEY: "qa-email-key",
   LIREP_APPROVED_FROM_EMAIL: "lirep@mail.vidadecanes.pe",
+  LIREP_ADMIN_URL: "https://lirep-admin-360.pages.dev/",
   ONBOARD_RATE_LIMITER: { limit: async () => ({ success: true }) },
 };
 let pass = 0;
