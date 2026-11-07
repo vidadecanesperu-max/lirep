@@ -113,15 +113,20 @@ function emailHtml(body) {
     '</main></body></html>';
 }
 
-function verifyPage(success) {
-  const body = success
-    ? "<h1>Correo verificado</h1><p>Regresa a Ajustes → LIREP en tu WordPress y pulsa «Comprobar estado».</p>"
-    : "<h1>Enlace no válido o caducado</h1><p>Solicita un nuevo enlace desde el asistente de LIREP.</p>";
+function verifyPage(success, confirmToken = null) {
+  const body = confirmToken
+    ? '<h1>Confirma tu correo</h1><p>Para completar la verificación, pulsa el botón.</p>' +
+      '<form method="post" action="/api/v1/onboarding/verify-email">' +
+      '<input type="hidden" name="token" value="' + escapeHtml(confirmToken) + '">' +
+      '<button type="submit">Confirmar correo</button></form>'
+    : success
+      ? "<h1>Correo verificado</h1><p>Regresa a Ajustes → LIREP en tu WordPress y pulsa «Comprobar estado».</p>"
+      : "<h1>Enlace no válido o caducado</h1><p>Solicita un nuevo enlace desde el asistente de LIREP.</p>";
   return new Response(emailHtml(body), {
-    status: success ? 200 : 410,
+    status: confirmToken || success ? 200 : 410,
     headers: { "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store", "referrer-policy": "no-referrer",
-      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
       "x-content-type-options": "nosniff" },
   });
 }
@@ -165,13 +170,7 @@ export async function handleOnboarding(request, env) {
   const route = url.pathname.slice(BASE_PATH.length);
   if (route === "verify-email" && request.method === "GET") {
     const token = url.searchParams.get("token") || "";
-    if (!/^[a-f0-9]{64}$/.test(token)) return verifyPage(false);
-    try {
-      const valid = await rpc(env, "lirep_onboarding_verify_email", {
-        p_email_hash: await sha256(token),
-      });
-      return verifyPage(valid === true);
-    } catch { return verifyPage(false); }
+    return /^[a-f0-9]{64}$/.test(token) ? verifyPage(null, token) : verifyPage(false);
   }
   if (request.method !== "POST") return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
@@ -179,6 +178,19 @@ export async function handleOnboarding(request, env) {
   if (!limit.success) return json({ ok: false, error: "RATE_LIMITED" }, 429);
   if (Number(request.headers.get("content-length") || 0) > 8192) {
     return json({ ok: false, error: "PAYLOAD_TOO_LARGE" }, 413);
+  }
+  if (route === "verify-email") {
+    const type = String(request.headers.get("content-type") || "");
+    if (!type.startsWith("application/x-www-form-urlencoded")) return verifyPage(false);
+    try {
+      const form = await request.formData();
+      const token = String(form.get("token") || "");
+      if (!/^[a-f0-9]{64}$/.test(token)) return verifyPage(false);
+      const valid = await rpc(env, "lirep_onboarding_verify_email", {
+        p_email_hash: await sha256(token),
+      });
+      return verifyPage(valid === true);
+    } catch { return verifyPage(false); }
   }
   let input;
   try { input = await request.json(); } catch { return json({ ok: false, error: "INVALID_JSON" }, 400); }
