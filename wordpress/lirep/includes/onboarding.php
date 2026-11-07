@@ -139,8 +139,8 @@ add_action('wp_ajax_lirep_onboarding', 'lirep_onboarding_ajax');
 
 function lirep_onboarding_assets($hook) {
     if ('settings_page_lirep' !== $hook) { return; }
-    wp_enqueue_style('lirep-onboarding', plugins_url('../assets/css/lirep-onboarding.css', __FILE__), array(), LIREP_VERSION);
-    wp_enqueue_script('lirep-onboarding', plugins_url('../assets/js/lirep-onboarding.js', __FILE__), array(), LIREP_VERSION, true);
+    wp_enqueue_style('lirep-onboarding', plugins_url('assets/css/lirep-onboarding.css', dirname(__DIR__) . '/lirep.php'), array(), LIREP_VERSION);
+    wp_enqueue_script('lirep-onboarding', plugins_url('assets/js/lirep-onboarding.js', dirname(__DIR__) . '/lirep.php'), array(), LIREP_VERSION, true);
     wp_localize_script('lirep-onboarding', 'LIREP_SETUP', array(
         'ajax' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('lirep_onboarding_v170'),
