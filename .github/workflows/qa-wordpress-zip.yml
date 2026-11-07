@@ -1,0 +1,37 @@
+name: LIREP WordPress QA ZIP (no release)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'wordpress/**'
+      - '.github/workflows/qa-wordpress-zip.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa-zip:
+    name: Build isolated WordPress QA package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP and JavaScript
+        run: |
+          set -euo pipefail
+          php -l wordpress/lirep/lirep.php
+          php -l wordpress/lirep/includes/onboarding.php
+          node --check wordpress/lirep/assets/js/lirep-onboarding.js
+          php wordpress/tests/qa-plugin.php
+      - name: Build and verify QA archive
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          (cd wordpress && zip -X -r ../dist/lirep-1.7.0-QA.zip lirep -x '*.DS_Store' '*/__MACOSX/*')
+          unzip -t dist/lirep-1.7.0-QA.zip
+          unzip -Z1 dist/lirep-1.7.0-QA.zip | grep -Fx 'lirep/lirep.php'
+          sha256sum dist/lirep-1.7.0-QA.zip > dist/lirep-1.7.0-QA.zip.sha256
+          test "$(stat -c%s dist/lirep-1.7.0-QA.zip)" -lt 2097152
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lirep-wordpress-1.7.0-QA
+          path: dist/*
+          retention-days: 30
