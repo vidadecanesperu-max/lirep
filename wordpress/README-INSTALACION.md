@@ -1,4 +1,4 @@
-# LIREP WordPress 1.6.0 — Instalación y mantenimiento
+# LIREP WordPress 1.7.0 — Instalación y mantenimiento
 
 **Paquete:** `lirep.zip`, con carpeta raíz `lirep/`. Se puede instalar en WordPress moderno sin Elementor Pro.
 
@@ -39,3 +39,8 @@
 ## Límites de la validación
 
 El plugin se ha preparado con validación sintáctica y pruebas automatizadas aisladas. **La compatibilidad visual y el registro de reclamaciones en una instalación WordPress/Elementor real todavía requieren un E2E de staging**. El backend no se despliega ni se altera al instalar el ZIP.
+
+
+## Nuevo asistente 1.7.0
+
+El administrador abre Ajustes → LIREP, introduce RUC, razón social, dirección, correo y política de privacidad. Verifica el correo, pulsa «Comprobar estado» y «Verificar dominio y activar». El prefijo se asigna automáticamente y se publica mediante `[lirep]`. Los clientes no necesitan solicitar un alta manual. **Este circuito requiere que la migración 1.7.0 y el Worker 1.7.0 estén desplegados y que LIREP_SELF_ONBOARDING=true tras QA**; sin ello el asistente falla cerrado.
