@@ -67,7 +67,7 @@ BEGIN
   VALUES (v_domain,v_ruc,v_legal,v_trade,v_email,v_address,v_district,v_province,v_department,
           v_privacy,p_status_hash,p_email_hash,p_challenge_hash)
   RETURNING id INTO v_id;
-  RETURN jsonb_build_object('id',v_id,'expires_in_seconds',86400);
+  RETURN jsonb_build_object('id',v_id,'expires_in_seconds',900);
 EXCEPTION WHEN unique_violation THEN
   RAISE EXCEPTION 'LIREP_ONBOARDING_REVIEW_REQUIRED';
 END;
