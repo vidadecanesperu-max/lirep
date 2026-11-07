@@ -21,13 +21,4 @@ ALTER TABLE public.lirep_onboarding_requests
   ALTER COLUMN expires_at SET DEFAULT (now() + interval '15 minutes');
 
 -- Existing unverified requests remain untouched; no customer data changed.
-CREATE OR REPLACE FUNCTION public.lirep_onboarding_reservation_window(p_id uuid,p_status_hash text)
-RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path=''
-AS $$
-  SELECT greatest(0,extract(epoch FROM (expires_at-now()))::integer)
-  FROM public.lirep_onboarding_requests
-  WHERE id=p_id AND status_hash=p_status_hash;
-$$;
-REVOKE ALL ON FUNCTION public.lirep_onboarding_reservation_window(uuid,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.lirep_onboarding_reservation_window(uuid,text) TO service_role;
 COMMIT;
