@@ -6,6 +6,10 @@ on:
       - 'wordpress/**'
       - '.github/workflows/qa-wordpress-zip.yml'
   workflow_dispatch:
+concurrency:
+  group: lirep-wp-qa-zip-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
