@@ -202,19 +202,6 @@ export async function handleOnboarding(request, env) {
         p_payload: payload, p_status_hash: await sha256(statusToken),
         p_email_hash: await sha256(emailToken), p_challenge_hash: await sha256(challenge),
       });
-      const verifyUrl = url.origin + BASE_PATH + "verify-email?token=" + emailToken;
-      try {
-      await sendEmail(env, String(input.contact_email).trim().toLowerCase(),
-        "Verifica tu correo para activar LIREP",
-        "<h2>Confirma tu correo para activar LIREP</h2><p>Dominio: " + escapeHtml(domain) +
-        '</p><p><a href="' + escapeHtml(verifyUrl) +
-        '">Verificar correo</a></p><p>El enlace caduca en 24 horas.</p>');
-      } catch (error) {
-        await rpc(env, "lirep_onboarding_cancel", {
-          p_id: created.id, p_status_hash: await sha256(statusToken),
-        }).catch(() => {});
-        throw error;
-      }
       return json({ ok: true, id: created.id, status_token: statusToken, challenge,
         expires_in_seconds: created.expires_in_seconds }, 201);
     }
@@ -233,7 +220,6 @@ export async function handleOnboarding(request, env) {
     if (route === "verify-domain") {
       const state = await status(env, input.id, input.status_token);
       if (state.state === "expired") throw new Error("EXPIRED");
-      if (!state.email_verified) throw new Error("EMAIL_NOT_VERIFIED");
       if (state.state === "pending") {
         if (!validDomain(state.domain) || !validChallengeUrl(input.challenge_url, state.domain)) {
           throw new Error("INVALID_DOMAIN");
@@ -257,6 +243,20 @@ export async function handleOnboarding(request, env) {
         if (!valid) throw new Error("DOMAIN_CHALLENGE_FAILED");
       }
       const fresh = await status(env, input.id, input.status_token);
+      if (!fresh.email_verified) {
+        const emailToken = hexToken();
+        const rotated = await rpc(env, "lirep_onboarding_set_email_token", {
+          p_id: input.id, p_status_hash: await sha256(input.status_token),
+          p_email_hash: await sha256(emailToken),
+        });
+        if (!rotated) throw new Error("EMAIL_RATE_LIMITED");
+        const verifyUrl = url.origin + BASE_PATH + "verify-email?token=" + emailToken;
+        await sendEmail(env, fresh.contact_email, "Verifica tu correo para activar LIREP",
+          "<h2>Confirma tu correo para activar LIREP</h2><p>Dominio verificado: " +
+          escapeHtml(fresh.domain) + '</p><p><a href="' + escapeHtml(verifyUrl) +
+          '">Verificar correo</a></p><p>El enlace caduca en 24 horas.</p>');
+        return json({ ok: true, state: fresh, notice: "EMAIL_SENT" });
+      }
       const activated = await deliverInvite(env, input.id, input.status_token, fresh);
       return json({ ok: true, state: activated });
     }
@@ -264,10 +264,10 @@ export async function handleOnboarding(request, env) {
   } catch (e) {
     const reason = String(e?.message || "SERVICE_UNAVAILABLE");
     const publicErrors = ["INVALID_DOMAIN","INVALID_INPUT","REVIEW_REQUIRED","INVALID_TOKEN",
-      "EMAIL_NOT_VERIFIED","EXPIRED","DOMAIN_CHALLENGE_FAILED","NOT_VERIFIED"];
+      "EMAIL_NOT_VERIFIED","EMAIL_RATE_LIMITED","EXPIRED","DOMAIN_CHALLENGE_FAILED","NOT_VERIFIED"];
     const safe = publicErrors.includes(reason) ? reason : "SERVICE_UNAVAILABLE";
     const code = safe === "REVIEW_REQUIRED" ? 409 :
-      safe === "INVALID_TOKEN" ? 403 : safe === "EMAIL_NOT_VERIFIED" ? 409 :
+      safe === "INVALID_TOKEN" ? 403 : safe === "EMAIL_RATE_LIMITED" ? 429 : safe === "EMAIL_NOT_VERIFIED" ? 409 :
       safe === "EXPIRED" ? 410 : safe === "SERVICE_UNAVAILABLE" ? 503 : 400;
     return json({ ok: false, error: safe }, code);
   }
