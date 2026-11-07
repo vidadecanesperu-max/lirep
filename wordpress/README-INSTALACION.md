@@ -43,4 +43,4 @@ El plugin se ha preparado con validación sintáctica y pruebas automatizadas ai
 
 ## Nuevo asistente 1.7.0
 
-El administrador abre Ajustes → LIREP, introduce RUC, razón social, dirección, correo y política de privacidad. Verifica el correo, pulsa «Comprobar estado» y «Verificar dominio y activar». El prefijo se asigna automáticamente y se publica mediante `[lirep]`. Los clientes no necesitan solicitar un alta manual. **Este circuito requiere que la migración 1.7.0 y el Worker 1.7.0 estén desplegados y que LIREP_SELF_ONBOARDING=true tras QA**; sin ello el asistente falla cerrado.
+El administrador abre Ajustes → LIREP, introduce RUC, razón social, dirección, correo y política de privacidad. Verifica primero el dominio, confirma el correo recibido y vuelve a pulsar «Verificar dominio y continuar». El prefijo se asigna automáticamente y se publica mediante `[lirep]`. Los clientes no necesitan solicitar un alta manual. **Este circuito requiere que la migración 1.7.0 y el Worker 1.7.0 estén desplegados y que LIREP_SELF_ONBOARDING=true tras QA**; sin ello el asistente falla cerrado.
