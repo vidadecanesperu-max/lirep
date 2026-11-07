@@ -75,6 +75,8 @@ function escapeHtml(s) {
 
 async function authInvite(env, email) {
   const url = env.SUPABASE_URL.replace(/\/$/, "") + "/auth/v1/admin/generate_link";
+  const adminUrl = String(env.LIREP_ADMIN_URL || "");
+  if (!/^https:\/\/[a-z0-9.-]+\/$/i.test(adminUrl)) throw new Error("AUTH_INVITE_UNAVAILABLE");
   async function generate(type) {
     const r = await fetch(url, {
       method: "POST",
@@ -82,7 +84,7 @@ async function authInvite(env, email) {
         authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
         "content-type": "application/json" },
       body: JSON.stringify({
-        type, email, redirect_to: "https://lirep-admin-360.pages.dev/",
+        type, email, redirect_to: adminUrl,
       }),
       signal: AbortSignal.timeout(15000),
     });
