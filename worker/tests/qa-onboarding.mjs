@@ -36,6 +36,7 @@ globalThis.fetch = async (input, options = {}) => {
     });
     if (name === "lirep_onboarding_status") return reply(statusValue);
     if (name === "lirep_onboarding_verify_email") return reply(true);
+    if (name === "lirep_onboarding_set_email_token") return reply(true);
     if (name === "lirep_onboarding_verify_domain") {
       statusValue = { ...statusValue, domain_verified: true };
       return reply(true);
@@ -108,14 +109,8 @@ await qa("Registration generates random secrets and sends verification email", a
   assert.match(session.challenge, /^[a-f0-9]{64}$/);
   assert.match(session.status_token, /^[a-f0-9]{64}$/);
   assert.notEqual(session.challenge, session.status_token);
-  assert.equal(mailCount, 1);
+  assert.equal(mailCount, 0, "No email before domain proof");
   challenge = session.challenge;
-});
-await qa("Email link verifies once through dedicated RPC", async () => {
-  const r = await handleOnboarding(new Request(base + "/api/v1/onboarding/verify-email?token=" + "f".repeat(64)), env);
-  assert.equal(r.status, 200);
-  assert.match(await r.text(), /Correo verificado/);
-  statusValue = { ...statusValue, email_verified: true };
 });
 await qa("Status uses secret token and returns no service key", async () => {
   const r = await handleOnboarding(req("status", { id: session.id, status_token: session.status_token }), env);
@@ -131,7 +126,25 @@ await qa("Domain challenge cannot be redirected to unrelated host", async () => 
   assert.equal(r.status, 400);
   assert.equal(domainFetched, n);
 });
-await qa("Domain verification provisions tenant and sends Auth invitation", async () => {
+await qa("Verified domain sends email, without provisioning yet", async () => {
+  const r = await handleOnboarding(req("verify-domain", {
+    id: session.id, status_token: session.status_token,
+    challenge_url: "https://demo.example.com/wp-json/lirep/v1/challenge",
+  }), env);
+  assert.equal(r.status, 200);
+  const result = await r.json();
+  assert.equal(result.notice, "EMAIL_SENT");
+  assert.equal(result.state.state, "pending");
+  assert.equal(domainFetched, 1);
+  assert.equal(mailCount, 1);
+});
+await qa("Email link verifies after domain challenge", async () => {
+  const r = await handleOnboarding(new Request(base + "/api/v1/onboarding/verify-email?token=" + "f".repeat(64)), env);
+  assert.equal(r.status, 200);
+  assert.match(await r.text(), /Correo verificado/);
+  statusValue = { ...statusValue, email_verified: true };
+});
+await qa("Verified email provisions tenant and sends Auth invitation", async () => {
   const r = await handleOnboarding(req("verify-domain", {
     id: session.id, status_token: session.status_token,
     challenge_url: "https://demo.example.com/wp-json/lirep/v1/challenge",
@@ -140,7 +153,7 @@ await qa("Domain verification provisions tenant and sends Auth invitation", asyn
   const result = await r.json();
   assert.equal(result.state.public_prefix, "ABC12345");
   assert.equal(result.state.invitation_sent, true);
-  assert.equal(domainFetched, 1);
+  assert.equal(domainFetched, 1, "Domain not fetched again after proof");
   assert.equal(mailCount, 2);
 });
 await qa("Cancel only accepts a pending authenticated session", async () => {
