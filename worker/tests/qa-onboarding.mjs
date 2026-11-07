@@ -70,6 +70,19 @@ globalThis.fetch = async (input, options = {}) => {
   throw Error("Unexpected outbound fetch " + url);
 };
 
+await qa("Readiness disabled without activation flag", async () => {
+  const r = await handleOnboarding(new Request(base + "/api/v1/onboarding/capabilities"),
+    { ...env, LIREP_SELF_ONBOARDING: "false" });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, enabled: false, version: "1.7.1" });
+});
+await qa("Readiness enabled only with all backend dependencies", async () => {
+  const ready = await handleOnboarding(new Request(base + "/api/v1/onboarding/capabilities"), env);
+  assert.equal((await ready.json()).enabled, true);
+  const missing = await handleOnboarding(new Request(base + "/api/v1/onboarding/capabilities"),
+    { ...env, LIREP_ADMIN_URL: undefined });
+  assert.equal((await missing.json()).enabled, false);
+});
 await qa("Flag disabled by default blocks all onboarding", async () => {
   const r = await handleOnboarding(req("start", {}), { ...env, LIREP_SELF_ONBOARDING: "false" });
   assert.equal(r.status, 503);
