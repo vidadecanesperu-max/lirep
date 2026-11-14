@@ -148,6 +148,17 @@ function lirep_settings_page() {
         </table>
         <?php submit_button('Guardar configuración'); ?>
       </form>
+      <h2>Publicación automática</h2>
+      <?php $lirep_page = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page'); ?>
+      <?php if ($lirep_page && has_shortcode($lirep_page->post_content, 'lirep')) : ?>
+        <p>El libro ya está vinculado a la página pública:
+          <a href="<?php echo esc_url(get_permalink($lirep_page)); ?>" target="_blank" rel="noopener"><?php echo esc_html(get_permalink($lirep_page)); ?></a>.
+        </p>
+      <?php elseif (lirep_valid_prefix(get_option('lirep_public_prefix', ''))) : ?>
+        <p>La publicación se sincroniza automáticamente al guardar la configuración. Si existe una página manual con la misma dirección, no será sobrescrita.</p>
+      <?php else : ?>
+        <p>Ingresa el identificador público asignado por LIREP y guarda para habilitar la publicación automática.</p>
+      <?php endif; ?>
       <h2>Insertar en WordPress y Elementor</h2>
       <p>En cualquier página, entrada o widget Shortcode de Elementor Free/Pro utiliza <code>[lirep]</code>. Para una vista de QA exclusiva del administrador: <code>[lirep entorno="qa"]</code>.</p>
       <p>El sitio debe estar autorizado para la empresa en LIREP. El plugin no registra ni procesa reclamaciones dentro de WordPress.</p>
