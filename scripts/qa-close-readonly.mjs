@@ -31,7 +31,15 @@ try {
   check(fake.status!==200,'Receipt with invalid credentials not disclosed');
   const page=await get('/libro-de-reclamaciones?public_prefix='+encodeURIComponent(prefix)+'&embed=1');
   const html=await page.text();
-  check(page.status===200&&/ENERGESMOTO/i.test(html),'ENERGESMOTO tenant branding in public form');
+  // Company name is inserted by loadConfig() after the static HTML loads.
+  // Verify the tenant configuration and the client-side rendering contract separately.
+  const configResponse=await get('/api/v1/form-config?public_prefix='+encodeURIComponent(prefix));
+  const configBody=await configResponse.json();
+  const org=configBody?.config?.organization;
+  const companyName=String(org?.trade_name||org?.legal_name||'').trim();
+  check(configResponse.status===200&&configBody.ok===true&&Boolean(org),'Tenant configuration resolved for prefix');
+  check(companyName.length>0,'Tenant organization has a display name');
+  check(page.status===200&&/async function loadConfig\(\)/.test(html)&&/\/api\/v1\/form-config/.test(html),'Public HTML loads tenant identity dynamically');
   check(!/SUPABASE_SERVICE_ROLE_KEY|TURNSTILE_SECRET|RESEND_API_KEY/.test(html),'No server secret identifiers in public HTML');
   check(/<meta[^>]+viewport/i.test(html),'Responsive viewport present');
   console.log('READ ONLY | GET only; no complaint, email, or database write');
