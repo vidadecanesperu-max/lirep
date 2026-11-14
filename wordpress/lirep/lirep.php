@@ -213,7 +213,7 @@ function lirep_shortcode($atts = array()) {
     $frame_id = 'lirep-frame-' . wp_unique_id();
     $html = '<div class="lirep-container" data-lirep-embed="1" data-lirep-origin="' . esc_attr($base) . '" data-lirep-prefix="' . esc_attr($prefix) . '" data-lirep-environment="' . esc_attr($environment) . '">';
     $html .= '<iframe id="' . esc_attr($frame_id) . '" class="lirep-frame" src="' . esc_url($src) . '" title="Libro de Reclamaciones Virtual" loading="eager" scrolling="no" referrerpolicy="no-referrer"></iframe>';
-    $html .= '<p class="lirep-direct-link"><a href="' . esc_url($src) . '" target="_blank" rel="noopener noreferrer">Abrir el Libro de Reclamaciones en una ventana nueva</a></p>';
+    // The embedded form is the only public entry point; do not expose a redundant direct Worker link.
     $html .= '</div>';
     return $html;
 }
