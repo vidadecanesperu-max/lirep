@@ -208,6 +208,9 @@ function lirep_shortcode($atts = array()) {
 }
 add_shortcode('lirep', 'lirep_shortcode');
 
+// Automatic page creation and responsive embedding (safe, no remote writes).
+require_once plugin_dir_path(__FILE__) . 'includes/auto-publish-layout.php';
+
 /** Only releases explicitly published for this WordPress plugin can supply updates. */
 function lirep_valid_release($release) {
     if (!is_array($release) || !empty($release['draft']) || !empty($release['prerelease']) || !isset($release['tag_name']) || !is_string($release['tag_name'])) {
