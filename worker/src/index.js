@@ -229,7 +229,7 @@ async function sendSecureReceipt(prefix, code, env) {
   const job = await lirepRpc("lirep_claim_receipt_email_by_id", {p_queue_id:queued.queue_id}, env);
   if (!job) return;
   const link = "https://lirep-public-api.vidadecanes-peru.workers.dev/constancia?public_prefix=" + encodeURIComponent(job.public_prefix) + "&code=" + encodeURIComponent(job.public_code) + "&token=" + encodeURIComponent(job.receipt_token);
-  const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(displayComplaintCode(job.public_code)) + "</p><p><a href=\"" + escHtml(link) + "\">Ver y guardar constancia</a></p>";
+  const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(displayComplaintCode(job.public_code)) + "</p><p><a href=\"" + escHtml(link) + "\">Ver y guardar constancia</a></p><p>Este correo es automatico y no esta supervisado. No responda a este mensaje.</p>";
   let accepted = false;
   try {
     if (!approvedReceiptSender(job.from_email)) throw new Error("EMAIL_SENDER_NOT_APPROVED");
@@ -312,7 +312,7 @@ export default {
         const job = await lirepRpc("lirep_claim_receipt_email_by_id", {p_queue_id:id}, env);
         if (!job) continue;
         const link = "https://lirep-public-api.vidadecanes-peru.workers.dev/constancia?public_prefix=" + encodeURIComponent(job.public_prefix) + "&code=" + encodeURIComponent(job.public_code) + "&token=" + encodeURIComponent(job.receipt_token);
-        const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(displayComplaintCode(job.public_code)) + "</p><p><a href='" + escHtml(link) + "'>Ver constancia</a></p>";
+        const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(displayComplaintCode(job.public_code)) + "</p><p><a href='" + escHtml(link) + "'>Ver constancia</a></p><p>Este correo es automatico y no esta supervisado. No responda a este mensaje.</p>";
         let accepted = false;
         try {
           if (!approvedReceiptSender(job.from_email)) throw new Error("EMAIL_SENDER_NOT_APPROVED");
