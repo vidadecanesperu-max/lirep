@@ -15,6 +15,7 @@ function lirep_auto_sync_page() {
     if (!$prefix) { return; }
     $slug = lirep_auto_page_slug();
     $existing = get_page_by_path($slug, OBJECT, 'page');
+    if ($existing && $existing->post_status === 'trash') { return; }
     $stored = absint(get_option('lirep_auto_page_id', 0));
     if ($existing) {
         // Never overwrite user-authored pages or duplicate an existing slug.
@@ -27,6 +28,8 @@ function lirep_auto_sync_page() {
     }
     // Do not recreate pages deliberately trashed by the administrator.
     if ($stored && get_post_status($stored) === 'trash') { return; }
+    // Respect existing unpublished or private pages; never force a publication.
+    if ($stored && get_post($stored) && get_post_status($stored) !== 'trash') { return; }
     $id = wp_insert_post(array(
         'post_type' => 'page',
         'post_status' => 'publish',
@@ -63,6 +66,8 @@ add_action('wp_head', function() {
     body .lirep-container .lirep-frame {display:block;width:100%!important;max-width:none!important;min-height:1200px;border:0;}
     body .entry-content:has(.lirep-container),body .wp-block-post-content:has(.lirep-container) {width:100%!important;max-width:1200px!important;margin-left:auto!important;margin-right:auto!important;}
     body .elementor-widget-container:has(.lirep-container) {width:100%!important;max-width:none!important;}
+    body .elementor-section:has(.lirep-container)>.elementor-container,body .e-con:has(.lirep-container){max-width:1240px!important;width:100%!important;}
+    body .lirep-container .lirep-frame{height:1450px;}
     @media(max-width:767px){body .entry-content:has(.lirep-container),body .wp-block-post-content:has(.lirep-container){padding-inline:12px!important}body .lirep-container .lirep-frame{min-height:1450px}}
     </style>';
 }, 30);
