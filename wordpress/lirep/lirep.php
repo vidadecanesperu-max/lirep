@@ -148,6 +148,17 @@ function lirep_settings_page() {
         </table>
         <?php submit_button('Guardar configuración'); ?>
       </form>
+      <h2>Publicación automática</h2>
+      <?php $lirep_page = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page'); ?>
+      <?php if ($lirep_page && has_shortcode($lirep_page->post_content, 'lirep')) : ?>
+        <p>El libro ya está vinculado a la página pública:
+          <a href="<?php echo esc_url(get_permalink($lirep_page)); ?>" target="_blank" rel="noopener"><?php echo esc_html(get_permalink($lirep_page)); ?></a>.
+        </p>
+      <?php elseif (lirep_valid_prefix(get_option('lirep_public_prefix', ''))) : ?>
+        <p>La publicación se sincroniza automáticamente al guardar la configuración. Si existe una página manual con la misma dirección, no será sobrescrita.</p>
+      <?php else : ?>
+        <p>Ingresa el identificador público asignado por LIREP y guarda para habilitar la publicación automática.</p>
+      <?php endif; ?>
       <h2>Insertar en WordPress y Elementor</h2>
       <p>En cualquier página, entrada o widget Shortcode de Elementor Free/Pro utiliza <code>[lirep]</code>. Para una vista de QA exclusiva del administrador: <code>[lirep entorno="qa"]</code>.</p>
       <p>El sitio debe estar autorizado para la empresa en LIREP. El plugin no registra ni procesa reclamaciones dentro de WordPress.</p>
@@ -202,11 +213,14 @@ function lirep_shortcode($atts = array()) {
     $frame_id = 'lirep-frame-' . wp_unique_id();
     $html = '<div class="lirep-container" data-lirep-embed="1" data-lirep-origin="' . esc_attr($base) . '" data-lirep-prefix="' . esc_attr($prefix) . '" data-lirep-environment="' . esc_attr($environment) . '">';
     $html .= '<iframe id="' . esc_attr($frame_id) . '" class="lirep-frame" src="' . esc_url($src) . '" title="Libro de Reclamaciones Virtual" loading="eager" scrolling="no" referrerpolicy="no-referrer"></iframe>';
-    $html .= '<p class="lirep-direct-link"><a href="' . esc_url($src) . '" target="_blank" rel="noopener noreferrer">Abrir el Libro de Reclamaciones en una ventana nueva</a></p>';
+    // The embedded form is the only public entry point; do not expose a redundant direct Worker link.
     $html .= '</div>';
     return $html;
 }
 add_shortcode('lirep', 'lirep_shortcode');
+
+// Automatic page creation and responsive embedding (safe, no remote writes).
+require_once plugin_dir_path(__FILE__) . 'includes/auto-publish-layout.php';
 
 /** Only releases explicitly published for this WordPress plugin can supply updates. */
 function lirep_valid_release($release) {
