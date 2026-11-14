@@ -46,33 +46,47 @@ function isEmail(value) {
 
 async function verifyTurnstile(token, request, env) {
   if (typeof token !== "string" || token.length === 0 || token.length > 2048) {
+    console.warn("LIREP_TURNSTILE", "TOKEN_MISSING_OR_INVALID");
     return false;
   }
-
-  const form = new URLSearchParams({
-    secret: env.TURNSTILE_SECRET,
-    response: token,
-  });
-
+  if (!env.TURNSTILE_SECRET) {
+    console.error("LIREP_TURNSTILE", "SECRET_NOT_CONFIGURED");
+    return false;
+  }
+  const form = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token });
   const ip = request.headers.get("CF-Connecting-IP");
   if (ip) form.set("remoteip", ip);
-
-  const response = await fetch(
-    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-    {
+  try {
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: form,
       signal: AbortSignal.timeout(10000),
-    },
-  );
-
-  if (!response.ok) return false;
-  const result = await response.json();
-  return (
-    result.success === true &&
-    ["vidadecanes.pe", "energesmoto.com", "lirep-public-api.vidadecanes-peru.workers.dev"].includes(result.hostname)
-  );
+    });
+    if (!response.ok) {
+      console.warn("LIREP_TURNSTILE", "SITEVERIFY_HTTP_ERROR", response.status);
+      return false;
+    }
+    const result = await response.json();
+    if (result.success !== true) {
+      // Cloudflare error codes are safe to log; never log the response token, secret or IP.
+      console.warn("LIREP_TURNSTILE", "SITEVERIFY_REJECTED",
+        Array.isArray(result["error-codes"]) ? result["error-codes"].join(",") : "UNKNOWN");
+      return false;
+    }
+    const hostname = String(result.hostname || "").toLowerCase().replace(/\\.$/, "");
+    const allowed = ["vidadecanes.pe", "energesmoto.com", "www.energesmoto.com",
+      "lirep-public-api.vidadecanes-peru.workers.dev"];
+    if (!allowed.includes(hostname)) {
+      console.warn("LIREP_TURNSTILE", "HOSTNAME_MISMATCH", hostname);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.warn("LIREP_TURNSTILE", "SITEVERIFY_UNAVAILABLE",
+      error?.name === "TimeoutError" ? "TIMEOUT" : "NETWORK_ERROR");
+    return false;
+  }
 }
 
 async function supabaseConnectivity(env) {
