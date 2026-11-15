@@ -215,6 +215,8 @@ function lirep_onboarding_page() {
           <p>Dominio de WordPress: <code><?php echo esc_html($domain); ?></code></p>
           <p>Inserta <code>[lirep]</code> en una página, entrada o widget Shortcode de Elementor.</p>
           <p><a href="<?php echo esc_url(LIREP_PROD_BASE . '/libro-de-reclamaciones?public_prefix=' . rawurlencode($prefix)); ?>" target="_blank" rel="noopener noreferrer">Abrir formulario</a></p>
+          <p><a class="button button-primary" href="<?php echo esc_url('https://lirep-admin-360.pages.dev/?public_prefix=' . rawurlencode($prefix)); ?>" target="_blank" rel="noopener noreferrer">Administrar reclamaciones</a></p>
+          <p class="description">Acceso administrativo exclusivo para usuarios autorizados. La activación requiere confirmar el correo de la empresa.</p>
         </section>
       <?php elseif ($pending) : ?>
         <section class="lirep-panel" id="lirep-pending">
