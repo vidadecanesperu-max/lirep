@@ -318,7 +318,8 @@ async function onboardingAuthLink(env,email) {
   if(!res.ok||!data?.user?.id||typeof actionLink!=="string"||!actionLink.startsWith("https://")) {
     const code=typeof data?.code==="string"?data.code:(typeof data?.error_code==="string"?data.error_code:"unknown");
     console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_user:!!data?.user?.id,has_action_link:!!actionLink}));
-    throw new Error("ONBOARDING_AUTH_UNAVAILABLE");
+    // Safe machine-readable diagnostic: never expose email, credentials or generated link.
+    throw new Error("ONBOARDING_AUTH_"+res.status+"_"+(res.ok?"SHAPE":"HTTP")+"_"+(data?.user?.id?"USER":"NOUSER")+"_"+(actionLink?"LINK":"NOLINK")+"_"+(code==="unknown"?"UNKNOWN":code.replace(/[^a-zA-Z0-9_]/g,"").slice(0,40)));
   }
   return {user:data.user,action_link:actionLink};
 }
@@ -389,7 +390,7 @@ async function onboardingRoute(request,env,url) {
     await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id,"PATCH",{email_verified_at:new Date().toISOString()});
     let auth;
     try { auth=await onboardingAuthLink(env,row.contact_email); }
-    catch(error) { console.error("LIREP_ONBOARDING_AUTH",String(error?.message||error)); return json({ok:false,error:"activation_auth_unavailable",retryable:true},503); }
+    catch(error) { const diagnostic=String(error?.message||error); console.error("LIREP_ONBOARDING_AUTH",diagnostic); return json({ok:false,error:"activation_auth_unavailable",diagnostic:diagnostic.startsWith("ONBOARDING_AUTH_")?diagnostic:"AUTH_REQUEST_FAILED",retryable:true},503); }
     try { await lirepRpc("lirep_onboarding_activate",{p_request_id:id,p_user_id:auth.user.id},env); }
     catch(error) { console.error("LIREP_ONBOARDING_TENANT",String(error?.message||error)); return json({ok:false,error:"activation_tenant_unavailable",retryable:true},503); }
     try {
