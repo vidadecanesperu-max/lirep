@@ -315,13 +315,16 @@ async function onboardingAuthLink(env,email) {
   // Supabase GoTrue returns the generated URL inside properties.action_link.
   // Some SDK wrappers expose it at the top level; support both without logging tokens.
   const actionLink=data?.properties?.action_link||data?.action_link;
-  if(!res.ok||!data?.user?.id||typeof actionLink!=="string"||!actionLink.startsWith("https://")) {
+  // GoTrue's REST generate_link response exposes the user fields at the root.
+  // SDK wrappers may instead nest the user under `user`.
+  const userId=data?.user?.id||data?.id;
+  if(!res.ok||!isUuid(userId)||typeof actionLink!=="string"||!actionLink.startsWith("https://")) {
     const code=typeof data?.code==="string"?data.code:(typeof data?.error_code==="string"?data.error_code:"unknown");
-    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_user:!!data?.user?.id,has_action_link:!!actionLink}));
+    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_user:!!userId,has_action_link:!!actionLink}));
     // Safe machine-readable diagnostic: never expose email, credentials or generated link.
-    throw new Error("ONBOARDING_AUTH_"+res.status+"_"+(res.ok?"SHAPE":"HTTP")+"_"+(data?.user?.id?"USER":"NOUSER")+"_"+(actionLink?"LINK":"NOLINK")+"_"+(code==="unknown"?"UNKNOWN":code.replace(/[^a-zA-Z0-9_]/g,"").slice(0,40)));
+    throw new Error("ONBOARDING_AUTH_"+res.status+"_"+(res.ok?"SHAPE":"HTTP")+"_"+(userId?"USER":"NOUSER")+"_"+(actionLink?"LINK":"NOLINK")+"_"+(code==="unknown"?"UNKNOWN":code.replace(/[^a-zA-Z0-9_]/g,"").slice(0,40)));
   }
-  return {user:data.user,action_link:actionLink};
+  return {user:{id:userId},action_link:actionLink};
 }
 async function onboardingRoute(request,env,url) {
   const path=url.pathname.slice(onboardingBase.length);
