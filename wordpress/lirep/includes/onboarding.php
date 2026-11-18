@@ -246,7 +246,7 @@ function lirep_onboarding_page() {
               <label>RUC (11 dígitos)<input name="ruc" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" required></label>
               <label>Razón social<input name="legal_name" maxlength="200" required></label>
               <label>Nombre comercial<input name="trade_name" maxlength="200"></label>
-              <label>Correo del responsable<input name="contact_email" type="email" maxlength="254" value="<?php echo esc_attr(get_option('admin_email')); ?>" required></label>
+              <label>Correo del responsable (editable)<input name="contact_email" type="email" maxlength="254" autocomplete="email" placeholder="responsable@empresa.com" value="<?php echo esc_attr(get_option('admin_email')); ?>" required><small>Puede ser diferente del correo de WordPress. Aquí se enviará la confirmación y el acceso administrativo.</small></label>
               <label>Dirección del establecimiento<input name="address" maxlength="300" required></label>
               <label>Distrito<input name="district" maxlength="100" required></label>
               <label>Provincia<input name="province" maxlength="100" required></label>
