@@ -268,8 +268,10 @@ function onboardingHost(input) {
 function onboardingUrl(host, raw) {
   try {
     const u=new URL(raw);
-    if(u.protocol!=="https:"||u.hostname.toLowerCase()!==host||u.port||u.username||u.password||u.search||u.hash)return null;
-    if(!u.pathname.endsWith("/wp-json/lirep/v1/challenge")&&!u.pathname.endsWith("/index.php/wp-json/lirep/v1/challenge"))return null;
+    if(u.protocol!=="https:"||u.hostname.toLowerCase()!==host||u.port||u.username||u.password||u.hash)return null;
+    const pretty=!u.search&&(u.pathname.endsWith("/wp-json/lirep/v1/challenge")||u.pathname.endsWith("/index.php/wp-json/lirep/v1/challenge"));
+    const plain=u.searchParams.size===1&&u.searchParams.get("rest_route")==="/lirep/v1/challenge"&&u.pathname.endsWith("/");
+    if(!pretty&&!plain)return null;
     return u.href;
   }catch{return null;}
 }
@@ -349,8 +351,8 @@ async function onboardingRoute(request,env,url) {
     const privacy=onboardingSafeText(input.privacy_policy_url,1000);
     if(!host||!challengeUrl||!ruc||!legal||!email||!isEmail(email)||!address||!district||!province||!department||!privacy||!privacy.startsWith("https://"))
       return json({ok:false,error:"invalid_input"},400);
-    const privacyHost=(()=>{try{return new URL(privacy).hostname;}catch{return null;}})();
-    if(privacyHost!==host)return json({ok:false,error:"invalid_input"},400);
+    const privacyValid=(()=>{try{const p=new URL(privacy);return p.protocol==="https:"&&!p.username&&!p.password;}catch{return false;}})();
+    if(!privacyValid)return json({ok:false,error:"invalid_input"},400);
     const occupied=await onboardingDb(env,"organizations?or=(ruc.eq."+ruc+",website.eq."+encodeURIComponent("https://"+host)+")&select=id&limit=1");
     const domainTaken=await onboardingDb(env,"organization_domains?hostname=eq."+encodeURIComponent(host)+"&select=id&limit=1");
     if(occupied.length||domainTaken.length)return json({ok:false,error:"review_required"},409);
