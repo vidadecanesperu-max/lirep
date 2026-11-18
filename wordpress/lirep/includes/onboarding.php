@@ -215,6 +215,8 @@ function lirep_onboarding_page() {
           <p>Dominio de WordPress: <code><?php echo esc_html($domain); ?></code></p>
           <p>Inserta <code>[lirep]</code> en una página, entrada o widget Shortcode de Elementor.</p>
           <p><a href="<?php echo esc_url(LIREP_PROD_BASE . '/libro-de-reclamaciones?public_prefix=' . rawurlencode($prefix)); ?>" target="_blank" rel="noopener noreferrer">Abrir formulario</a></p>
+          <p><a class="button button-primary" href="<?php echo esc_url('https://lirep.360insol.com/?public_prefix=' . rawurlencode($prefix)); ?>" target="_blank" rel="noopener noreferrer">Administrar reclamaciones</a></p>
+          <p class="description">Acceso administrativo exclusivo para usuarios autorizados. La activación requiere confirmar el correo de la empresa.</p>
         </section>
       <?php elseif ($pending) : ?>
         <section class="lirep-panel" id="lirep-pending">
@@ -230,8 +232,8 @@ function lirep_onboarding_page() {
         </section>
       <?php elseif (!$ready) : ?>
         <section class="lirep-panel">
-          <h2>Servicio de activación en preparación</h2>
-          <p>El plugin está instalado correctamente, pero el registro autónomo todavía no está habilitado en LIREP. No necesitas introducir datos de tu empresa por ahora.</p>
+          <h2>No se pudo conectar con el servicio de activación</h2>
+          <p>El plugin está instalado, pero el servicio central no confirmó la disponibilidad del registro autónomo. No se enviarán datos hasta que la conexión esté disponible.</p>
           <p>Esta pantalla habilitará el formulario automáticamente cuando el servicio oficial esté disponible.</p>
         </section>
       <?php else : ?>

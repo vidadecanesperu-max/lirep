@@ -1,0 +1,43 @@
+name: Deploy LIREP Admin to existing Cloudflare Pages
+on:
+  push:
+    branches: [feature/lirep-auto-onboarding-layout-20261114]
+    paths:
+      - 'admin/**'
+      - '.github/workflows/deploy-lirep-admin.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: lirep-admin-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate standalone admin
+        run: |
+          test -s admin/index.html
+          grep -q 'signInWithOtp' admin/index.html
+          grep -q 'lirep_admin_my_organizations' admin/index.html
+          ! grep -qi 'localhost:3000' admin/index.html
+      - name: Check Cloudflare deploy credential
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN missing in GitHub Actions secrets. Existing Cloudflare Pages project unchanged."
+            exit 1
+          fi
+      - name: Deploy to existing Pages project (no new project)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 6aa99604577aed2046cf3a569db95b3f
+        run: npx --yes wrangler@4 pages deploy admin --project-name=lirep-admin-360 --branch=main
+      - name: Smoke test public admin
+        run: |
+          curl --retry 5 --retry-delay 3 --fail --silent --show-error https://lirep-admin-360.pages.dev/ -o /tmp/lirep-admin.html
+          grep -q 'signInWithOtp' /tmp/lirep-admin.html
+          grep -q 'lirep_admin_my_organizations' /tmp/lirep-admin.html
+          echo "PASS: passwordless admin deployed on existing Cloudflare Pages project"

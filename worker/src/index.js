@@ -1,3 +1,8 @@
+// Only presentation changes: the full code remains the immutable database lookup key.
+function displayComplaintCode(code) {
+  return String(code || "").replace(/^[A-Z0-9]{8}-(?=LR[0-9]+-)/, "");
+}
+
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
@@ -46,33 +51,47 @@ function isEmail(value) {
 
 async function verifyTurnstile(token, request, env) {
   if (typeof token !== "string" || token.length === 0 || token.length > 2048) {
+    console.warn("LIREP_TURNSTILE", "TOKEN_MISSING_OR_INVALID");
     return false;
   }
-
-  const form = new URLSearchParams({
-    secret: env.TURNSTILE_SECRET,
-    response: token,
-  });
-
+  if (!env.TURNSTILE_SECRET) {
+    console.error("LIREP_TURNSTILE", "SECRET_NOT_CONFIGURED");
+    return false;
+  }
+  const form = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token });
   const ip = request.headers.get("CF-Connecting-IP");
   if (ip) form.set("remoteip", ip);
-
-  const response = await fetch(
-    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-    {
+  try {
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: form,
       signal: AbortSignal.timeout(10000),
-    },
-  );
-
-  if (!response.ok) return false;
-  const result = await response.json();
-  return (
-    result.success === true &&
-    ["vidadecanes.pe", "lirep-public-api.vidadecanes-peru.workers.dev"].includes(result.hostname)
-  );
+    });
+    if (!response.ok) {
+      console.warn("LIREP_TURNSTILE", "SITEVERIFY_HTTP_ERROR", response.status);
+      return false;
+    }
+    const result = await response.json();
+    if (result.success !== true) {
+      // Cloudflare error codes are safe to log; never log the response token, secret or IP.
+      console.warn("LIREP_TURNSTILE", "SITEVERIFY_REJECTED",
+        Array.isArray(result["error-codes"]) ? result["error-codes"].join(",") : "UNKNOWN");
+      return false;
+    }
+    const hostname = String(result.hostname || "").toLowerCase().replace(/\\.$/, "");
+    const allowed = ["vidadecanes.pe", "energesmoto.com", "www.energesmoto.com",
+      "lirep-public-api.vidadecanes-peru.workers.dev"];
+    if (!allowed.includes(hostname)) {
+      console.warn("LIREP_TURNSTILE", "HOSTNAME_MISMATCH", hostname);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.warn("LIREP_TURNSTILE", "SITEVERIFY_UNAVAILABLE",
+      error?.name === "TimeoutError" ? "TIMEOUT" : "NETWORK_ERROR");
+    return false;
+  }
 }
 
 async function supabaseConnectivity(env) {
@@ -176,7 +195,7 @@ function receiptHtml(d) {
   const due=d.response_due_at?new Date(d.response_due_at).toLocaleDateString("es-PE",{timeZone:"America/Lima"}):"";
   const amount=d.amount===null||d.amount===undefined||d.amount===""?"No consignado":"S/ "+Number(d.amount).toFixed(2);
   const representative=co.is_minor?`<section><h2>Representante del menor</h2><p><b>Nombre:</b> ${escHtml([co.representative_first_names,co.representative_last_names].filter(Boolean).join(" "))}</p><p><b>Documento:</b> ${escHtml(co.representative_document_type)} ${escHtml(co.representative_document_number)}</p></section>`:"";
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Constancia ${escHtml(d.public_code)}</title><style>body{font-family:Arial,sans-serif;color:#111827;margin:0;background:#f3f4f6}.page{max-width:820px;margin:24px auto;background:#fff;padding:34px;border:1px solid #d1d5db}.top{display:flex;justify-content:space-between;gap:20px;border-bottom:2px solid #111827;padding-bottom:18px}h1{font-size:24px;margin:0}h2{font-size:16px;margin:22px 0 8px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}p{margin:6px 0;line-height:1.45}.code{font-weight:800;font-size:18px;word-break:break-word}.muted{color:#6b7280}.actions{margin:18px 0}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#111827;color:#fff;font-weight:700;cursor:pointer}.foot{margin-top:28px;font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:14px}@page{size:A4;margin:10mm}@media print{html,body{background:#fff;margin:0;padding:0} @page{margin:8mm} .page{border:0;margin:0;max-width:none;padding:0;font-size:11px}.top{padding-bottom:10px}.top h1{font-size:20px}h2{margin:12px 0 5px;font-size:14px}p{margin:3px 0;line-height:1.3}.actions{display:none}.foot{margin-top:14px;padding-top:8px;font-size:9px}section{break-inside:avoid;page-break-inside:avoid}}@media(max-width:650px){.page{margin:0;padding:20px;border:0}.top{display:block}}</style></head><body><main class="page"><div class="top"><div><h1>Constancia del Libro de Reclamaciones</h1><p class="muted">${escHtml(o.trade_name||o.legal_name)}</p></div><div><div class="code">${escHtml(d.public_code)}</div><p>${escHtml(submitted)}</p></div></div><div class="actions"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div><section><h2>Proveedor</h2><p><b>Razón social:</b> ${escHtml(o.legal_name)}</p><p><b>RUC:</b> ${escHtml(o.ruc)}</p><p><b>Establecimiento:</b> ${escHtml(e.name)} (${escHtml(e.code)})</p><p><b>Dirección:</b> ${escHtml([e.address,e.district,e.province,e.department].filter(Boolean).join(", "))}</p></section><section><h2>Consumidor</h2><p><b>Nombre:</b> ${escHtml([co.first_names,co.last_names].filter(Boolean).join(" "))}</p><p><b>Documento:</b> ${escHtml(co.document_type)} ${escHtml(co.document_number)}</p><p><b>Teléfono:</b> ${escHtml(co.phone)}</p><p><b>Correo:</b> ${escHtml(co.email||"No consignado")}</p><p><b>Domicilio:</b> ${escHtml(co.address)}</p></section>${representative}<section><h2>Bien o servicio</h2><p><b>Tipo:</b> ${escHtml(d.product_service_type)}</p><p><b>Descripción:</b> ${escHtml(d.product_service_description)}</p><p><b>Monto:</b> ${escHtml(amount)}</p></section><section><h2>${escHtml(String(d.complaint_type||"").toUpperCase())}</h2><p><b>Detalle:</b> ${escHtml(d.detail)}</p><p><b>Pedido:</b> ${escHtml(d.consumer_request)}</p></section><section><h2>Registro electrónico</h2><p><b>Conformidad:</b> ${d.consumer_conformity?"Sí":"No"}</p><p><b>Canal preferido de respuesta:</b> ${escHtml(d.preferred_response_channel)}</p><p><b>Fecha límite registrada para respuesta:</b> ${escHtml(due)}</p></section><div class="foot">Esta constancia corresponde al registro electrónico identificado por el código indicado. © ${new Date().getFullYear()} · Powered by 360 Integral Solutions</div></main></body></html>`;
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Constancia ${escHtml(displayComplaintCode(d.public_code))}</title><style>body{font-family:Arial,sans-serif;color:#111827;margin:0;background:#f3f4f6}.page{max-width:820px;margin:24px auto;background:#fff;padding:34px;border:1px solid #d1d5db}.top{display:flex;justify-content:space-between;gap:20px;border-bottom:2px solid #111827;padding-bottom:18px}h1{font-size:24px;margin:0}h2{font-size:16px;margin:22px 0 8px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}p{margin:6px 0;line-height:1.45}.code{font-weight:800;font-size:18px;word-break:break-word}.muted{color:#6b7280}.actions{margin:18px 0}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#111827;color:#fff;font-weight:700;cursor:pointer}.foot{margin-top:28px;font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:14px}@page{size:A4;margin:10mm}@media print{html,body{background:#fff;margin:0;padding:0} @page{margin:8mm} .page{border:0;margin:0;max-width:none;padding:0;font-size:11px}.top{padding-bottom:10px}.top h1{font-size:20px}h2{margin:12px 0 5px;font-size:14px}p{margin:3px 0;line-height:1.3}.actions{display:none}.foot{margin-top:14px;padding-top:8px;font-size:9px}section{break-inside:avoid;page-break-inside:avoid}}@media(max-width:650px){.page{margin:0;padding:20px;border:0}.top{display:block}}</style></head><body><main class="page"><div class="top"><div><h1>Constancia del Libro de Reclamaciones</h1><p class="muted">${escHtml(o.trade_name||o.legal_name)}</p></div><div><div class="code">${escHtml(displayComplaintCode(d.public_code))}</div><p>${escHtml(submitted)}</p></div></div><div class="actions"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div><section><h2>Proveedor</h2><p><b>Razón social:</b> ${escHtml(o.legal_name)}</p><p><b>RUC:</b> ${escHtml(o.ruc)}</p><p><b>Establecimiento:</b> ${escHtml(e.name)} (${escHtml(e.code)})</p><p><b>Dirección:</b> ${escHtml([e.address,e.district,e.province,e.department].filter(Boolean).join(", "))}</p></section><section><h2>Consumidor</h2><p><b>Nombre:</b> ${escHtml([co.first_names,co.last_names].filter(Boolean).join(" "))}</p><p><b>Documento:</b> ${escHtml(co.document_type)} ${escHtml(co.document_number)}</p><p><b>Teléfono:</b> ${escHtml(co.phone)}</p><p><b>Correo:</b> ${escHtml(co.email||"No consignado")}</p><p><b>Domicilio:</b> ${escHtml(co.address)}</p></section>${representative}<section><h2>Bien o servicio</h2><p><b>Tipo:</b> ${escHtml(d.product_service_type)}</p><p><b>Descripción:</b> ${escHtml(d.product_service_description)}</p><p><b>Monto:</b> ${escHtml(amount)}</p></section><section><h2>${escHtml(String(d.complaint_type||"").toUpperCase())}</h2><p><b>Detalle:</b> ${escHtml(d.detail)}</p><p><b>Pedido:</b> ${escHtml(d.consumer_request)}</p></section><section><h2>Registro electrónico</h2><p><b>Conformidad:</b> ${d.consumer_conformity?"Sí":"No"}</p><p><b>Canal preferido de respuesta:</b> ${escHtml(d.preferred_response_channel)}</p><p><b>Fecha límite registrada para respuesta:</b> ${escHtml(due)}</p></section><div class="foot">Esta constancia corresponde al registro electrónico identificado por el código indicado. © ${new Date().getFullYear()} · Powered by 360 Integral Solutions</div></main></body></html>`;
 }
 
 
@@ -196,9 +215,9 @@ async function lirepRpc(name, payload, env) {
   if (!response.ok) throw new Error(data?.message || "RPC_FAILED");
   return data;
 }
-function approvedReceiptSender(email, env) {
-  const allowed = String(env.LIREP_APPROVED_FROM_EMAIL || "").trim().toLowerCase();
-  return allowed.length > 0 && String(email || "").trim().toLowerCase() === allowed;
+const LIREP_NOTIFICATION_SENDER = "notificaciones@360insol.com";
+function approvedReceiptSender(email) {
+  return String(email || "").trim().toLowerCase() === LIREP_NOTIFICATION_SENDER;
 }
 
 async function sendSecureReceipt(prefix, code, env) {
@@ -210,14 +229,14 @@ async function sendSecureReceipt(prefix, code, env) {
   const job = await lirepRpc("lirep_claim_receipt_email_by_id", {p_queue_id:queued.queue_id}, env);
   if (!job) return;
   const link = "https://lirep-public-api.vidadecanes-peru.workers.dev/constancia?public_prefix=" + encodeURIComponent(job.public_prefix) + "&code=" + encodeURIComponent(job.public_code) + "&token=" + encodeURIComponent(job.receipt_token);
-  const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(job.public_code) + "</p><p><a href=\"" + escHtml(link) + "\">Ver y guardar constancia</a></p>";
+  const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(displayComplaintCode(job.public_code)) + "</p><p><a href=\"" + escHtml(link) + "\">Ver y guardar constancia</a></p><p>Este correo es automatico y no esta supervisado. No responda a este mensaje.</p>";
   let accepted = false;
   try {
-    if (!approvedReceiptSender(job.from_email, env)) throw new Error("EMAIL_SENDER_NOT_APPROVED");
+    if (!approvedReceiptSender(job.from_email)) throw new Error("EMAIL_SENDER_NOT_APPROVED");
     const response = await fetch("https://api.resend.com/emails", {
       method:"POST",
       headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"content-type":"application/json"},
-      body:JSON.stringify({from:job.from_name+" <"+job.from_email+">",to:[job.recipient],subject:"Constancia del Libro de Reclamaciones - "+job.public_code,html}),
+      body:JSON.stringify({from:job.from_name+" <"+job.from_email+">",to:[job.recipient],subject:"Constancia del Libro de Reclamaciones - "+displayComplaintCode(job.public_code),html}),
       signal:AbortSignal.timeout(15000)
     });
     const result=await response.json().catch(()=>null);
@@ -228,6 +247,181 @@ async function sendSecureReceipt(prefix, code, env) {
     if (accepted) { console.error("EMAIL_ACCEPTED_COMPLETION_FAILED", job.queue_id); return; }
     await lirepRpc("lirep_complete_receipt_email",{p_queue_id:job.queue_id,p_success:false,p_provider:"resend",p_provider_message_id:null,p_error:String(error?.message||error)},env).catch(()=>{});
   }
+}
+
+
+/* Universal WordPress onboarding. All credentials remain server-side. */
+const onboardingBase = "/api/v1/onboarding/";
+const onboardingJsonHeaders = {"content-type":"application/json","accept":"application/json"};
+const onboardingRandom = (bytes=32) => Array.from(crypto.getRandomValues(new Uint8Array(bytes)),v=>v.toString(16).padStart(2,"0")).join("");
+async function onboardingHash(value) {
+  const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(bytes),v=>v.toString(16).padStart(2,"0")).join("");
+}
+function onboardingHost(input) {
+  if(typeof input!=="string" || input.length>253) return null;
+  const host=input.toLowerCase().replace(/\.$/,"");
+  if(!/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(host)) return null;
+  if(host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".test")||host.endsWith(".example")||host.endsWith(".invalid"))return null;
+  return host;
+}
+function onboardingUrl(host, raw) {
+  try {
+    const u=new URL(raw);
+    if(u.protocol!=="https:"||u.hostname.toLowerCase()!==host||u.port||u.username||u.password||u.hash)return null;
+    const pretty=!u.search&&(u.pathname.endsWith("/wp-json/lirep/v1/challenge")||u.pathname.endsWith("/index.php/wp-json/lirep/v1/challenge"));
+    const plain=u.searchParams.size===1&&u.searchParams.get("rest_route")==="/lirep/v1/challenge"&&u.pathname.endsWith("/");
+    if(!pretty&&!plain)return null;
+    return u.href;
+  }catch{return null;}
+}
+async function onboardingDb(env,path,method="GET",payload) {
+  const res=await fetch(env.SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/"+path,{
+    method,headers:{...onboardingJsonHeaders,apikey:env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,Prefer:"return=representation"},
+    ...(payload===undefined?{}:{body:JSON.stringify(payload)}),signal:AbortSignal.timeout(12000)
+  });
+  const body=await res.json().catch(()=>null);
+  if(!res.ok)throw new Error("ONBOARDING_DATABASE_ERROR_"+res.status);
+  return body;
+}
+async function onboardingRow(env,id) {
+  const rows=await onboardingDb(env,"lirep_onboarding_requests?id=eq."+encodeURIComponent(id)+"&select=*");
+  return Array.isArray(rows)?rows[0]:null;
+}
+async function onboardingMail(env,to,subject,html) {
+  const res=await fetch("https://api.resend.com/emails",{method:"POST",
+    headers:{"content-type":"application/json",Authorization:"Bearer "+env.RESEND_API_KEY},
+    body:JSON.stringify({from:"LIREP <notificaciones@360insol.com>",to:[to],subject,html}),
+    signal:AbortSignal.timeout(15000)});
+  const data=await res.json().catch(()=>null);
+  if(!res.ok||!data?.id)throw new Error("ONBOARDING_EMAIL_UNAVAILABLE");
+}
+function onboardingSafeText(value,max) {
+  return typeof value==="string"&&value.trim()&&value.trim().length<=max?value.trim():null;
+}
+function onboardingState(row) {
+  return {state:row.state,email_verified:!!row.email_verified_at,
+    domain_verified:!!row.domain_verified_at,invitation_sent:!!row.invitation_sent_at,
+    public_prefix:row.state==="active"?row.public_prefix:null};
+}
+async function onboardingAuthLink(env,email) {
+  const res=await fetch(env.SUPABASE_URL.replace(/\/$/,"")+"/auth/v1/admin/generate_link",{
+    method:"POST",headers:{...onboardingJsonHeaders,apikey:env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY},
+    body:JSON.stringify({type:"magiclink",email,options:{redirect_to:"https://lirep.360insol.com/"}}),
+    signal:AbortSignal.timeout(12000)});
+  const data=await res.json().catch(()=>null);
+  if(!res.ok||!data?.user?.id||!data?.action_link)throw new Error("ONBOARDING_AUTH_UNAVAILABLE");
+  return data;
+}
+async function onboardingRoute(request,env,url) {
+  const path=url.pathname.slice(onboardingBase.length);
+  if(path==="capabilities"&&request.method==="GET") {
+    const enabled=env.LIREP_ONBOARDING_ENABLED==="true"&&!!env.SUPABASE_URL&&!!env.SUPABASE_SERVICE_ROLE_KEY&&!!env.RESEND_API_KEY;
+    return json({ok:true,enabled,admin_url:"https://lirep.360insol.com"},200,{"cache-control":"no-store"});
+  }
+  if(env.LIREP_ONBOARDING_ENABLED!=="true"||!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY||!env.RESEND_API_KEY)
+    return json({ok:false,error:"onboarding_not_enabled"},503);
+  if(path==="confirm"&&request.method==="GET") {
+    const id=url.searchParams.get("id")||"",token=url.searchParams.get("token")||"";
+    if(!isUuid(id)||!/^[a-f0-9]{64}$/.test(token))return json({ok:false,error:"invalid_token"},400);
+    const page='<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Confirmar LIREP</title><main style="font:16px system-ui;max-width:560px;margin:10vh auto;padding:24px"><h1>Confirmación de correo LIREP</h1><p>Confirma que autorizas el registro de esta empresa y la administración de su Libro de Reclamaciones.</p><form method="post"><input type="hidden" name="id" value="'+id+'"><input type="hidden" name="token" value="'+token+'"><button style="padding:14px 22px">Confirmar y activar</button></form></main></html>';
+    return new Response(page,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer","content-security-policy":"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'"}});
+  }
+  if(!["start","status","verify-domain","cancel","confirm"].includes(path)||request.method!=="POST")
+    return json({ok:false,error:"NOT_FOUND"},404);
+  const raw=await request.text();
+  if(raw.length>12000)return json({ok:false,error:"invalid_input"},400);
+  let input;
+  if(path==="confirm"){input=Object.fromEntries(new URLSearchParams(raw));}
+  else{try{input=JSON.parse(raw);}catch{return json({ok:false,error:"invalid_input"},400);}}
+  if(!input||typeof input!=="object")return json({ok:false,error:"invalid_input"},400);
+  if(path==="start") {
+    const ip=request.headers.get("CF-Connecting-IP")||"unknown";
+    if(env.SUBMIT_RATE_LIMITER) {
+      const limit=await env.SUBMIT_RATE_LIMITER.limit({key:"onboard:"+ip});
+      if(!limit.success)return json({ok:false,error:"rate_limited"},429);
+    }
+    const host=onboardingHost(input.domain),challengeUrl=host&&onboardingUrl(host,input.challenge_url);
+    const ruc=typeof input.ruc==="string"&&/^\d{11}$/.test(input.ruc)?input.ruc:null;
+    const legal=onboardingSafeText(input.legal_name,200),email=onboardingSafeText(input.contact_email,254)?.toLowerCase();
+    const address=onboardingSafeText(input.address,300),district=onboardingSafeText(input.district,100);
+    const province=onboardingSafeText(input.province,100),department=onboardingSafeText(input.department,100);
+    const privacy=onboardingSafeText(input.privacy_policy_url,1000);
+    if(!host||!challengeUrl||!ruc||!legal||!email||!isEmail(email)||!address||!district||!province||!department||!privacy||!privacy.startsWith("https://"))
+      return json({ok:false,error:"invalid_input"},400);
+    const privacyValid=(()=>{try{const p=new URL(privacy);return p.protocol==="https:"&&!p.username&&!p.password;}catch{return false;}})();
+    if(!privacyValid)return json({ok:false,error:"invalid_input"},400);
+    const occupied=await onboardingDb(env,"organizations?or=(ruc.eq."+ruc+",website.eq."+encodeURIComponent("https://"+host)+")&select=id&limit=1");
+    const domainTaken=await onboardingDb(env,"organization_domains?hostname=eq."+encodeURIComponent(host)+"&select=id&limit=1");
+    if(occupied.length||domainTaken.length)return json({ok:false,error:"review_required"},409);
+    const pending=await onboardingDb(env,"lirep_onboarding_requests?hostname=eq."+encodeURIComponent(host)+"&state=eq.pending&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&select=id&limit=1");
+    if(pending.length)return json({ok:false,error:"rate_limited"},429);
+    const challenge=onboardingRandom(),statusToken=onboardingRandom(),emailToken=onboardingRandom();
+    const inserted=await onboardingDb(env,"lirep_onboarding_requests","POST",{
+      ruc,legal_name:legal,trade_name:onboardingSafeText(input.trade_name,200),
+      contact_email:email,hostname:host,challenge_url:challengeUrl,
+      challenge_hash:await onboardingHash(challenge),status_token_hash:await onboardingHash(statusToken),
+      email_token_hash:await onboardingHash(emailToken),address,district,province,department,
+      privacy_policy_url:privacy,state:"pending"});
+    const row=inserted?.[0];
+    if(!row?.id)throw new Error("ONBOARDING_INSERT_FAILED");
+    return json({ok:true,id:row.id,status_token:statusToken,challenge},200);
+  }
+  const id=typeof input.id==="string"?input.id:"";
+  if(!isUuid(id))return json({ok:false,error:"invalid_token"},400);
+  const row=await onboardingRow(env,id);
+  if(!row)return json({ok:false,error:"invalid_token"},404);
+  if(path==="confirm") {
+    if(!/^[a-f0-9]{64}$/.test(input.token||"")||await onboardingHash(input.token)!==row.email_token_hash)
+      return json({ok:false,error:"invalid_token"},403);
+    if(row.expires_at<=new Date().toISOString()||row.state!=="pending"||!row.domain_verified_at)
+      return json({ok:false,error:"expired"},409);
+    // Email proof is established only by possession of the one-time confirmation link.
+    await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id,"PATCH",{email_verified_at:new Date().toISOString()});
+    const auth=await onboardingAuthLink(env,row.contact_email);
+    const activated=await lirepRpc("lirep_onboarding_activate",{p_request_id:id,p_user_id:auth.user.id},env);
+    await onboardingMail(env,row.contact_email,"Acceso administrativo a LIREP",
+      '<p>Tu Libro de Reclamaciones está activo.</p><p><a href="'+auth.action_link.replace(/&/g,"&amp;")+'">Acceder a LIREP</a></p><p>Este enlace es personal y temporal.</p>');
+    return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>LIREP activado</h1><p>Revisa tu correo para acceder a la administración. Vuelve a WordPress y pulsa «Comprobar estado».</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer"}});
+  }
+  const status=typeof input.status_token==="string"?input.status_token:"";
+  if(!/^[a-f0-9]{64}$/.test(status)||await onboardingHash(status)!==row.status_token_hash)
+    return json({ok:false,error:"invalid_token"},403);
+  if(path==="status")return json({ok:true,state:onboardingState(row)},200);
+  if(path==="cancel"){
+    if(row.state==="active")return json({ok:false,error:"review_required"},409);
+    await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id+"&state=eq.pending","PATCH",{state:"cancelled",updated_at:new Date().toISOString()});
+    return json({ok:true,state:{state:"cancelled"}});
+  }
+  if(row.expires_at<=new Date().toISOString()||row.state!=="pending")
+    return json({ok:false,error:"expired"},409);
+  if(row.domain_verified_at)return json({ok:true,state:onboardingState(row)});
+  if(onboardingUrl(row.hostname,input.challenge_url)!==row.challenge_url)
+    return json({ok:false,error:"invalid_domain"},400);
+  // Explicitly disallow redirects, non-HTTPS, oversized responses and nonmatching challenges.
+  const challengeResponse=await fetch(row.challenge_url,{method:"GET",redirect:"manual",
+    headers:{Accept:"application/json"},signal:AbortSignal.timeout(10000)});
+  if(!challengeResponse.ok||challengeResponse.status!==200)return json({ok:false,error:"domain_challenge_failed"},400);
+  const challengeText=await challengeResponse.text();
+  if(challengeText.length>1024)return json({ok:false,error:"domain_challenge_failed"},400);
+  let challengeData;try{challengeData=JSON.parse(challengeText);}catch{return json({ok:false,error:"domain_challenge_failed"},400);}
+  if(typeof challengeData.challenge!=="string"||await onboardingHash(challengeData.challenge)!==row.challenge_hash)
+    return json({ok:false,error:"domain_challenge_failed"},400);
+  await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id+"&state=eq.pending","PATCH",{domain_verified_at:new Date().toISOString()});
+  const emailToken=onboardingRandom();
+  await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id,"PATCH",{email_token_hash:await onboardingHash(emailToken)});
+  const link=new URL("/api/v1/onboarding/confirm",url.origin);
+  link.searchParams.set("id",id);link.searchParams.set("token",emailToken);
+  try {
+    await onboardingMail(env,row.contact_email,"Confirma la activación de LIREP",
+      '<p>Se solicitó registrar un Libro de Reclamaciones para '+row.hostname+'.</p><p>Si autorizas esta operación, abre el enlace y confirma:</p><p><a href="'+link.href.replace(/&/g,"&amp;")+'">Confirmar correo y activar LIREP</a></p><p>Si no solicitaste el registro, ignora este mensaje.</p>');
+  } catch {
+    await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id+"&state=eq.pending","PATCH",{domain_verified_at:null});
+    return json({ok:false,error:"email_send_failed"},503);
+  }
+  return json({ok:true,state:{...onboardingState(row),domain_verified:true},notice:"email_sent"});
 }
 
 async function callSupabase(payload, env) {
@@ -293,13 +487,13 @@ export default {
         const job = await lirepRpc("lirep_claim_receipt_email_by_id", {p_queue_id:id}, env);
         if (!job) continue;
         const link = "https://lirep-public-api.vidadecanes-peru.workers.dev/constancia?public_prefix=" + encodeURIComponent(job.public_prefix) + "&code=" + encodeURIComponent(job.public_code) + "&token=" + encodeURIComponent(job.receipt_token);
-        const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(job.public_code) + "</p><p><a href='" + escHtml(link) + "'>Ver constancia</a></p>";
+        const html = "<h2>Constancia del Libro de Reclamaciones</h2><p>Tu registro fue recibido.</p><p><b>Codigo:</b> " + escHtml(displayComplaintCode(job.public_code)) + "</p><p><a href='" + escHtml(link) + "'>Ver constancia</a></p><p>Este correo es automatico y no esta supervisado. No responda a este mensaje.</p>";
         let accepted = false;
         try {
-          if (!approvedReceiptSender(job.from_email, env)) throw new Error("EMAIL_SENDER_NOT_APPROVED");
+          if (!approvedReceiptSender(job.from_email)) throw new Error("EMAIL_SENDER_NOT_APPROVED");
     const response = await fetch("https://api.resend.com/emails", {
             method:"POST",headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"content-type":"application/json"},
-            body:JSON.stringify({from:job.from_name+" <"+job.from_email+">",to:[job.recipient],subject:"Constancia del Libro de Reclamaciones - "+job.public_code,html}),
+            body:JSON.stringify({from:job.from_name+" <"+job.from_email+">",to:[job.recipient],subject:"Constancia del Libro de Reclamaciones - "+displayComplaintCode(job.public_code),html}),
             signal:AbortSignal.timeout(15000)
           });
           const result = await response.json().catch(()=>null);
@@ -317,7 +511,7 @@ export default {
     const url = new URL(request.url);
 
     if ((url.pathname === "/" || url.pathname === "/libro-de-reclamaciones") && request.method === "GET") {
-      return new Response("<!doctype html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>Libro de Reclamaciones | Vida de Canes ECO</title>\n<script>if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('lirep-embed');</script>\n<script src=\"https://challenges.cloudflare.com/turnstile/v0/api.js\" async defer></script>\n<style>\n:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f5f7fa}*{box-sizing:border-box}body{margin:0}.wrap{max-width:900px;margin:auto;padding:24px}.card{background:#fff;border:1px solid #dde3ea;border-radius:16px;padding:24px;box-shadow:0 8px 30px #1720330d}h1{margin:.2em 0;font-size:clamp(1.7rem,4vw,2.4rem)}h2{font-size:1.15rem;margin:28px 0 12px}.muted{color:#5f6b7a}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}label{display:block;font-weight:650;font-size:.92rem}input,select,textarea{width:100%;margin-top:6px;padding:12px;border:1px solid #cfd7e2;border-radius:10px;font:inherit;background:#fff}textarea{min-height:120px;resize:vertical}.full{grid-column:1/-1}[hidden]{display:none!important}.check{display:flex;gap:10px;align-items:flex-start;font-weight:400;margin:12px 0 8px;padding:4px 4px}.check input{width:auto;margin-top:4px}button{margin-top:18px;border:0;border-radius:10px;padding:13px 18px;font:inherit;font-weight:750;cursor:pointer;background:#172033;color:#fff}button:disabled{opacity:.55;cursor:not-allowed}.msg{margin-top:16px;padding:14px;border-radius:10px;display:none}.ok{display:block;background:#ecfdf3;color:#166534}.err{display:block;background:#fff1f2;color:#9f1239}.company{padding:12px 0 18px;border-bottom:1px solid #e5e9ef}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eef2f7;font-size:.8rem;font-weight:700}.modal-backdrop{position:fixed;inset:0;background:#0f172acc;display:none;align-items:center;justify-content:center;padding:20px;z-index:9999}.modal-backdrop.open{display:flex}.modal{width:min(520px,100%);background:#fff;border-radius:18px;padding:28px;box-shadow:0 24px 80px #0005;text-align:center}.modal-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;background:#ecfdf3;color:#166534;font-size:30px;font-weight:800}.modal h2{margin:0 0 8px;font-size:1.45rem}.modal-code{margin:16px 0;padding:13px;border-radius:10px;background:#f1f5f9;font-weight:800;word-break:break-word}.modal p{color:#5f6b7a}.modal button{width:100%;margin-top:10px}.footer{text-align:center;margin-top:18px;padding:14px 8px;color:#6b7280;font-size:.82rem}@media(max-width:650px){.wrap{padding:12px}.card{padding:18px}.grid{grid-template-columns:1fr}.full{grid-column:auto}}html.lirep-embed,html.lirep-embed body,html.lirep-embed .wrap{background:transparent!important}html.lirep-embed .card{background:#fff!important;box-shadow:none}\n</style>\n</head>\n<body>\n<main class=\"wrap\"><section class=\"card\">\n<span class=\"badge\">Libro de Reclamaciones Virtual</span>\n<h1>Libro de Reclamaciones</h1>\n<div id=\"company\" class=\"company\"><strong>Vida de Canes ECO</strong><div class=\"muted\">Cargando información del establecimiento…</div></div>\n\n<form id=\"form\" novalidate>\n<h2>1. Identificación del consumidor</h2>\n<div class=\"grid\">\n<label>Tipo de documento<select name=\"document_type\" required><option value=\"dni\">DNI</option><option value=\"ce\">Carné de extranjería</option><option value=\"passport\">Pasaporte</option><option value=\"ruc\">RUC</option><option value=\"other\">Otro</option></select></label>\n<label>Número de documento<input name=\"document_number\" maxlength=\"50\" required></label>\n<label>Nombres<input name=\"first_names\" maxlength=\"150\" required></label>\n<label>Apellidos<input name=\"last_names\" maxlength=\"150\" required></label>\n<label>Teléfono<input name=\"phone\" type=\"tel\" maxlength=\"30\" required></label>\n<label>Correo electrónico<input name=\"email\" type=\"email\" maxlength=\"254\"></label>\n<label class=\"full\">Domicilio<input name=\"address\" maxlength=\"500\" required></label>\n<label class=\"full check\"><input type=\"checkbox\" id=\"is_minor\" name=\"is_minor\"><span>El consumidor es menor de edad</span></label>\n<div id=\"representative\" class=\"full grid\" hidden>\n<label>Nombres del padre, madre o representante<input name=\"representative_first_names\" maxlength=\"150\"></label>\n<label>Apellidos del padre, madre o representante<input name=\"representative_last_names\" maxlength=\"150\"></label>\n<label>Tipo de documento del representante<select name=\"representative_document_type\"><option value=\"dni\">DNI</option><option value=\"ce\">Carné de extranjería</option><option value=\"passport\">Pasaporte</option><option value=\"ruc\">RUC</option><option value=\"other\">Otro</option></select></label>\n<label>Número de documento del representante<input name=\"representative_document_number\" maxlength=\"50\"></label>\n<label>Teléfono del representante<input name=\"representative_phone\" type=\"tel\" maxlength=\"30\"></label>\n<label>Correo del representante<input name=\"representative_email\" type=\"email\" maxlength=\"254\"></label>\n</div>\n</div>\n\n<h2>2. Bien o servicio</h2>\n<div class=\"grid\">\n<label>Tipo<select name=\"product_service_type\" required><option value=\"servicio\">Servicio</option><option value=\"producto\">Producto</option></select></label>\n<label>Monto reclamado (S/)<input name=\"amount\" type=\"number\" min=\"0\" step=\"0.01\"></label>\n<label class=\"full\">Descripción<input name=\"product_service_description\" maxlength=\"1000\" required></label>\n</div>\n\n<h2>3. Detalle del reclamo o queja</h2>\n<div class=\"grid\">\n<label>Tipo<select name=\"complaint_type\" required><option value=\"reclamo\">Reclamo</option><option value=\"queja\">Queja</option></select></label>\n<label class=\"full\">Detalle<textarea name=\"detail\" maxlength=\"5000\" required></textarea></label>\n<label class=\"full\">Pedido del consumidor<textarea name=\"consumer_request\" maxlength=\"5000\" required></textarea></label>\n<label>Canal preferido de respuesta<select name=\"preferred_response_channel\" required><option value=\"email\">Correo electrónico</option><option value=\"phone\">Teléfono</option><option value=\"physical\">Domicilio</option></select></label>\n<label class=\"full check\"><input type=\"checkbox\" name=\"consumer_conformity\" required><span>Declaro que la información consignada es correcta y manifiesto mi conformidad con el registro electrónico de esta hoja en el Libro de Reclamaciones.</span></label>\n</div>\n\n<section aria-label=\"Información legal y datos personales\" style=\"margin:20px 0;padding:16px;border:1px solid #dbe3ed;border-radius:10px;background:#f8fafc;line-height:1.6\">\n<p><strong>Plazo de respuesta:</strong> Los reclamos y quejas deben ser atendidos y respondidos en un plazo máximo de <strong>15 días hábiles improrrogables</strong>, conforme a la normativa peruana vigente.</p>\n<p><strong>Protección de datos personales:</strong> La información proporcionada se utilizará para registrar, tramitar y responder esta reclamación y cumplir las obligaciones legales aplicables. Consulta la <a href=\"https://vidadecanes.pe/politica-de-privacidad/\" target=\"_blank\" rel=\"noopener noreferrer\">política de privacidad de Vida de Canes</a>.</p>\n</section>\n<div class=\"cf-turnstile\" data-sitekey=\"0x4AAAAAAFQZXPjiJUTwSZmi\"></div>\n<button id=\"submit\" type=\"submit\">Registrar reclamo o queja</button>\n<div id=\"message\" class=\"msg\" role=\"status\" aria-live=\"polite\"></div>\n</form>\n</section><div id=\"successModal\" class=\"modal-backdrop\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"successTitle\"><div class=\"modal\"><div class=\"modal-icon\">✓</div><h2 id=\"successTitle\">Registro realizado correctamente</h2><p>Tu reclamo o queja fue registrado. Conserva este código como constancia:</p><div id=\"successCode\" class=\"modal-code\"></div><button id=\"receiptButton\" type=\"button\">Ver / descargar constancia</button><button id=\"closeSuccessModal\" type=\"button\">Entendido</button></div></div><footer class=\"footer\">&copy; <span id=\"copyright-year\"></span> · Powered by 360 Integral Solutions</footer></main>\n<script>\ndocument.getElementById(\"copyright-year\").textContent=new Date().getFullYear();\nconst API=location.origin;\nconst PREFIX=(new URLSearchParams(location.search).get(\"public_prefix\")||\"\").trim().toUpperCase();\nif(!/^[A-Z0-9]{8}$/.test(PREFIX)){document.body.innerHTML=\"<main class=\\\"wrap\\\"><section class=\\\"card\\\"><h1>Libro no disponible</h1><p class=\\\"muted\\\">Falta la identificación segura de la empresa. No se realizará ningún registro.</p></section></main>\";throw new Error(\"PUBLIC_PREFIX_REQUIRED\");}\nlet establishmentCode=null,bookCode=null,idempotencyKey=null;\nif(PREFIX===\"LIREPQA1\"){const qa=document.createElement(\"div\");qa.style.cssText=\"margin:10px 0;padding:10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-weight:800;text-align:center\";qa.textContent=\"ENTORNO QA · LOS REGISTROS DE ESTA PÁGINA SON DE PRUEBA\";document.querySelector(\".card\").prepend(qa);}\nconst company=document.getElementById(\"company\"),form=document.getElementById(\"form\"),message=document.getElementById(\"message\"),submit=document.getElementById(\"submit\"),successModal=document.getElementById(\"successModal\"),successCode=document.getElementById(\"successCode\"),closeSuccessModal=document.getElementById(\"closeSuccessModal\");\nlet lastPublicCode=\"\",lastReceiptToken=\"\";\nconst receiptButton=document.getElementById(\"receiptButton\");\nreceiptButton.addEventListener(\"click\",()=>{if(lastPublicCode&&lastReceiptToken)window.open(API+\"/constancia?public_prefix=\"+encodeURIComponent(PREFIX)+\"&code=\"+encodeURIComponent(lastPublicCode)+\"&token=\"+encodeURIComponent(lastReceiptToken),\"_blank\",\"noopener\");});\ncloseSuccessModal.addEventListener(\"click\",()=>successModal.classList.remove(\"open\"));\nsuccessModal.addEventListener(\"click\",e=>{if(e.target===successModal)successModal.classList.remove(\"open\");});\n\nfunction uuid(){return crypto.randomUUID();}\nconst minor=document.getElementById(\"is_minor\"),representative=document.getElementById(\"representative\");\nfunction syncMinorFields(){\n representative.hidden=!minor.checked;\n representative.querySelectorAll(\"input,select\").forEach(el=>{\n  el.disabled=!minor.checked;\n  if([\"representative_first_names\",\"representative_last_names\",\"representative_document_type\",\"representative_document_number\"].includes(el.name))el.required=minor.checked;\n });\n}\nminor.addEventListener(\"change\",syncMinorFields);\nsyncMinorFields();\nfunction show(text,type){message.className=\"msg \"+type;message.textContent=text;}\nasync function loadConfig(){\n try{\n  const r=await fetch(API+\"/api/v1/form-config?public_prefix=\"+PREFIX);\n  const j=await r.json();\n  if(!r.ok||!j.ok)throw new Error();\n  const e=j.config.establishments?.[0],b=e?.books?.[0];\n  if(!e||!b)throw new Error();\n  establishmentCode=e.code;bookCode=b.code;\n  const org=j.config.organization;\n  const displayName=org.trade_name||org.legal_name;\n  const establishmentName=String(e.name||\"\").trim();\n  const normalizedDisplay=String(displayName||\"\").toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g,\" \").trim();\n  const normalizedEst=establishmentName.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g,\" \").trim();\n  const showEstablishment=establishmentName && normalizedEst!==normalizedDisplay && !normalizedEst.startsWith(normalizedDisplay+\" \");\n  company.innerHTML=\"<strong>\"+escapeHtml(displayName)+\"</strong><div class=\\\"muted\\\">\"+(showEstablishment?escapeHtml(establishmentName)+\" · \":\"\")+escapeHtml([e.district,e.province,e.department].filter(Boolean).join(\", \"))+\"</div>\";\n }catch{submit.disabled=true;show(\"El Libro de Reclamaciones no está disponible temporalmente. Intenta nuevamente más tarde.\",\"err\");}\n}\nfunction escapeHtml(v){const d=document.createElement(\"div\");d.textContent=String(v||\"\");return d.innerHTML;}\nform.addEventListener(\"submit\",async(e)=>{\n e.preventDefault();message.className=\"msg\";\n if(!form.reportValidity()||!establishmentCode||!bookCode)return;\n const fd=new FormData(form),token=fd.get(\"cf-turnstile-response\");\n if(!token){show(\"Completa la verificación de seguridad.\",\"err\");return;}\n submit.disabled=true;\n const body={\n  idempotency_key:(idempotencyKey||(idempotencyKey=uuid())),public_prefix:PREFIX,establishment_code:establishmentCode,book_code:bookCode,\n  document_type:fd.get(\"document_type\"),document_number:fd.get(\"document_number\"),first_names:fd.get(\"first_names\"),\n  last_names:fd.get(\"last_names\"),email:fd.get(\"email\"),phone:fd.get(\"phone\"),address:fd.get(\"address\"),is_minor:fd.get(\"is_minor\")===\"on\",\n  representative_first_names:fd.get(\"representative_first_names\")||null,representative_last_names:fd.get(\"representative_last_names\")||null,\n  representative_document_type:fd.get(\"representative_document_type\")||null,representative_document_number:fd.get(\"representative_document_number\")||null,\n  representative_phone:fd.get(\"representative_phone\")||null,representative_email:fd.get(\"representative_email\")||null,\n  consumer_conformity:fd.get(\"consumer_conformity\")===\"on\",preferred_response_channel:fd.get(\"preferred_response_channel\"),complaint_type:fd.get(\"complaint_type\"),\n  product_service_type:fd.get(\"product_service_type\"),product_service_description:fd.get(\"product_service_description\"),\n  amount:fd.get(\"amount\"),detail:fd.get(\"detail\"),consumer_request:fd.get(\"consumer_request\"),turnstile_token:token\n };\n try{\n  const r=await fetch(API+\"/api/v1/complaints?public_prefix=\"+encodeURIComponent(PREFIX),{method:\"POST\",headers:{\"Content-Type\":\"application/json\",\"X-LIREP-Prefix\":PREFIX},body:JSON.stringify(body)});\n  const j=await r.json();\n  if(!r.ok||!j.ok)throw new Error(j.error||\"SUBMISSION_FAILED\");\n  const c=j.complaint;\n  lastPublicCode=c.public_code;lastReceiptToken=c.receipt_token||\"\";receiptButton.hidden=!lastReceiptToken;successCode.textContent=c.public_code;successModal.classList.add(\"open\");closeSuccessModal.focus();\n  form.reset();syncMinorFields();idempotencyKey=null;if(window.turnstile)turnstile.reset();\n }catch(err){show(\"No se pudo registrar. \"+(err.message===\"TURNSTILE_FAILED\"?\"Repite la verificación de seguridad.\":\"Intenta nuevamente.\"),\"err\");if(window.turnstile)turnstile.reset();}\n finally{submit.disabled=false;}\n});\nloadConfig();\n</script>\n</body></html>".replace("</body></html>", `<script>
+      return new Response("<!doctype html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>Libro de Reclamaciones</title>\n<script>if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('lirep-embed');</script>\n<script src=\"https://challenges.cloudflare.com/turnstile/v0/api.js\" async defer></script>\n<style>\n:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f5f7fa}*{box-sizing:border-box}body{margin:0}.wrap{width:100%;max-width:1240px;margin:0 auto;padding:clamp(12px,2vw,28px)}.card{background:#fff;border:1px solid #dde3ea;border-radius:16px;padding:clamp(16px,2.6vw,36px);box-shadow:0 8px 30px #1720330d}h1{margin:.2em 0;font-size:clamp(1.7rem,4vw,2.4rem)}h2{font-size:1.15rem;margin:28px 0 12px}.muted{color:#5f6b7a}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(12px,1.8vw,22px)}label{display:block;font-weight:650;font-size:.92rem}input,select,textarea{min-width:0;width:100%;margin-top:6px;padding:12px;border:1px solid #cfd7e2;border-radius:10px;font:inherit;background:#fff}textarea{min-height:120px;resize:vertical}.full{grid-column:1/-1}[hidden]{display:none!important}.check{display:flex;gap:10px;align-items:flex-start;font-weight:400;margin:12px 0 8px;padding:4px 4px}.check input{width:auto;margin-top:4px}button{margin-top:18px;border:0;border-radius:10px;padding:13px 18px;font:inherit;font-weight:750;cursor:pointer;background:#172033;color:#fff}button:disabled{opacity:.55;cursor:not-allowed}.msg{margin-top:16px;padding:14px;border-radius:10px;display:none}.ok{display:block;background:#ecfdf3;color:#166534}.err{display:block;background:#fff1f2;color:#9f1239}.company{padding:12px 0 18px;border-bottom:1px solid #e5e9ef}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eef2f7;font-size:.8rem;font-weight:700}.modal-backdrop{position:fixed;inset:0;background:#0f172acc;display:none;align-items:center;justify-content:center;padding:20px;z-index:9999}.modal-backdrop.open{display:flex}.modal{width:min(520px,100%);background:#fff;border-radius:18px;padding:28px;box-shadow:0 24px 80px #0005;text-align:center}.modal-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;background:#ecfdf3;color:#166534;font-size:30px;font-weight:800}.modal h2{margin:0 0 8px;font-size:1.45rem}.modal-code{margin:16px 0;padding:13px;border-radius:10px;background:#f1f5f9;font-weight:800;word-break:break-word}.modal p{color:#5f6b7a}.modal button{width:100%;margin-top:10px}.footer{text-align:center;margin-top:18px;padding:14px 8px;color:#6b7280;font-size:.82rem}@media(max-width:650px){.wrap{padding:12px}.card{padding:18px}.grid{grid-template-columns:1fr}.full{grid-column:auto}}html.lirep-embed,html.lirep-embed body,html.lirep-embed .wrap{background:transparent!important}html.lirep-embed .wrap{width:100%;max-width:1240px}html.lirep-embed .card{background:#fff!important;box-shadow:none}\n</style>\n</head>\n<body>\n<main class=\"wrap\"><section class=\"card\">\n<span class=\"badge\">Libro de Reclamaciones Virtual</span>\n<h1>Libro de Reclamaciones</h1>\n<div id=\"company\" class=\"company\"><strong>Consultando datos del establecimiento…</strong><div class=\"muted\">Cargando información del establecimiento…</div></div>\n\n<form id=\"form\" novalidate>\n<h2>1. Identificación del consumidor</h2>\n<div class=\"grid\">\n<label>Tipo de documento<select name=\"document_type\" required><option value=\"dni\">DNI</option><option value=\"ce\">Carné de extranjería</option><option value=\"passport\">Pasaporte</option><option value=\"ruc\">RUC</option><option value=\"other\">Otro</option></select></label>\n<label>Número de documento<input name=\"document_number\" maxlength=\"50\" required></label>\n<label>Nombres<input name=\"first_names\" maxlength=\"150\" required></label>\n<label>Apellidos<input name=\"last_names\" maxlength=\"150\" required></label>\n<label>Teléfono<input name=\"phone\" type=\"tel\" maxlength=\"30\" required></label>\n<label>Correo electrónico<input name=\"email\" type=\"email\" maxlength=\"254\"></label>\n<label class=\"full\">Domicilio<input name=\"address\" maxlength=\"500\" required></label>\n<label class=\"full check\"><input type=\"checkbox\" id=\"is_minor\" name=\"is_minor\"><span>El consumidor es menor de edad</span></label>\n<div id=\"representative\" class=\"full grid\" hidden>\n<label>Nombres del padre, madre o representante<input name=\"representative_first_names\" maxlength=\"150\"></label>\n<label>Apellidos del padre, madre o representante<input name=\"representative_last_names\" maxlength=\"150\"></label>\n<label>Tipo de documento del representante<select name=\"representative_document_type\"><option value=\"dni\">DNI</option><option value=\"ce\">Carné de extranjería</option><option value=\"passport\">Pasaporte</option><option value=\"ruc\">RUC</option><option value=\"other\">Otro</option></select></label>\n<label>Número de documento del representante<input name=\"representative_document_number\" maxlength=\"50\"></label>\n<label>Teléfono del representante<input name=\"representative_phone\" type=\"tel\" maxlength=\"30\"></label>\n<label>Correo del representante<input name=\"representative_email\" type=\"email\" maxlength=\"254\"></label>\n</div>\n</div>\n\n<h2>2. Bien o servicio</h2>\n<div class=\"grid\">\n<label>Tipo<select name=\"product_service_type\" required><option value=\"servicio\">Servicio</option><option value=\"producto\">Producto</option></select></label>\n<label>Monto reclamado (S/)<input name=\"amount\" type=\"number\" min=\"0\" step=\"0.01\"></label>\n<label class=\"full\">Descripción<input name=\"product_service_description\" maxlength=\"1000\" required></label>\n</div>\n\n<h2>3. Detalle del reclamo o queja</h2>\n<div class=\"grid\">\n<label>Tipo<select name=\"complaint_type\" required><option value=\"reclamo\">Reclamo</option><option value=\"queja\">Queja</option></select></label>\n<label class=\"full\">Detalle<textarea name=\"detail\" maxlength=\"5000\" required></textarea></label>\n<label class=\"full\">Pedido del consumidor<textarea name=\"consumer_request\" maxlength=\"5000\" required></textarea></label>\n<label>Canal preferido de respuesta<select name=\"preferred_response_channel\" required><option value=\"email\">Correo electrónico</option><option value=\"phone\">Teléfono</option><option value=\"physical\">Domicilio</option></select></label>\n<label class=\"full check\"><input type=\"checkbox\" name=\"consumer_conformity\" required><span>Declaro que la información consignada es correcta y manifiesto mi conformidad con el registro electrónico de esta hoja en el Libro de Reclamaciones.</span></label>\n</div>\n\n<section aria-label=\"Información legal y datos personales\" style=\"margin:20px 0;padding:16px;border:1px solid #dbe3ed;border-radius:10px;background:#f8fafc;line-height:1.6\">\n<p><strong>Plazo de respuesta:</strong> Los reclamos y quejas deben ser atendidos y respondidos en un plazo máximo de <strong>15 días hábiles improrrogables</strong>, conforme a la normativa peruana vigente.</p>\n<p><strong>Protección de datos personales:</strong> La información proporcionada se utilizará para registrar, tramitar y responder esta reclamación y cumplir las obligaciones legales aplicables. <span id=\"lirep-privacy-info\">La empresa responsable del Libro de Reclamaciones tratará los datos proporcionados para atender y responder la solicitud conforme a la normativa aplicable.</span></p>\n</section>\n<div class=\"cf-turnstile\" data-sitekey=\"0x4AAAAAAFQZXPjiJUTwSZmi\"></div>\n<button id=\"submit\" type=\"submit\">Registrar reclamo o queja</button>\n<div id=\"message\" class=\"msg\" role=\"status\" aria-live=\"polite\"></div>\n</form>\n</section><div id=\"successModal\" class=\"modal-backdrop\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"successTitle\"><div class=\"modal\"><div class=\"modal-icon\">✓</div><h2 id=\"successTitle\">Registro realizado correctamente</h2><p>Tu reclamo o queja fue registrado. Conserva este código como constancia:</p><div id=\"successCode\" class=\"modal-code\"></div><button id=\"receiptButton\" type=\"button\">Ver / descargar constancia</button><button id=\"closeSuccessModal\" type=\"button\">Entendido</button></div></div><footer class=\"footer\">&copy; <span id=\"copyright-year\"></span> · Powered by 360 Integral Solutions</footer></main>\n<script>\ndocument.getElementById(\"copyright-year\").textContent=new Date().getFullYear();\nconst API=location.origin;\nconst PREFIX=(new URLSearchParams(location.search).get(\"public_prefix\")||\"\").trim().toUpperCase();\nif(!/^[A-Z0-9]{8}$/.test(PREFIX)){document.body.innerHTML=\"<main class=\\\"wrap\\\"><section class=\\\"card\\\"><h1>Libro no disponible</h1><p class=\\\"muted\\\">Falta la identificación segura de la empresa. No se realizará ningún registro.</p></section></main>\";throw new Error(\"PUBLIC_PREFIX_REQUIRED\");}\nlet establishmentCode=null,bookCode=null,idempotencyKey=null;\nif(PREFIX===\"LIREPQA1\"){const qa=document.createElement(\"div\");qa.style.cssText=\"margin:10px 0;padding:10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-weight:800;text-align:center\";qa.textContent=\"ENTORNO QA · LOS REGISTROS DE ESTA PÁGINA SON DE PRUEBA\";document.querySelector(\".card\").prepend(qa);}\nconst company=document.getElementById(\"company\"),form=document.getElementById(\"form\"),message=document.getElementById(\"message\"),submit=document.getElementById(\"submit\"),successModal=document.getElementById(\"successModal\"),successCode=document.getElementById(\"successCode\"),closeSuccessModal=document.getElementById(\"closeSuccessModal\");\nlet lastPublicCode=\"\",lastReceiptToken=\"\";\nconst receiptButton=document.getElementById(\"receiptButton\");\nreceiptButton.addEventListener(\"click\",()=>{if(lastPublicCode&&lastReceiptToken)window.open(API+\"/constancia?public_prefix=\"+encodeURIComponent(PREFIX)+\"&code=\"+encodeURIComponent(lastPublicCode)+\"&token=\"+encodeURIComponent(lastReceiptToken),\"_blank\",\"noopener\");});\ncloseSuccessModal.addEventListener(\"click\",()=>successModal.classList.remove(\"open\"));\nsuccessModal.addEventListener(\"click\",e=>{if(e.target===successModal)successModal.classList.remove(\"open\");});\n\nfunction uuid(){return crypto.randomUUID();}\nconst minor=document.getElementById(\"is_minor\"),representative=document.getElementById(\"representative\");\nfunction syncMinorFields(){\n representative.hidden=!minor.checked;\n representative.querySelectorAll(\"input,select\").forEach(el=>{\n  el.disabled=!minor.checked;\n  if([\"representative_first_names\",\"representative_last_names\",\"representative_document_type\",\"representative_document_number\"].includes(el.name))el.required=minor.checked;\n });\n}\nminor.addEventListener(\"change\",syncMinorFields);\nsyncMinorFields();\nfunction show(text,type){message.className=\"msg \"+type;message.textContent=text;}\nasync function loadConfig(){\n try{\n  const r=await fetch(API+\"/api/v1/form-config?public_prefix=\"+PREFIX);\n  const j=await r.json();\n  if(!r.ok||!j.ok)throw new Error();\n  const e=j.config.establishments?.[0],b=e?.books?.[0];\n  if(!e||!b)throw new Error();\n  establishmentCode=e.code;bookCode=b.code;\n  const org=j.config.organization;\n  const privacyInfo=document.getElementById(\"lirep-privacy-info\");\n  if(privacyInfo){\n   const url=String(org.privacy_policy_url||\"\").trim();\n   privacyInfo.textContent=\"Los datos personales serán tratados por \"+String(org.legal_name||org.trade_name||\"la empresa responsable\")+\" para atender y responder esta reclamación conforme a la normativa aplicable.\";\n   if(/^https:\\/\\//i.test(url)){\n    try{const u=new URL(url);if(u.username===\"\"&&u.password===\"\"&&u.protocol===\"https:\"){const a=document.createElement(\"a\");a.href=u.href;a.target=\"_blank\";a.rel=\"noopener noreferrer\";a.textContent=\" Consultar política de privacidad.\";privacyInfo.appendChild(a);}}catch(_){}\n   }\n  }\n  const displayName=org.trade_name||org.legal_name;\n  document.title=\"Libro de Reclamaciones | \"+String(displayName||\"Empresa\").slice(0,120);\n  const establishmentName=String(e.name||\"\").trim();\n  const normalizedDisplay=String(displayName||\"\").toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g,\" \").trim();\n  const normalizedEst=establishmentName.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g,\" \").trim();\n  const showEstablishment=establishmentName && normalizedEst!==normalizedDisplay && !normalizedEst.startsWith(normalizedDisplay+\" \");\n  company.innerHTML=\"<strong>\"+escapeHtml(displayName)+\"</strong><div class=\\\"muted\\\">\"+(showEstablishment?escapeHtml(establishmentName)+\" · \":\"\")+escapeHtml([e.district,e.province,e.department].filter(Boolean).join(\", \"))+\"</div>\";\n }catch{submit.disabled=true;show(\"El Libro de Reclamaciones no está disponible temporalmente. Intenta nuevamente más tarde.\",\"err\");}\n}\nfunction escapeHtml(v){const d=document.createElement(\"div\");d.textContent=String(v||\"\");return d.innerHTML;}\nform.addEventListener(\"submit\",async(e)=>{\n e.preventDefault();message.className=\"msg\";\n if(!form.reportValidity()||!establishmentCode||!bookCode)return;\n const fd=new FormData(form),token=fd.get(\"cf-turnstile-response\");\n if(!token){show(\"Completa la verificación de seguridad.\",\"err\");return;}\n submit.disabled=true;\n const body={\n  idempotency_key:(idempotencyKey||(idempotencyKey=uuid())),public_prefix:PREFIX,establishment_code:establishmentCode,book_code:bookCode,\n  document_type:fd.get(\"document_type\"),document_number:fd.get(\"document_number\"),first_names:fd.get(\"first_names\"),\n  last_names:fd.get(\"last_names\"),email:fd.get(\"email\"),phone:fd.get(\"phone\"),address:fd.get(\"address\"),is_minor:fd.get(\"is_minor\")===\"on\",\n  representative_first_names:fd.get(\"representative_first_names\")||null,representative_last_names:fd.get(\"representative_last_names\")||null,\n  representative_document_type:fd.get(\"representative_document_type\")||null,representative_document_number:fd.get(\"representative_document_number\")||null,\n  representative_phone:fd.get(\"representative_phone\")||null,representative_email:fd.get(\"representative_email\")||null,\n  consumer_conformity:fd.get(\"consumer_conformity\")===\"on\",preferred_response_channel:fd.get(\"preferred_response_channel\"),complaint_type:fd.get(\"complaint_type\"),\n  product_service_type:fd.get(\"product_service_type\"),product_service_description:fd.get(\"product_service_description\"),\n  amount:fd.get(\"amount\"),detail:fd.get(\"detail\"),consumer_request:fd.get(\"consumer_request\"),turnstile_token:token\n };\n try{\n  const r=await fetch(API+\"/api/v1/complaints?public_prefix=\"+encodeURIComponent(PREFIX),{method:\"POST\",headers:{\"Content-Type\":\"application/json\",\"X-LIREP-Prefix\":PREFIX},body:JSON.stringify(body)});\n  const j=await r.json();\n  if(!r.ok||!j.ok)throw new Error(j.error||\"SUBMISSION_FAILED\");\n  const c=j.complaint;\n  lastPublicCode=c.public_code;lastReceiptToken=c.receipt_token||\"\";receiptButton.hidden=!lastReceiptToken;successCode.textContent=String(c.public_code||'').replace(/^[A-Z0-9]{8}-(?=LR[0-9]+-)/,'');successModal.classList.add(\"open\");closeSuccessModal.focus();\n  form.reset();syncMinorFields();idempotencyKey=null;if(window.turnstile)turnstile.reset();\n }catch(err){show(\"No se pudo registrar. \"+(err.message===\"TURNSTILE_FAILED\"?\"Repite la verificación de seguridad.\":\"Intenta nuevamente.\"),\"err\");if(window.turnstile)turnstile.reset();}\n finally{submit.disabled=false;}\n});\nloadConfig();\n</script>\n</body></html>".replace("</body></html>", `<script>
 (function(){
  if(new URLSearchParams(location.search).get("embed")!=="1" || window.parent===window)return;
  function sendHeight(){
@@ -373,6 +567,11 @@ export default {
         if(!data) return json({ok:false,error:"RECEIPT_NOT_FOUND"},404);
         return new Response(receiptHtml(data),{status:200,headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","referrer-policy":"no-referrer","content-security-policy":"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; frame-ancestors 'none'"}});
       }catch{return json({ok:false,error:"SERVICE_UNAVAILABLE"},503);}
+    }
+
+    if (url.pathname.startsWith(onboardingBase)) {
+      try { return await onboardingRoute(request,env,url); }
+      catch (error) { console.error("ONBOARDING_ERROR",String(error?.message||error)); return json({ok:false,error:"onboarding_not_configured"},503); }
     }
 
     if (url.pathname === "/health" && request.method === "GET") {

@@ -27,8 +27,8 @@ const wizard = fs.readFileSync('wordpress/lirep/includes/onboarding.php', 'utf8'
 const workerConfig = JSON.parse(fs.readFileSync('worker/wrangler.jsonc', 'utf8'));
 const approvedEmail = workerConfig.vars?.LIREP_APPROVED_FROM_EMAIL;
 const sends = worker.match(/fetch\("https:\/\/api\.resend\.com\/emails"/g) || [];
-const senderGuards = worker.match(/approvedReceiptSender\(job\.from_email, env\)/g) || [];
-if (workerConfig.vars?.LIREP_ENABLE_MULTIEMPRESA_EMAIL !== 'true' || approvedEmail !== 'lirep@mail.vidadecanes.pe' || sends.length !== 2 || senderGuards.length !== 2) {
+const senderGuards = worker.split('approvedReceiptSender(job.from_email)').length - 1;
+if (workerConfig.vars?.LIREP_ENABLE_MULTIEMPRESA_EMAIL !== 'true' || approvedEmail !== 'lirep@mail.vidadecanes.pe' || sends.length !== 3 || senderGuards !== 2 || !worker.includes('from:"LIREP <notificaciones@360insol.com>"')) {
   console.error('SENDER APPROVAL SAFETY FAIL'); process.exit(1);
 }
 for (const [name, body, needle] of [
@@ -73,7 +73,7 @@ for (const [name, passed] of [
   ['WordPress automatic security opt-in', plugin.includes('lirep_auto_security_updates') && plugin.includes('lirep_security')],
   ['WordPress 1.7.1 header', plugin.includes('* Version: 1.7.1')],
   ['WordPress self-service wizard', plugin.includes("includes/onboarding.php") && wizard.includes('lirep_onboarding_challenge')],
-  ['WordPress onboarding readiness gate', wizard.includes('lirep_onboarding_is_ready') && wizard.includes('Servicio de activación en preparación')],
+  ['WordPress onboarding readiness gate', wizard.includes('lirep_onboarding_is_ready') && wizard.includes('No se pudo conectar con el servicio de activación')],
   ['WordPress no service-role secrets', !wizard.includes('SUPABASE_SERVICE_ROLE_KEY')],
 ]) { if (!passed) { console.error('QA FAIL:', name); process.exit(1); } }
 console.log('LIREP baseline + WordPress 1.7.1 static security checks PASS');

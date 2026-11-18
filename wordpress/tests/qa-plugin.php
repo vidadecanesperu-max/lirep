@@ -37,6 +37,7 @@ function add_query_arg($args, $url) { return $url . '?' . http_build_query($args
 function esc_attr($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
 function esc_url($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
 function esc_html($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
+function plugin_dir_path($file) { return dirname($file) . DIRECTORY_SEPARATOR; }
 function plugin_basename($file) { return 'lirep/lirep.php'; }
 function plugins_url($path, $file) { return 'https://example.com/wp-content/plugins/lirep/' . $path; }
 function wp_enqueue_style($name) { $GLOBALS['styles'][$name] = true; }
@@ -89,7 +90,7 @@ qa(strpos($qa_html, 'https://qa.account.workers.dev') !== false && strpos($qa_ht
 $prod_html = lirep_shortcode(array('public_prefix' => 'EVIL0000', 'entorno' => 'produccion'));
 qa(strpos($prod_html, 'VIDACANE') !== false && strpos($prod_html, 'EVIL0000') === false, 'Shortcode cannot override tenant');
 qa(strpos($prod_html, 'data-lirep-origin') !== false && strpos($prod_html, '<script>') === false, 'External script and origin metadata');
-qa(strpos($prod_html, 'rel="noopener noreferrer"') !== false, 'Safe fallback external link');
+qa(strpos($prod_html, '<iframe') !== false && strpos($prod_html, 'referrerpolicy="no-referrer"') !== false, 'Secure embedded form without external fallback');
 qa(isset($GLOBALS['styles']['lirep-embed']) && isset($GLOBALS['scripts']['lirep-embed']), 'Assets enqueued');
 qa(lirep_shortcode() !== $prod_html, 'Unique frame IDs');
 
