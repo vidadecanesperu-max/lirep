@@ -1,0 +1,47 @@
+name: Deploy LIREP existing Worker (verified self-service)
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - '.github/workflows/deploy-lirep-worker.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: lirep-worker-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate onboarding and existing Worker
+        run: |
+          set -euo pipefail
+          node --check worker/src/index.js
+          node worker/tests/onboarding.mjs
+          npm run verify
+          grep -Fq '"name": "lirep-public-api"' worker/wrangler.jsonc
+      - name: Ensure existing Cloudflare credential
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Cloudflare API token missing; no Worker changed."
+            exit 1
+          fi
+      - name: Deploy to existing Worker only
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 6aa99604577aed2046cf3a569db95b3f
+        run: npx --yes wrangler@4.158.0 deploy --config wrangler.jsonc
+      - name: Read-only production smoke
+        run: |
+          set -euo pipefail
+          BASE=https://lirep-public-api.vidadecanes-peru.workers.dev
+          curl --retry 4 --retry-delay 3 --fail --silent --show-error "$BASE/health" | grep -Fq '"ok":true'
+          curl --retry 4 --retry-delay 3 --fail --silent --show-error "$BASE/health/backend" | grep -Fq '"ok":true'
+          curl --retry 4 --retry-delay 3 --fail --silent --show-error "$BASE/api/v1/onboarding/capabilities" | grep -Fq '"enabled":true'
+          echo "PASS: existing Worker and self-service availability; no tenant or complaint created"
