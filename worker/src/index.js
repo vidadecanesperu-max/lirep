@@ -336,6 +336,11 @@ async function onboardingRoute(request,env,url) {
   else{try{input=JSON.parse(raw);}catch{return json({ok:false,error:"invalid_input"},400);}}
   if(!input||typeof input!=="object")return json({ok:false,error:"invalid_input"},400);
   if(path==="start") {
+    const ip=request.headers.get("CF-Connecting-IP")||"unknown";
+    if(env.SUBMIT_RATE_LIMITER) {
+      const limit=await env.SUBMIT_RATE_LIMITER.limit({key:"onboard:"+ip});
+      if(!limit.success)return json({ok:false,error:"rate_limited"},429);
+    }
     const host=onboardingHost(input.domain),challengeUrl=host&&onboardingUrl(host,input.challenge_url);
     const ruc=typeof input.ruc==="string"&&/^\d{11}$/.test(input.ruc)?input.ruc:null;
     const legal=onboardingSafeText(input.legal_name,200),email=onboardingSafeText(input.contact_email,254)?.toLowerCase();
@@ -407,8 +412,13 @@ async function onboardingRoute(request,env,url) {
   await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id,"PATCH",{email_token_hash:await onboardingHash(emailToken)});
   const link=new URL("/api/v1/onboarding/confirm",url.origin);
   link.searchParams.set("id",id);link.searchParams.set("token",emailToken);
-  await onboardingMail(env,row.contact_email,"Confirma la activación de LIREP",
-    '<p>Se solicitó registrar un Libro de Reclamaciones para '+row.hostname+'.</p><p>Si autorizas esta operación, abre el enlace y confirma:</p><p><a href="'+link.href.replace(/&/g,"&amp;")+'">Confirmar correo y activar LIREP</a></p><p>Si no solicitaste el registro, ignora este mensaje.</p>');
+  try {
+    await onboardingMail(env,row.contact_email,"Confirma la activación de LIREP",
+      '<p>Se solicitó registrar un Libro de Reclamaciones para '+row.hostname+'.</p><p>Si autorizas esta operación, abre el enlace y confirma:</p><p><a href="'+link.href.replace(/&/g,"&amp;")+'">Confirmar correo y activar LIREP</a></p><p>Si no solicitaste el registro, ignora este mensaje.</p>');
+  } catch {
+    await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id+"&state=eq.pending","PATCH",{domain_verified_at:null});
+    return json({ok:false,error:"email_send_failed"},503);
+  }
   return json({ok:true,state:{...onboardingState(row),domain_verified:true},notice:"email_sent"});
 }
 
