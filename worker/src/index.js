@@ -394,6 +394,21 @@ export default {
       }catch{return json({ok:false,error:"SERVICE_UNAVAILABLE"},503);}
     }
 
+    // Self-service readiness is explicit: never collect company details unless the
+    // onboarding backend, outbound mail and verification flow are configured.
+    if (url.pathname === "/api/v1/onboarding/capabilities" && request.method === "GET") {
+      const enabled = env.LIREP_ONBOARDING_ENABLED === "true"
+        && !!env.SUPABASE_URL && !!env.SUPABASE_SERVICE_ROLE_KEY
+        && !!env.RESEND_API_KEY && !!env.LIREP_ONBOARDING_EMAIL_SIGNING_KEY;
+      return json({
+        ok: true,
+        enabled,
+        mode: enabled ? "self_service" : "temporarily_unavailable",
+        admin_url: "https://lirep.360insol.com",
+        version: 1,
+      }, 200, { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+    }
+
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, service: "lirep-public-api", version: "1.13.8" });
     }
