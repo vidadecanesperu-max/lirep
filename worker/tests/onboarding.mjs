@@ -22,6 +22,7 @@ assert.equal(missing.data.error,"onboarding_not_enabled");
 
 const savedFetch=globalThis.fetch;
 const calls=[];
+const mailBodies=[];
 let row=null;
 globalThis.fetch=async(url,opts={})=>{
   const u=new URL(url);
@@ -41,8 +42,16 @@ globalThis.fetch=async(url,opts={})=>{
   }
   if(u.hostname==="cliente.com"&&u.pathname==="/wp-json/lirep/v1/challenge")
     return Response.json({challenge:globalThis.challengeForTest});
-  if(u.hostname==="api.resend.com")
+  if(u.hostname==="api.resend.com"){
+    mailBodies.push(JSON.parse(opts.body));
     return Response.json({id:"mock-resend-id"});
+  }
+  if(u.hostname==="example.supabase.co"&&u.pathname==="/auth/v1/admin/generate_link")
+    return Response.json({user:{id:"123e4567-e89b-42d3-a456-426614174001"},action_link:"https://example.supabase.co/auth/v1/verify?token=mock"});
+  if(u.hostname==="example.supabase.co"&&u.pathname==="/rest/v1/rpc/lirep_onboarding_activate"){
+    row.state="active";row.public_prefix="TEST1234";row.invitation_sent_at=new Date().toISOString();
+    return Response.json({public_prefix:"TEST1234"});
+  }
   throw Error("Unexpected mocked URL: "+u.href);
 };
 try{
@@ -64,8 +73,20 @@ try{
   assert.equal(status.data.state.email_verified,false);
   const wrong=await call("/api/v1/onboarding/status","POST",{...credentials,status_token:"0".repeat(64)});
   assert.equal(wrong.status,403);
+  const mail=mailBodies[0];
+  assert(mail?.html?.includes("/api/v1/onboarding/confirm"));
+  const link=mail.html.match(/href="([^"]+)"/)[1].replaceAll("&amp;","&");
+  const linkUrl=new URL(link);
+  const landing=await worker.fetch(new Request(link),env,ctx);
+  assert.equal(landing.status,200);
+  const confirmation=await worker.fetch(new Request(link,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({id:linkUrl.searchParams.get("id"),token:linkUrl.searchParams.get("token")}).toString()}),env,ctx);
+  assert.equal(confirmation.status,200);
+  const active=await call("/api/v1/onboarding/status","POST",credentials);
+  assert.equal(active.data.state.state,"active");
+  assert.equal(active.data.state.public_prefix,"TEST1234");
+  assert.equal(mailBodies.length,2);
   const cancelled=await call("/api/v1/onboarding/cancel","POST",credentials);
-  assert.equal(cancelled.status,200);
-  assert.equal(row.state,"cancelled");
+  assert.equal(cancelled.status,409);
 }finally{globalThis.fetch=savedFetch;}
-console.log("PASS: disabled gate, validation, domain proof, email dispatch, status isolation, cancel");
+console.log("PASS: disabled gate, validation, domain proof, email dispatch, status isolation, confirmation, activation, protected cancel");
