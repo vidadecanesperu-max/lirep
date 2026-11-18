@@ -312,7 +312,11 @@ async function onboardingAuthLink(env,email) {
     body:JSON.stringify({type:"magiclink",email,options:{redirect_to:"https://lirep.360insol.com/"}}),
     signal:AbortSignal.timeout(12000)});
   const data=await res.json().catch(()=>null);
-  if(!res.ok||!data?.user?.id||!data?.action_link)throw new Error("ONBOARDING_AUTH_UNAVAILABLE");
+  if(!res.ok||!data?.user?.id||!data?.action_link) {
+    const code=typeof data?.code==="string"?data.code:(typeof data?.error_code==="string"?data.error_code:"unknown");
+    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_user:!!data?.user?.id,has_action_link:!!data?.action_link}));
+    throw new Error("ONBOARDING_AUTH_UNAVAILABLE");
+  }
   return data;
 }
 async function onboardingRoute(request,env,url) {
