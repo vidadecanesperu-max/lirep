@@ -249,6 +249,169 @@ async function sendSecureReceipt(prefix, code, env) {
   }
 }
 
+
+/* Universal WordPress onboarding. All credentials remain server-side. */
+const onboardingBase = "/api/v1/onboarding/";
+const onboardingJsonHeaders = {"content-type":"application/json","accept":"application/json"};
+const onboardingRandom = (bytes=32) => Array.from(crypto.getRandomValues(new Uint8Array(bytes)),v=>v.toString(16).padStart(2,"0")).join("");
+async function onboardingHash(value) {
+  const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(bytes),v=>v.toString(16).padStart(2,"0")).join("");
+}
+function onboardingHost(input) {
+  if(typeof input!=="string" || input.length>253) return null;
+  const host=input.toLowerCase().replace(/\.$/,"");
+  if(!/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(host)) return null;
+  if(host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".test")||host.endsWith(".example")||host.endsWith(".invalid"))return null;
+  return host;
+}
+function onboardingUrl(host, raw) {
+  try {
+    const u=new URL(raw);
+    if(u.protocol!=="https:"||u.hostname.toLowerCase()!==host||u.port||u.username||u.password||u.search||u.hash)return null;
+    if(!u.pathname.endsWith("/wp-json/lirep/v1/challenge")&&!u.pathname.endsWith("/index.php/wp-json/lirep/v1/challenge"))return null;
+    return u.href;
+  }catch{return null;}
+}
+async function onboardingDb(env,path,method="GET",payload) {
+  const res=await fetch(env.SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/"+path,{
+    method,headers:{...onboardingJsonHeaders,apikey:env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,Prefer:"return=representation"},
+    ...(payload===undefined?{}:{body:JSON.stringify(payload)}),signal:AbortSignal.timeout(12000)
+  });
+  const body=await res.json().catch(()=>null);
+  if(!res.ok)throw new Error("ONBOARDING_DATABASE_ERROR_"+res.status);
+  return body;
+}
+async function onboardingRow(env,id) {
+  const rows=await onboardingDb(env,"lirep_onboarding_requests?id=eq."+encodeURIComponent(id)+"&select=*");
+  return Array.isArray(rows)?rows[0]:null;
+}
+async function onboardingMail(env,to,subject,html) {
+  const res=await fetch("https://api.resend.com/emails",{method:"POST",
+    headers:{"content-type":"application/json",Authorization:"Bearer "+env.RESEND_API_KEY},
+    body:JSON.stringify({from:"LIREP <notificaciones@360insol.com>",to:[to],subject,html}),
+    signal:AbortSignal.timeout(15000)});
+  const data=await res.json().catch(()=>null);
+  if(!res.ok||!data?.id)throw new Error("ONBOARDING_EMAIL_UNAVAILABLE");
+}
+function onboardingSafeText(value,max) {
+  return typeof value==="string"&&value.trim()&&value.trim().length<=max?value.trim():null;
+}
+function onboardingState(row) {
+  return {state:row.state,email_verified:!!row.email_verified_at,
+    domain_verified:!!row.domain_verified_at,invitation_sent:!!row.invitation_sent_at,
+    public_prefix:row.state==="active"?row.public_prefix:null};
+}
+async function onboardingAuthLink(env,email) {
+  const res=await fetch(env.SUPABASE_URL.replace(/\/$/,"")+"/auth/v1/admin/generate_link",{
+    method:"POST",headers:{...onboardingJsonHeaders,apikey:env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY},
+    body:JSON.stringify({type:"magiclink",email,options:{redirect_to:"https://lirep.360insol.com/"}}),
+    signal:AbortSignal.timeout(12000)});
+  const data=await res.json().catch(()=>null);
+  if(!res.ok||!data?.user?.id||!data?.action_link)throw new Error("ONBOARDING_AUTH_UNAVAILABLE");
+  return data;
+}
+async function onboardingRoute(request,env,url) {
+  const path=url.pathname.slice(onboardingBase.length);
+  if(path==="capabilities"&&request.method==="GET") {
+    const enabled=env.LIREP_ONBOARDING_ENABLED==="true"&&!!env.SUPABASE_URL&&!!env.SUPABASE_SERVICE_ROLE_KEY&&!!env.RESEND_API_KEY;
+    return json({ok:true,enabled,admin_url:"https://lirep.360insol.com"},200,{"cache-control":"no-store"});
+  }
+  if(env.LIREP_ONBOARDING_ENABLED!=="true"||!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY||!env.RESEND_API_KEY)
+    return json({ok:false,error:"onboarding_not_enabled"},503);
+  if(path==="confirm"&&request.method==="GET") {
+    const id=url.searchParams.get("id")||"",token=url.searchParams.get("token")||"";
+    if(!isUuid(id)||!/^[a-f0-9]{64}$/.test(token))return json({ok:false,error:"invalid_token"},400);
+    const page='<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Confirmar LIREP</title><main style="font:16px system-ui;max-width:560px;margin:10vh auto;padding:24px"><h1>Confirmación de correo LIREP</h1><p>Confirma que autorizas el registro de esta empresa y la administración de su Libro de Reclamaciones.</p><form method="post"><input type="hidden" name="id" value="'+id+'"><input type="hidden" name="token" value="'+token+'"><button style="padding:14px 22px">Confirmar y activar</button></form></main></html>';
+    return new Response(page,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer","content-security-policy":"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'"}});
+  }
+  if(!["start","status","verify-domain","cancel","confirm"].includes(path)||request.method!=="POST")
+    return json({ok:false,error:"NOT_FOUND"},404);
+  const raw=await request.text();
+  if(raw.length>12000)return json({ok:false,error:"invalid_input"},400);
+  let input;
+  if(path==="confirm"){input=Object.fromEntries(new URLSearchParams(raw));}
+  else{try{input=JSON.parse(raw);}catch{return json({ok:false,error:"invalid_input"},400);}}
+  if(!input||typeof input!=="object")return json({ok:false,error:"invalid_input"},400);
+  if(path==="start") {
+    const host=onboardingHost(input.domain),challengeUrl=host&&onboardingUrl(host,input.challenge_url);
+    const ruc=typeof input.ruc==="string"&&/^\d{11}$/.test(input.ruc)?input.ruc:null;
+    const legal=onboardingSafeText(input.legal_name,200),email=onboardingSafeText(input.contact_email,254)?.toLowerCase();
+    const address=onboardingSafeText(input.address,300),district=onboardingSafeText(input.district,100);
+    const province=onboardingSafeText(input.province,100),department=onboardingSafeText(input.department,100);
+    const privacy=onboardingSafeText(input.privacy_policy_url,1000);
+    if(!host||!challengeUrl||!ruc||!legal||!email||!isEmail(email)||!address||!district||!province||!department||!privacy||!privacy.startsWith("https://"))
+      return json({ok:false,error:"invalid_input"},400);
+    const privacyHost=(()=>{try{return new URL(privacy).hostname;}catch{return null;}})();
+    if(privacyHost!==host)return json({ok:false,error:"invalid_input"},400);
+    const occupied=await onboardingDb(env,"organizations?or=(ruc.eq."+ruc+",website.eq."+encodeURIComponent("https://"+host)+")&select=id&limit=1");
+    const domainTaken=await onboardingDb(env,"organization_domains?hostname=eq."+encodeURIComponent(host)+"&select=id&limit=1");
+    if(occupied.length||domainTaken.length)return json({ok:false,error:"review_required"},409);
+    const pending=await onboardingDb(env,"lirep_onboarding_requests?hostname=eq."+encodeURIComponent(host)+"&state=eq.pending&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&select=id&limit=1");
+    if(pending.length)return json({ok:false,error:"rate_limited"},429);
+    const challenge=onboardingRandom(),statusToken=onboardingRandom(),emailToken=onboardingRandom();
+    const inserted=await onboardingDb(env,"lirep_onboarding_requests","POST",{
+      ruc,legal_name:legal,trade_name:onboardingSafeText(input.trade_name,200),
+      contact_email:email,hostname:host,challenge_url:challengeUrl,
+      challenge_hash:await onboardingHash(challenge),status_token_hash:await onboardingHash(statusToken),
+      email_token_hash:await onboardingHash(emailToken),address,district,province,department,
+      privacy_policy_url:privacy,state:"pending"});
+    const row=inserted?.[0];
+    if(!row?.id)throw new Error("ONBOARDING_INSERT_FAILED");
+    return json({ok:true,id:row.id,status_token:statusToken,challenge},200);
+  }
+  const id=typeof input.id==="string"?input.id:"";
+  if(!isUuid(id))return json({ok:false,error:"invalid_token"},400);
+  const row=await onboardingRow(env,id);
+  if(!row)return json({ok:false,error:"invalid_token"},404);
+  if(path==="confirm") {
+    if(!/^[a-f0-9]{64}$/.test(input.token||"")||await onboardingHash(input.token)!==row.email_token_hash)
+      return json({ok:false,error:"invalid_token"},403);
+    if(row.expires_at<=new Date().toISOString()||row.state!=="pending"||!row.domain_verified_at)
+      return json({ok:false,error:"expired"},409);
+    // Email proof is established only by possession of the one-time confirmation link.
+    await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id,"PATCH",{email_verified_at:new Date().toISOString()});
+    const auth=await onboardingAuthLink(env,row.contact_email);
+    const activated=await lirepRpc("lirep_onboarding_activate",{p_request_id:id,p_user_id:auth.user.id},env);
+    await onboardingMail(env,row.contact_email,"Acceso administrativo a LIREP",
+      '<p>Tu Libro de Reclamaciones está activo.</p><p><a href="'+auth.action_link.replace(/&/g,"&amp;")+'">Acceder a LIREP</a></p><p>Este enlace es personal y temporal.</p>');
+    return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>LIREP activado</h1><p>Revisa tu correo para acceder a la administración. Vuelve a WordPress y pulsa «Comprobar estado».</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer"}});
+  }
+  const status=typeof input.status_token==="string"?input.status_token:"";
+  if(!/^[a-f0-9]{64}$/.test(status)||await onboardingHash(status)!==row.status_token_hash)
+    return json({ok:false,error:"invalid_token"},403);
+  if(path==="status")return json({ok:true,state:onboardingState(row)},200);
+  if(path==="cancel"){
+    if(row.state==="active")return json({ok:false,error:"review_required"},409);
+    await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id+"&state=eq.pending","PATCH",{state:"cancelled",updated_at:new Date().toISOString()});
+    return json({ok:true,state:{state:"cancelled"}});
+  }
+  if(row.expires_at<=new Date().toISOString()||row.state!=="pending")
+    return json({ok:false,error:"expired"},409);
+  if(row.domain_verified_at)return json({ok:true,state:onboardingState(row)});
+  if(onboardingUrl(row.hostname,input.challenge_url)!==row.challenge_url)
+    return json({ok:false,error:"invalid_domain"},400);
+  // Explicitly disallow redirects, non-HTTPS, oversized responses and nonmatching challenges.
+  const challengeResponse=await fetch(row.challenge_url,{method:"GET",redirect:"manual",
+    headers:{Accept:"application/json"},signal:AbortSignal.timeout(10000)});
+  if(!challengeResponse.ok||challengeResponse.status!==200)return json({ok:false,error:"domain_challenge_failed"},400);
+  const challengeText=await challengeResponse.text();
+  if(challengeText.length>1024)return json({ok:false,error:"domain_challenge_failed"},400);
+  let challengeData;try{challengeData=JSON.parse(challengeText);}catch{return json({ok:false,error:"domain_challenge_failed"},400);}
+  if(typeof challengeData.challenge!=="string"||await onboardingHash(challengeData.challenge)!==row.challenge_hash)
+    return json({ok:false,error:"domain_challenge_failed"},400);
+  await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id+"&state=eq.pending","PATCH",{domain_verified_at:new Date().toISOString()});
+  const emailToken=onboardingRandom();
+  await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id,"PATCH",{email_token_hash:await onboardingHash(emailToken)});
+  const link=new URL("/api/v1/onboarding/confirm",url.origin);
+  link.searchParams.set("id",id);link.searchParams.set("token",emailToken);
+  await onboardingMail(env,row.contact_email,"Confirma la activación de LIREP",
+    '<p>Se solicitó registrar un Libro de Reclamaciones para '+row.hostname+'.</p><p>Si autorizas esta operación, abre el enlace y confirma:</p><p><a href="'+link.href.replace(/&/g,"&amp;")+'">Confirmar correo y activar LIREP</a></p><p>Si no solicitaste el registro, ignora este mensaje.</p>');
+  return json({ok:true,state:{...onboardingState(row),domain_verified:true},notice:"email_sent"});
+}
+
 async function callSupabase(payload, env) {
   const endpoint =
     env.SUPABASE_URL.replace(/\/$/, "") +
@@ -394,19 +557,9 @@ export default {
       }catch{return json({ok:false,error:"SERVICE_UNAVAILABLE"},503);}
     }
 
-    // Self-service readiness is explicit: never collect company details unless the
-    // onboarding backend, outbound mail and verification flow are configured.
-    if (url.pathname === "/api/v1/onboarding/capabilities" && request.method === "GET") {
-      const enabled = env.LIREP_ONBOARDING_ENABLED === "true"
-        && !!env.SUPABASE_URL && !!env.SUPABASE_SERVICE_ROLE_KEY
-        && !!env.RESEND_API_KEY && !!env.LIREP_ONBOARDING_EMAIL_SIGNING_KEY;
-      return json({
-        ok: true,
-        enabled,
-        mode: enabled ? "self_service" : "temporarily_unavailable",
-        admin_url: "https://lirep.360insol.com",
-        version: 1,
-      }, 200, { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+    if (url.pathname.startsWith(onboardingBase)) {
+      try { return await onboardingRoute(request,env,url); }
+      catch (error) { console.error("ONBOARDING_ERROR",String(error?.message||error)); return json({ok:false,error:"onboarding_not_configured"},503); }
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
