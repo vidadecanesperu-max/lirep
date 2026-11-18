@@ -380,10 +380,18 @@ async function onboardingRoute(request,env,url) {
       return json({ok:false,error:"expired"},409);
     // Email proof is established only by possession of the one-time confirmation link.
     await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id,"PATCH",{email_verified_at:new Date().toISOString()});
-    const auth=await onboardingAuthLink(env,row.contact_email);
-    const activated=await lirepRpc("lirep_onboarding_activate",{p_request_id:id,p_user_id:auth.user.id},env);
-    await onboardingMail(env,row.contact_email,"Acceso administrativo a LIREP",
-      '<p>Tu Libro de Reclamaciones está activo.</p><p><a href="'+auth.action_link.replace(/&/g,"&amp;")+'">Acceder a LIREP</a></p><p>Este enlace es personal y temporal.</p>');
+    let auth;
+    try { auth=await onboardingAuthLink(env,row.contact_email); }
+    catch(error) { console.error("LIREP_ONBOARDING_AUTH",String(error?.message||error)); return json({ok:false,error:"activation_auth_unavailable",retryable:true},503); }
+    try { await lirepRpc("lirep_onboarding_activate",{p_request_id:id,p_user_id:auth.user.id},env); }
+    catch(error) { console.error("LIREP_ONBOARDING_TENANT",String(error?.message||error)); return json({ok:false,error:"activation_tenant_unavailable",retryable:true},503); }
+    try {
+      await onboardingMail(env,row.contact_email,"Acceso administrativo a LIREP",
+        '<p>Tu Libro de Reclamaciones está activo.</p><p><a href="'+auth.action_link.replace(/&/g,"&amp;")+'">Acceder a LIREP</a></p><p>Este enlace es personal y temporal.</p>');
+    } catch(error) {
+      console.error("LIREP_ONBOARDING_ACCESS_EMAIL",String(error?.message||error));
+      return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>Empresa activada</h1><p>La activación se completó, pero el correo de acceso no pudo enviarse. No vuelvas a registrar la empresa; solicita un nuevo acceso desde el panel administrativo.</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
+    }
     return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>LIREP activado</h1><p>Revisa tu correo para acceder a la administración. Vuelve a WordPress y pulsa «Comprobar estado».</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer"}});
   }
   const status=typeof input.status_token==="string"?input.status_token:"";
