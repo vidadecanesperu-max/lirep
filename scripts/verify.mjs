@@ -28,7 +28,7 @@ const workerConfig = JSON.parse(fs.readFileSync('worker/wrangler.jsonc', 'utf8')
 const approvedEmail = workerConfig.vars?.LIREP_APPROVED_FROM_EMAIL;
 const sends = worker.match(/fetch\("https:\/\/api\.resend\.com\/emails"/g) || [];
 const senderGuards = worker.match(/approvedReceiptSender\(job\.from_email, env\)/g) || [];
-if (workerConfig.vars?.LIREP_ENABLE_MULTIEMPRESA_EMAIL !== 'true' || approvedEmail !== 'lirep@mail.vidadecanes.pe' || sends.length !== 2 || senderGuards.length !== 2) {
+if (workerConfig.vars?.LIREP_ENABLE_MULTIEMPRESA_EMAIL !== 'true' || approvedEmail !== 'lirep@mail.vidadecanes.pe' || sends.length !== 3 || senderGuards.length !== 2 || !worker.includes('from:"LIREP <notificaciones@360insol.com>"')) {
   console.error('SENDER APPROVAL SAFETY FAIL'); process.exit(1);
 }
 for (const [name, body, needle] of [
