@@ -37,6 +37,7 @@ function add_query_arg($args, $url) { return $url . '?' . http_build_query($args
 function esc_attr($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
 function esc_url($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
 function esc_html($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
+function plugin_dir_path($file) { return dirname($file) . DIRECTORY_SEPARATOR; }
 function plugin_basename($file) { return 'lirep/lirep.php'; }
 function plugins_url($path, $file) { return 'https://example.com/wp-content/plugins/lirep/' . $path; }
 function wp_enqueue_style($name) { $GLOBALS['styles'][$name] = true; }
