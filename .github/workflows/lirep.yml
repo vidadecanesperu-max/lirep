@@ -36,6 +36,7 @@ jobs:
           php -l wordpress/lirep/lirep.php
           php -l wordpress/lirep/includes/onboarding.php
           node --check worker/src/index.js
+          node worker/tests/onboarding.mjs
           node --check wordpress/lirep/assets/js/lirep-onboarding.js
           php wordpress/tests/qa-plugin.php
           node --check wordpress/lirep/assets/js/lirep-embed.js
