@@ -90,7 +90,7 @@ qa(strpos($qa_html, 'https://qa.account.workers.dev') !== false && strpos($qa_ht
 $prod_html = lirep_shortcode(array('public_prefix' => 'EVIL0000', 'entorno' => 'produccion'));
 qa(strpos($prod_html, 'VIDACANE') !== false && strpos($prod_html, 'EVIL0000') === false, 'Shortcode cannot override tenant');
 qa(strpos($prod_html, 'data-lirep-origin') !== false && strpos($prod_html, '<script>') === false, 'External script and origin metadata');
-qa(strpos($prod_html, 'rel="noopener noreferrer"') !== false, 'Safe fallback external link');
+qa(strpos($prod_html, '<iframe') !== false && strpos($prod_html, 'referrerpolicy="no-referrer"') !== false, 'Secure embedded form without external fallback');
 qa(isset($GLOBALS['styles']['lirep-embed']) && isset($GLOBALS['scripts']['lirep-embed']), 'Assets enqueued');
 qa(lirep_shortcode() !== $prod_html, 'Unique frame IDs');
 
