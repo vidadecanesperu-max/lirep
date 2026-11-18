@@ -312,12 +312,15 @@ async function onboardingAuthLink(env,email) {
     body:JSON.stringify({type:"magiclink",email,options:{redirect_to:"https://lirep.360insol.com/"}}),
     signal:AbortSignal.timeout(12000)});
   const data=await res.json().catch(()=>null);
-  if(!res.ok||!data?.user?.id||!data?.action_link) {
+  // Supabase GoTrue returns the generated URL inside properties.action_link.
+  // Some SDK wrappers expose it at the top level; support both without logging tokens.
+  const actionLink=data?.properties?.action_link||data?.action_link;
+  if(!res.ok||!data?.user?.id||typeof actionLink!=="string"||!actionLink.startsWith("https://")) {
     const code=typeof data?.code==="string"?data.code:(typeof data?.error_code==="string"?data.error_code:"unknown");
-    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_user:!!data?.user?.id,has_action_link:!!data?.action_link}));
+    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_user:!!data?.user?.id,has_action_link:!!actionLink}));
     throw new Error("ONBOARDING_AUTH_UNAVAILABLE");
   }
-  return data;
+  return {user:data.user,action_link:actionLink};
 }
 async function onboardingRoute(request,env,url) {
   const path=url.pathname.slice(onboardingBase.length);
