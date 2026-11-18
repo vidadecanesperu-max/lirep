@@ -73,7 +73,7 @@ for (const [name, passed] of [
   ['WordPress automatic security opt-in', plugin.includes('lirep_auto_security_updates') && plugin.includes('lirep_security')],
   ['WordPress 1.7.1 header', plugin.includes('* Version: 1.7.1')],
   ['WordPress self-service wizard', plugin.includes("includes/onboarding.php") && wizard.includes('lirep_onboarding_challenge')],
-  ['WordPress onboarding readiness gate', wizard.includes('lirep_onboarding_is_ready') && wizard.includes('Servicio de activación en preparación')],
+  ['WordPress onboarding readiness gate', wizard.includes('lirep_onboarding_is_ready') && wizard.includes('No se pudo conectar con el servicio de activación')],
   ['WordPress no service-role secrets', !wizard.includes('SUPABASE_SERVICE_ROLE_KEY')],
 ]) { if (!passed) { console.error('QA FAIL:', name); process.exit(1); } }
 console.log('LIREP baseline + WordPress 1.7.1 static security checks PASS');
