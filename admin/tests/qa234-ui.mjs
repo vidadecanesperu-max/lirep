@@ -9,6 +9,8 @@ for(const s of ["id=\"paperDeliveryForm\"","id=\"caseTrackingPanel\"","id=\"case
  assert.ok(page.includes(s),"Missing QA234 admin UI: "+s);
 }
 assert.ok(!page.includes("r.submitted_by!==currentUserId"),"Self-approval restriction remains in UI");
+assert.ok(page.includes("Cualquier administrador autorizado puede aprobarlo"),"User-facing approval rule contradicts backend");
+assert.ok(!page.includes("Otro administrador autorizado debe aprobarlo"),"Outdated dual-review wording");
 const sql=fs.readFileSync(new URL("../../supabase/migrations/20261119170000_lirep_qa234_self_approval_official_delivery.sql",import.meta.url),"utf8");
 const sqlTracking=fs.readFileSync(new URL("../../supabase/migrations/20261119171000_lirep_qa234_postal_evidence_tracking.sql",import.meta.url),"utf8");
 assert.ok(sql.includes("drop constraint lirep_a10_distinct_reviewer"));
