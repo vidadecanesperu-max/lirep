@@ -66,11 +66,14 @@ const API=location.origin;
 const PREFIX=(new URLSearchParams(location.search).get("public_prefix")||"").trim().toUpperCase();
 if(!/^[A-Z0-9]{8}$/.test(PREFIX)){document.body.innerHTML="<main class=\"wrap\"><section class=\"card\"><h1>Libro no disponible</h1><p class=\"muted\">Falta la identificación segura de la empresa. No se realizará ningún registro.</p></section></main>";throw new Error("PUBLIC_PREFIX_REQUIRED");}
 let establishmentCode=null,bookCode=null,idempotencyKey=null;
-if(PREFIX==="LIREPQA1"){const qa=document.createElement("div");qa.style.cssText="margin:10px 0;padding:10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-weight:800;text-align:center";qa.textContent="ENTORNO QA · LOS REGISTROS DE ESTA PÁGINA SON DE PRUEBA";document.querySelector(".card").prepend(qa);}\nconst company=document.getElementById("company"),form=document.getElementById("form"),message=document.getElementById("message"),submit=document.getElementById("submit"),successModal=document.getElementById("successModal"),successCode=document.getElementById("successCode"),closeSuccessModal=document.getElementById("closeSuccessModal");\nlet lastPublicCode="",lastReceiptToken="";
+if(PREFIX==="LIREPQA1"){const qa=document.createElement("div");qa.style.cssText="margin:10px 0;padding:10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-weight:800;text-align:center";qa.textContent="ENTORNO QA · LOS REGISTROS DE ESTA PÁGINA SON DE PRUEBA";document.querySelector(".card").prepend(qa);}
+const company=document.getElementById("company"),form=document.getElementById("form"),message=document.getElementById("message"),submit=document.getElementById("submit"),successModal=document.getElementById("successModal"),successCode=document.getElementById("successCode"),closeSuccessModal=document.getElementById("closeSuccessModal");
+let lastPublicCode="",lastReceiptToken="";
 document.getElementById("trackingButton").addEventListener("click",()=>{
  if(lastPublicCode&&lastReceiptToken)window.open(API+"/seguimiento?public_prefix="+encodeURIComponent(PREFIX)+"&code="+encodeURIComponent(lastPublicCode)+"&token="+encodeURIComponent(lastReceiptToken),"_blank","noopener");
 });
-closeSuccessModal.addEventListener("click",()=>successModal.classList.remove("open"));\nsuccessModal.addEventListener("click",e=>{if(e.target===successModal)successModal.classList.remove("open");});
+closeSuccessModal.addEventListener("click",()=>successModal.classList.remove("open"));
+successModal.addEventListener("click",e=>{if(e.target===successModal)successModal.classList.remove("open");});
 
 function uuid(){return crypto.randomUUID();}
 const minor=document.getElementById("is_minor"),representative=document.getElementById("representative");

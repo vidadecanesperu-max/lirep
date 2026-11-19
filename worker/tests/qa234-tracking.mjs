@@ -1,6 +1,8 @@
 // LIREP QA234 | offline consumer tracking / no PII / token security.
 // No production Supabase, consumer, letter or Resend requests.
 import assert from "node:assert/strict";
+import vm from "node:vm";
+import fs from "node:fs";
 import worker from "../src/index.js";
 const origin="https://lirep-public-api.vidadecanes-peru.workers.dev";
 const prefix="VIDACANE",code="VIDACANE-LR001-2026-00000001",token="75657d23-997c-46ef-8cec-30f8d7fd89a1";
@@ -56,5 +58,16 @@ try {
   assert.match(formHtml,/id="trackingButton"/);
   assert.match(formHtml,/name="email"[^>]*required/);
   assert.match(formHtml,/value="whatsapp"/);
+  // Parse every inline browser script: a valid Worker bundle can still serve
+  // a syntactically broken double-quoted HTML string.
+  for(const scriptTag of formHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){
+    if(scriptTag[1].trim()) new vm.Script(scriptTag[1]);
+  }
+  const standalone=fs.readFileSync(new URL("../../app/index.html",import.meta.url),"utf8");
+  for(const scriptTag of standalone.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){
+    if(scriptTag[1].trim()) new vm.Script(scriptTag[1]);
+  }
+  assert.match(standalone,/name="official_delivery_method"/);
+
   console.log("QA234 PASS | private-token tracking, invalid access, no PII, letter and email options, no external messages");
 }finally{globalThis.fetch=prior}
