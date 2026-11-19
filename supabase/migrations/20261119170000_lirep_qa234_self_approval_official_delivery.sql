@@ -16,7 +16,7 @@ CREATE OR REPLACE FUNCTION public.lirep_admin_a10_response_guard()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 DECLARE
   v_body text;
 BEGIN
@@ -120,7 +120,7 @@ CREATE OR REPLACE FUNCTION public.lirep_admin_a10_review(p_organization_id uuid,
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 DECLARE
   v_response
     public.lirep_admin_official_responses%rowtype;
