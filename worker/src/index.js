@@ -493,8 +493,101 @@ async function callSupabase(payload, env) {
   };
 }
 
+
+/* QA230: únicamente comunicaciones oficiales aprobadas.
+ * Los reintentos son idempotentes ante Resend; los envíos ambiguos en estado
+ * 'sending' nunca se reclaman nuevamente de forma automática.
+ */
+async function deliverApprovedResponses(env) {
+  if (!env.RESEND_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return;
+  for (let i = 0; i < 5; i++) {
+    let job;
+    try {
+      job = await lirepRpc("lirep_admin_response_delivery_claim", {}, env);
+    } catch (error) {
+      console.error("LIREP_RESPONSE_CLAIM_FAILED", String(error?.message || "RPC_FAILED").slice(0,100));
+      return;
+    }
+    if (!job) return;
+    let providerAccepted = false;
+    try {
+      if (!isUuid(job.queue_id) || !isUuid(job.response_id) ||
+          !isEmail(job.recipient) || !job.public_code ||
+          typeof job.body !== "string" || job.body.length < 10) {
+        throw Object.assign(new Error("LIREP_RESPONSE_JOB_INVALID"), { retryable: false });
+      }
+      const company = String(job.company_name || "Proveedor").slice(0,180);
+      const code = displayComplaintCode(job.public_code);
+      const responseBody = job.body.trim();
+      const html = "<h2>Respuesta oficial del Libro de Reclamaciones</h2>" +
+        "<p><b>Empresa:</b> " + escHtml(company) + "</p>" +
+        "<p><b>Reclamación:</b> " + escHtml(code) + "</p>" +
+        "<p>" + escHtml(responseBody).replace(/\n/g, "<br>") + "</p>" +
+        "<p>Esta respuesta fue aprobada y enviada mediante LIREP.</p>" +
+        "<p>Conserve este correo como constancia de la comunicación.</p>" +
+        "<p>Mensaje automático. No responda a este remitente.</p>";
+      const plain = "Respuesta oficial del Libro de Reclamaciones\n" +
+        "Empresa: " + company + "\nReclamación: " + code + "\n\n" +
+        responseBody + "\n\nConserve este correo como constancia de la comunicación.";
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + env.RESEND_API_KEY,
+          "content-type": "application/json",
+          "Idempotency-Key": "lirep-response-" + job.response_id
+        },
+        body: JSON.stringify({
+          from: "LIREP <notificaciones@360insol.com>",
+          to: [job.recipient],
+          subject: "Respuesta a su reclamación " + code,
+          html,
+          text: plain
+        }),
+        signal: AbortSignal.timeout(15000)
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.id) {
+        // 429 y 5xx son reintentables con la MISMA clave de idempotencia.
+        const error = new Error("RESEND_" + response.status);
+        error.retryable = response.status === 429 || response.status >= 500;
+        throw error;
+      }
+      providerAccepted = true;
+      await lirepRpc("lirep_admin_response_delivery_complete", {
+        p_queue_id: job.queue_id,
+        p_success: true,
+        p_provider_message_id: result.id,
+        p_error: null,
+        p_retryable: false
+      }, env);
+    } catch (error) {
+      if (providerAccepted) {
+        // Nunca declarar fallo del correo cuando Resend ya lo aceptó:
+        // requiere conciliación del registro, sin reenviar.
+        console.error("LIREP_RESPONSE_ACCEPTED_RECORD_PENDING", job.queue_id);
+        continue;
+      }
+      const retryable = error?.retryable !== false;
+      const safeError = String(error?.message || "EMAIL_UNAVAILABLE").slice(0,150);
+      try {
+        await lirepRpc("lirep_admin_response_delivery_complete", {
+          p_queue_id: job.queue_id,
+          p_success: false,
+          p_provider_message_id: null,
+          p_error: safeError,
+          p_retryable: retryable
+        }, env);
+      } catch {
+        console.error("LIREP_RESPONSE_FAILURE_RECORD_PENDING", job.queue_id);
+      }
+    }
+  }
+}
+
 export default {
   async scheduled(event, env, ctx) {
+    ctx.waitUntil(deliverApprovedResponses(env).catch(() => console.error("LIREP_RESPONSE_SCHEDULER_FAILED")));
+
     ctx.waitUntil((async () => {
       if (!env.RESEND_API_KEY) return;
       for (let i = 0; i < 5; i++) {
