@@ -23,7 +23,8 @@
 <label>Nombres<input name="first_names" maxlength="150" required></label>
 <label>Apellidos<input name="last_names" maxlength="150" required></label>
 <label>Teléfono<input name="phone" type="tel" maxlength="30" required></label>
-<label>Correo electrónico<input name="email" type="email" maxlength="254"></label>
+<label>Correo electrónico para respuesta oficial<input name="email" type="email" maxlength="254" autocomplete="email" required></label>
+<p class="muted full" style="margin:0">La respuesta formal se enviará a este correo, incluso cuando prefieras WhatsApp para coordinaciones.</p>
 <label class="full">Domicilio<input name="address" maxlength="500" required></label>
 <label class="full check"><input type="checkbox" id="is_minor" name="is_minor"><span>El consumidor es menor de edad</span></label>
 <div id="representative" class="full grid" hidden>
@@ -32,7 +33,7 @@
 <label>Tipo de documento del representante<select name="representative_document_type"><option value="dni">DNI</option><option value="ce">Carné de extranjería</option><option value="passport">Pasaporte</option><option value="ruc">RUC</option><option value="other">Otro</option></select></label>
 <label>Número de documento del representante<input name="representative_document_number" maxlength="50"></label>
 <label>Teléfono del representante<input name="representative_phone" type="tel" maxlength="30"></label>
-<label>Correo del representante<input name="representative_email" type="email" maxlength="254"></label>
+<label>Correo del representante para respuesta oficial<input name="representative_email" type="email" maxlength="254" autocomplete="email"></label>
 </div>
 </div>
 
@@ -48,8 +49,9 @@
 <label>Tipo<select name="complaint_type" required><option value="reclamo">Reclamo</option><option value="queja">Queja</option></select></label>
 <label class="full">Detalle<textarea name="detail" maxlength="5000" required></textarea></label>
 <label class="full">Pedido del consumidor<textarea name="consumer_request" maxlength="5000" required></textarea></label>
-<label>Canal preferido de respuesta<select name="preferred_response_channel" required><option value="email">Correo electrónico</option><option value="phone">Teléfono</option><option value="physical">Domicilio</option></select></label>
-<label class="full check"><input type="checkbox" name="consumer_conformity" required><span>Declaro que la información consignada es correcta y manifiesto mi conformidad con el registro electrónico de esta hoja en el Libro de Reclamaciones.</span></label>
+<label>Canal preferido de contacto adicional<select name="preferred_response_channel" required><option value="whatsapp">WhatsApp</option><option value="phone">Teléfono</option><option value="email">Correo electrónico</option><option value="physical">Domicilio</option></select></label>
+<p class="muted full" style="margin:0">Este canal es para contacto complementario. La respuesta escrita oficial se envía al correo indicado.</p>
+<label class="full check"><input type="checkbox" name="consumer_conformity" required><span>Declaro que la información consignada es correcta y manifiesto mi conformidad con el registro electrónico y acepto recibir la respuesta formal en el correo indicado, incluso si selecciono WhatsApp como contacto preferido.</span></label>
 </div>
 
 <div class="cf-turnstile" data-sitekey="0x4AAAAAAFQZXPjiJUTwSZmi"></div>
@@ -71,7 +73,7 @@ function syncMinorFields(){
  representative.hidden=!minor.checked;
  representative.querySelectorAll("input,select").forEach(el=>{
   el.disabled=!minor.checked;
-  if(["representative_first_names","representative_last_names","representative_document_type","representative_document_number"].includes(el.name))el.required=minor.checked;
+  if(["representative_first_names","representative_last_names","representative_document_type","representative_document_number","representative_email"].includes(el.name))el.required=minor.checked;
  });
 }
 minor.addEventListener("change",syncMinorFields);

@@ -162,7 +162,7 @@ async function openDetail(id){
       '</section><section class="detail-box"><h3>Producto o servicio</h3>'+
       field('Tipo',label(data.product_service_type))+field('Descripción',data.product_service_description)+
       field('Monto',data.amount==null?'No indicado':'S/ '+Number(data.amount).toFixed(2))+
-      field('Canal de respuesta',data.preferred_response_channel)+
+      field('Contacto complementario preferido',({whatsapp:'WhatsApp',phone:'Teléfono',email:'Correo electrónico',physical:'Domicilio'})[data.preferred_response_channel]||data.preferred_response_channel)+field('Respuesta oficial','Correo electrónico (si existe dirección consignada en el expediente)')+
       '</section><section class="detail-box"><h3>Reclamo y solicitud</h3>'+
       field('Descripción',data.detail)+field('Solicitud',data.consumer_request)+'</section>';
     $('formalResponsePanel').hidden=false;

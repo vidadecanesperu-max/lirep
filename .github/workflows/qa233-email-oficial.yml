@@ -1,0 +1,31 @@
+name: LIREP QA233 - email oficial y WhatsApp complementario
+on:
+  pull_request:
+    paths:
+      - 'worker/**'
+      - 'app/**'
+      - 'admin/**'
+      - 'supabase/migrations/20261119160000_lirep_qa233_contacto_whatsapp_email_oficial.sql'
+      - '.github/workflows/qa233-email-oficial.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  official-email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate email and contact policy without production requests
+        run: |
+          set -euo pipefail
+          node --check worker/src/index.js
+          node worker/tests/qa233-official-email.mjs
+          node worker/tests/response-delivery.mjs
+          node worker/tests/verified-delivery.mjs
+          node admin/tests/qa232-detail.mjs
+          npm run verify
+          grep -Fq "'whatsapp'" supabase/migrations/20261119160000_lirep_qa233_contacto_whatsapp_email_oficial.sql
+          echo 'QA233 PASS: no real complaints, mail or database mutations'
