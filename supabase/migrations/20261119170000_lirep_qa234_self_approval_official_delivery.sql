@@ -16,7 +16,7 @@ CREATE OR REPLACE FUNCTION public.lirep_admin_a10_response_guard()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$
+AS $function$;
 DECLARE
   v_body text;
 BEGIN
@@ -112,7 +112,7 @@ BEGIN
   RAISE EXCEPTION 'RESPONSE_DELETE_FORBIDDEN';
 
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.lirep_admin_a10_review(p_organization_id uuid, p_response_id uuid, p_approve boolean, p_note text DEFAULT NULL::text)
@@ -120,7 +120,7 @@ CREATE OR REPLACE FUNCTION public.lirep_admin_a10_review(p_organization_id uuid,
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$
+AS $function$;
 DECLARE
   v_response
     public.lirep_admin_official_responses%rowtype;
@@ -232,7 +232,7 @@ BEGIN
   );
 
 END;
-$function$
+$function$;
 
 
 -- Do not enqueue postal responses, even when a secondary email address exists.
