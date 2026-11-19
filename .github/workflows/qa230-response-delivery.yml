@@ -25,6 +25,7 @@ jobs:
           node --check worker/tests/response-delivery.mjs
           node worker/tests/onboarding.mjs
           node worker/tests/response-delivery.mjs
+          node worker/tests/verified-delivery.mjs
           npm run verify
           grep -Fq 'lirep_admin_response_delivery_claim' supabase/migrations/20261119124500_lirep_qa230_approved_response_delivery.sql
           grep -Fq 'LIREP_DELIVERY_ACCESS_DENIED' supabase/migrations/20261119124500_lirep_qa230_approved_response_delivery.sql

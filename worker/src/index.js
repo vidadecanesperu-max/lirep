@@ -584,8 +584,65 @@ async function deliverApprovedResponses(env) {
   }
 }
 
+
+/* QA231: verificar el último evento del mensaje en Resend.
+ * Solo lee mensajes previamente aceptados; NO los reenvía.
+ * "delivered" es confirmación del servidor receptor, no de lectura del usuario.
+ */
+async function reconcileOfficialResponseEvents(env) {
+  if (!env.RESEND_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return;
+  for (let i = 0; i < 5; i++) {
+    let task;
+    try {
+      task = await lirepRpc("lirep_admin_response_evidence_claim", {}, env);
+    } catch (error) {
+      console.error("LIREP_EVIDENCE_CLAIM_FAILED", String(error?.message||"RPC_FAILED").slice(0,100));
+      return;
+    }
+    if (!task) return;
+    try {
+      if (!isUuid(task.evidence_id) ||
+          !task.provider_message_id ||
+          typeof task.provider_message_id !== "string" ||
+          task.provider_message_id.length > 250 ||
+          !isEmail(task.recipient)) {
+        throw new Error("LIREP_EVIDENCE_JOB_INVALID");
+      }
+      const response = await fetch("https://api.resend.com/emails/" +
+        encodeURIComponent(task.provider_message_id), {
+        method:"GET",
+        headers:{Authorization:"Bearer "+env.RESEND_API_KEY,Accept:"application/json"},
+        signal:AbortSignal.timeout(12000)
+      });
+      if (!response.ok) throw new Error("RESEND_DELIVERY_LOOKUP_"+response.status);
+      const details = await response.json().catch(()=>null);
+      if (details?.id !== task.provider_message_id ||
+          !Array.isArray(details.to) ||
+          !details.to.some(to => String(to).trim().toLowerCase() === task.recipient.trim().toLowerCase())) {
+        throw new Error("LIREP_EVIDENCE_RECIPIENT_MISMATCH");
+      }
+      const event=String(details.last_event||"").trim().toLowerCase();
+      if (!["sent","received","delivered","opened","clicked","bounced","suppressed",
+            "delivery_delayed","failed","complained"].includes(event)) {
+        throw new Error("LIREP_EVIDENCE_UNKNOWN_EVENT");
+      }
+      await lirepRpc("lirep_admin_response_evidence_complete", {
+        p_evidence_id:task.evidence_id,
+        p_provider_message_id:task.provider_message_id,
+        p_last_event:event
+      },env);
+    } catch (error) {
+      // La consulta fallida nunca genera correo ni reenvía automáticamente;
+      // la próxima revisión se programa desde el último claim SQL.
+      console.warn("LIREP_EVIDENCE_LOOKUP_PENDING",task.evidence_id,String(error?.message||"UNKNOWN").slice(0,100));
+    }
+  }
+}
+
 export default {
   async scheduled(event, env, ctx) {
+    ctx.waitUntil(reconcileOfficialResponseEvents(env).catch(()=>console.error("LIREP_EVIDENCE_CRON_FAILED")));
+
     ctx.waitUntil(deliverApprovedResponses(env).catch(() => console.error("LIREP_RESPONSE_SCHEDULER_FAILED")));
 
     ctx.waitUntil((async () => {

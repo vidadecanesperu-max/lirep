@@ -28,6 +28,7 @@ async function testScenario(providerStatus=200) {
       const rpc=u.pathname.split("/").at(-1);
       const body=JSON.parse(opts.body||"{}");
       calls.push({rpc,body});
+      if(rpc==="lirep_admin_response_evidence_claim")return Response.json(null);
       if(rpc==="lirep_admin_response_delivery_claim"){
         if(claimed)return Response.json(null);
         claimed=true;return Response.json(job);
