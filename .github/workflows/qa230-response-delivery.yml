@@ -1,0 +1,32 @@
+name: LIREP QA230 - approved response delivery (offline)
+on:
+  pull_request:
+    paths:
+      - 'worker/**'
+      - 'admin/**'
+      - 'supabase/migrations/20261119124500_lirep_qa230_approved_response_delivery.sql'
+      - 'scripts/verify.mjs'
+      - '.github/workflows/qa230-response-delivery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa230:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax and security checks
+        run: |
+          set -euo pipefail
+          node --check worker/src/index.js
+          node --check worker/tests/response-delivery.mjs
+          node worker/tests/onboarding.mjs
+          node worker/tests/response-delivery.mjs
+          npm run verify
+          grep -Fq 'lirep_admin_response_delivery_claim' supabase/migrations/20261119124500_lirep_qa230_approved_response_delivery.sql
+          grep -Fq 'LIREP_DELIVERY_ACCESS_DENIED' supabase/migrations/20261119124500_lirep_qa230_approved_response_delivery.sql
+          grep -Fq 'lirep_admin_response_delivery_status' admin/index.html
+          echo 'QA230 PASS: no production email sent or complaint changed'
