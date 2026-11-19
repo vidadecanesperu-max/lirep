@@ -1,0 +1,25 @@
+name: LIREP QA232 - persistent complaint detail
+on:
+  pull_request:
+    paths:
+      - 'admin/**'
+      - '.github/workflows/qa232-persistent-detail.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa232:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify case persistence and access isolation
+        run: |
+          set -euo pipefail
+          node admin/tests/qa232-detail.mjs
+          grep -Fq 'id="closeDetail"' admin/index.html
+          grep -Fq 'lirep_admin_response_delivery_status' admin/index.html
+          ! grep -Fq 'Registrar respuesta oficial (sin envío)' admin/index.html
+          echo 'QA232 PASS: no complaints or emails sent'
