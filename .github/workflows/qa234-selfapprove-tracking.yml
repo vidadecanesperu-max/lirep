@@ -1,0 +1,34 @@
+name: LIREP QA234 - self approval, written postal, tracking
+on:
+  pull_request:
+    paths:
+      - 'worker/**'
+      - 'admin/**'
+      - 'app/**'
+      - 'supabase/migrations/20261119170000_lirep_qa234_self_approval_official_delivery.sql'
+      - 'supabase/migrations/20261119171000_lirep_qa234_postal_evidence_tracking.sql'
+      - '.github/workflows/qa234-selfapprove-tracking.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa234:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Offline no-email and tracking tests
+        run: |
+          set -euo pipefail
+          node --check worker/src/index.js
+          node worker/tests/onboarding.mjs
+          node worker/tests/response-delivery.mjs
+          node worker/tests/verified-delivery.mjs
+          node worker/tests/qa233-official-email.mjs
+          node worker/tests/qa234-tracking.mjs
+          node admin/tests/qa232-detail.mjs
+          node admin/tests/qa234-ui.mjs
+          npm run verify
+          echo 'QA234 PASS, without sending email, creating complaints or calling production'

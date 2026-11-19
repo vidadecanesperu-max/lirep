@@ -32,7 +32,7 @@ function boot(){
      {id:orgA,role:"company_admin",name:"Org A",prefix:"VIDACANE"},
      {id:orgB,role:"company_admin",name:"Org B",prefix:"BTEST001"}],
      lirep_admin_company_memberships:[],lirep_admin_list_invitations:[],
-     lirep_admin_case_entries_list:[],lirep_admin_a10_list:[],lirep_admin_response_delivery_status:[]};
+     lirep_admin_case_entries_list:[],lirep_admin_a10_list:[],lirep_admin_response_delivery_status:[],lirep_admin_case_tracking:{status:'submitted',official_delivery_method:'postal',history:[{status:'submitted',changed_at:'2026-11-19T00:00:00Z'}],due_at:'2026-12-01'}};
    if(name==="lirep_admin_list_complaints")return {data:[{id:o===orgA?idA:idB,public_code:"VIDACANE-LR001",complaint_type:"reclamo",status:"submitted",submitted_at:"2026-11-19",response_due_at:"2026-12-01"}],error:null};
    if(name==="lirep_admin_case_detail")return {data:{public_code:"VIDACANE-LR001",complaint_type:"reclamo",status:"submitted",consumer:{},establishment:"QA",submitted_at:"2026-11-19",response_due_at:"2026-12-01",product_service_description:"test",product_service_type:"servicio",amount:1,preferred_response_channel:"email",detail:"QA",consumer_request:"QA"},error:null};
    if(!(name in predefined))throw Error("Unexpected RPC "+name);

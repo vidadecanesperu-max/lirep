@@ -16,9 +16,9 @@ assert.equal(htmlResponse.status,200);
 const html=await htmlResponse.text();
 assert.match(html, /name="email"[^>]*required/);
 assert.match(html, /name="preferred_response_channel"[^>]*>[^<]*<option value="whatsapp">/);
-assert.match(html, /La respuesta escrita oficial se envía al correo indicado/);
-assert.match(html, /acepto recibir la respuesta formal en el correo indicado/);
-assert.match(html, /"representative_email"\].includes\(el.name\)/);
+assert.match(html, /respuesta formal se entregará por correo o carta/);
+assert.match(html, /solicito recibir la respuesta formal escrita/);
+assert.match(html, /function syncOfficialDelivery/);
 
 const valid={
  idempotency_key:"55d1b5ec-108b-4b33-8329-ec7a1597b912",
@@ -30,7 +30,7 @@ const valid={
  product_service_description:"Servicio QA",amount:null,
  detail:"Una queja de prueba sin envío real",
  consumer_request:"Solicitud de prueba",consumer_conformity:true,
- preferred_response_channel:"whatsapp",turnstile_token:"mock-turnstile"
+ preferred_response_channel:"whatsapp",official_delivery_method:"email",turnstile_token:"mock-turnstile"
 };
 const originalFetch=globalThis.fetch;
 const submissions=[];
@@ -74,5 +74,12 @@ try{
  assert.equal(submissions.length,1);
  assert.equal(submissions[0].p_email,"consumer@example.com");
  assert.equal(submissions[0].p_preferred_response_channel,"whatsapp");
+ assert.equal(submissions[0].p_official_delivery_method,"email");
+ const postal=await submit({...valid,idempotency_key:"1b284c60-5535-4a43-b7bb-d3799b970434",
+   official_delivery_method:"postal",email:""});
+ assert.equal(postal.status,201,"postal route must allow consumer without email");
+ assert.equal(submissions[1].p_email,null);
+ assert.equal(submissions[1].p_official_delivery_method,"postal");
+ assert.equal(submissions[1].p_preferred_response_channel,"whatsapp");
 }finally{globalThis.fetch=originalFetch}
-console.log("QA233 PASS | official email required / WhatsApp contact preference / minor representative email / no real requests");
+console.log("QA234 PASS | email route requires email / letter without email / WhatsApp stays complementary / no real requests");
