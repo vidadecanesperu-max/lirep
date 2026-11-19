@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 const html=fs.readFileSync(new URL("../index.html",import.meta.url),"utf8");
-const script=html.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1]?.replace(/^import[^\n]+\n/,"");
+const script=html.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1]?.trimStart().replace(/^import[^\n]+\n/,"");
 assert.ok(script);
 new vm.Script(script,{filename:"admin/index.html"});
 assert.match(html,/id="closeDetail"/);
