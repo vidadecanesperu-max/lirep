@@ -1,0 +1,34 @@
+name: Publish LIREP response delivery to existing Worker
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: lirep-worker-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Worker without sending emails
+        run: |
+          node --check worker/src/index.js
+          node worker/tests/onboarding.mjs
+          grep -q 'lirep_response_delivery_claim' worker/src/index.js
+          grep -q 'lirep_response_delivery_complete' worker/src/index.js
+          grep -q '"name": "lirep-public-api"' worker/wrangler.jsonc
+      - name: Require existing Cloudflare credential
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: test -n "$CLOUDFLARE_API_TOKEN"
+      - name: Publish to existing Worker only
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 6aa99604577aed2046cf3a569db95b3f
+        run: npx --yes wrangler@4 deploy --config wrangler.jsonc
+      - name: Read-only health verification
+        run: |
+          curl --fail --retry 4 --retry-delay 3 --silent --show-error https://lirep-public-api.vidadecanes-peru.workers.dev/health
+          curl --fail --retry 4 --retry-delay 3 --silent --show-error https://lirep-public-api.vidadecanes-peru.workers.dev/health/backend
