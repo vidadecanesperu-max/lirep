@@ -478,6 +478,30 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
       if (!env.RESEND_API_KEY) return;
+      // Approved official responses: separate queue and delivery audit.
+      for (let n = 0; n < 5; n++) {
+        let delivery;
+        try { delivery = await lirepRpc("lirep_response_delivery_claim", {}, env); }
+        catch (error) { console.error("LIREP_RESPONSE_CLAIM_FAILED", String(error?.message || error)); break; }
+        if (!delivery?.id) break;
+        let providerAccepted = false;
+        try {
+          const safeBody = escHtml(delivery.body).replace(/\r?\n/g, "<br>");
+          const html = "<div style='font-family:Arial,sans-serif;max-width:650px;margin:auto'><div style='background:#172944;color:#fff;padding:24px'><h1>LIREP</h1><p>Libro de Reclamaciones Virtual</p></div><div style='padding:24px'><h2>Respuesta a su reclamación</h2><p>Estimado(a) consumidor(a):</p><p>"+escHtml(delivery.company)+" ha emitido una respuesta a su registro <strong>"+escHtml(displayComplaintCode(delivery.code))+"</strong>.</p><div style='white-space:normal;border-left:3px solid #172944;padding:14px;background:#f5f7fb'>"+safeBody+"</div><p>Conserve este correo como constancia de la comunicación.</p></div></div>";
+          const resp = await fetch("https://api.resend.com/emails",{
+            method:"POST",headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"content-type":"application/json"},
+            body:JSON.stringify({from:"LIREP - 360 Integral Solutions <"+LIREP_NOTIFICATION_SENDER+">",to:[delivery.recipient],subject:"LIREP | Respuesta a su reclamación "+displayComplaintCode(delivery.code),html}),
+            signal:AbortSignal.timeout(15000)
+          });
+          const data=await resp.json().catch(()=>null);
+          if (!resp.ok || !data?.id) throw new Error(data?.message || "RESEND_REJECTED");
+          providerAccepted=true;
+          await lirepRpc("lirep_response_delivery_complete",{p_id:delivery.id,p_success:true,p_provider_id:data.id,p_error:null},env);
+        } catch(error) {
+          if(providerAccepted){console.error("LIREP_RESPONSE_ACCEPTED_UNCONFIRMED",delivery.id);continue;}
+          await lirepRpc("lirep_response_delivery_complete",{p_id:delivery.id,p_success:false,p_provider_id:null,p_error:String(error?.message||error)},env).catch(()=>{});
+        }
+      }
       for (let i = 0; i < 5; i++) {
         const discoveryRpc = env.LIREP_ENABLE_MULTIEMPRESA_EMAIL === "true"
           ? "lirep_next_pending_receipt_id_multiempresa"
