@@ -21,6 +21,7 @@ jobs:
           set -euo pipefail
           node --check worker/src/index.js
           node worker/tests/onboarding.mjs
+          node worker/tests/response-delivery.mjs
           npm run verify
           grep -Fq '"name": "lirep-public-api"' worker/wrangler.jsonc
       - name: Ensure existing Cloudflare credential
