@@ -1,7 +1,7 @@
 name: Deploy LIREP Admin to existing Cloudflare Pages
 on:
   push:
-    branches: [feature/lirep-auto-onboarding-layout-20261114]
+    branches: [main]
     paths:
       - 'admin/**'
       - '.github/workflows/deploy-lirep-admin.yml'
@@ -21,6 +21,7 @@ jobs:
           test -s admin/index.html
           grep -q 'signInWithOtp' admin/index.html
           grep -q 'lirep_admin_my_organizations' admin/index.html
+          grep -q 'lirep_admin_response_delivery_status' admin/index.html
           ! grep -qi 'localhost:3000' admin/index.html
       - name: Check Cloudflare deploy credential
         env:
