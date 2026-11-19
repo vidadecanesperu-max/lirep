@@ -23,8 +23,9 @@
 <label>Nombres<input name="first_names" maxlength="150" required></label>
 <label>Apellidos<input name="last_names" maxlength="150" required></label>
 <label>Teléfono<input name="phone" type="tel" maxlength="30" required></label>
+<label class="full">Medio de respuesta escrita<select id="officialDeliveryMethod" name="official_delivery_method" required><option value="email">Correo electrónico</option><option value="postal">Carta al domicilio indicado</option></select></label>
 <label>Correo electrónico para respuesta oficial<input name="email" type="email" maxlength="254" autocomplete="email" required></label>
-<p class="muted full" style="margin:0">La respuesta formal se enviará a este correo, incluso cuando prefieras WhatsApp para coordinaciones.</p>
+<p class="muted full" style="margin:0">Si eliges correo, la respuesta formal llegará aquí. Si eliges carta, el correo es opcional.</p>
 <label class="full">Domicilio<input name="address" maxlength="500" required></label>
 <label class="full check"><input type="checkbox" id="is_minor" name="is_minor"><span>El consumidor es menor de edad</span></label>
 <div id="representative" class="full grid" hidden>
@@ -50,31 +51,43 @@
 <label class="full">Detalle<textarea name="detail" maxlength="5000" required></textarea></label>
 <label class="full">Pedido del consumidor<textarea name="consumer_request" maxlength="5000" required></textarea></label>
 <label>Canal preferido de contacto adicional<select name="preferred_response_channel" required><option value="whatsapp">WhatsApp</option><option value="phone">Teléfono</option><option value="email">Correo electrónico</option><option value="physical">Domicilio</option></select></label>
-<p class="muted full" style="margin:0">Este canal es para contacto complementario. La respuesta escrita oficial se envía al correo indicado.</p>
-<label class="full check"><input type="checkbox" name="consumer_conformity" required><span>Declaro que la información consignada es correcta y manifiesto mi conformidad con el registro electrónico y acepto recibir la respuesta formal en el correo indicado, incluso si selecciono WhatsApp como contacto preferido.</span></label>
+<p class="muted full" style="margin:0">Este canal es solo para coordinaciones complementarias: la respuesta escrita se entregará mediante el medio elegido.</p>
+<label class="full check"><input type="checkbox" name="consumer_conformity" required><span>Declaro que la información consignada es correcta y manifiesto mi conformidad con el registro electrónico y solicito recibir la respuesta escrita por el medio seleccionado, aunque prefiera WhatsApp para coordinaciones.</span></label>
 </div>
 
 <div class="cf-turnstile" data-sitekey="0x4AAAAAAFQZXPjiJUTwSZmi"></div>
 <button id="submit" type="submit">Registrar reclamo o queja</button>
 <div id="message" class="msg" role="status" aria-live="polite"></div>
 </form>
-</section><div id="successModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="successTitle"><div class="modal"><div class="modal-icon">✓</div><h2 id="successTitle">Registro realizado correctamente</h2><p>Tu reclamo o queja fue registrado. Conserva este código como constancia:</p><div id="successCode" class="modal-code"></div><button id="closeSuccessModal" type="button">Entendido</button></div></div><footer class="footer">&copy; <span id="copyright-year"></span> · Powered by 360 Integral Solutions</footer></main>
+</section><div id="successModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="successTitle"><div class="modal"><div class="modal-icon">✓</div><h2 id="successTitle">Registro realizado correctamente</h2><p>Tu reclamo o queja fue registrado. Conserva este código como constancia:</p><div id="successCode" class="modal-code"></div><button id="trackingButton" type="button" hidden>Consultar seguimiento</button><button id="closeSuccessModal" type="button">Entendido</button></div></div><footer class="footer">&copy; <span id="copyright-year"></span> · Powered by 360 Integral Solutions</footer></main>
 <script>
 document.getElementById("copyright-year").textContent=new Date().getFullYear();
 const API=location.origin;
 const PREFIX=(new URLSearchParams(location.search).get("public_prefix")||"").trim().toUpperCase();
 if(!/^[A-Z0-9]{8}$/.test(PREFIX)){document.body.innerHTML="<main class=\"wrap\"><section class=\"card\"><h1>Libro no disponible</h1><p class=\"muted\">Falta la identificación segura de la empresa. No se realizará ningún registro.</p></section></main>";throw new Error("PUBLIC_PREFIX_REQUIRED");}
 let establishmentCode=null,bookCode=null,idempotencyKey=null;
-if(PREFIX==="LIREPQA1"){const qa=document.createElement("div");qa.style.cssText="margin:10px 0;padding:10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-weight:800;text-align:center";qa.textContent="ENTORNO QA · LOS REGISTROS DE ESTA PÁGINA SON DE PRUEBA";document.querySelector(".card").prepend(qa);}\nconst company=document.getElementById("company"),form=document.getElementById("form"),message=document.getElementById("message"),submit=document.getElementById("submit"),successModal=document.getElementById("successModal"),successCode=document.getElementById("successCode"),closeSuccessModal=document.getElementById("closeSuccessModal");\ncloseSuccessModal.addEventListener("click",()=>successModal.classList.remove("open"));\nsuccessModal.addEventListener("click",e=>{if(e.target===successModal)successModal.classList.remove("open");});
+if(PREFIX==="LIREPQA1"){const qa=document.createElement("div");qa.style.cssText="margin:10px 0;padding:10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-weight:800;text-align:center";qa.textContent="ENTORNO QA · LOS REGISTROS DE ESTA PÁGINA SON DE PRUEBA";document.querySelector(".card").prepend(qa);}\nconst company=document.getElementById("company"),form=document.getElementById("form"),message=document.getElementById("message"),submit=document.getElementById("submit"),successModal=document.getElementById("successModal"),successCode=document.getElementById("successCode"),closeSuccessModal=document.getElementById("closeSuccessModal");\nlet lastPublicCode="",lastReceiptToken="";
+document.getElementById("trackingButton").addEventListener("click",()=>{
+ if(lastPublicCode&&lastReceiptToken)window.open(API+"/seguimiento?public_prefix="+encodeURIComponent(PREFIX)+"&code="+encodeURIComponent(lastPublicCode)+"&token="+encodeURIComponent(lastReceiptToken),"_blank","noopener");
+});
+closeSuccessModal.addEventListener("click",()=>successModal.classList.remove("open"));\nsuccessModal.addEventListener("click",e=>{if(e.target===successModal)successModal.classList.remove("open");});
 
 function uuid(){return crypto.randomUUID();}
 const minor=document.getElementById("is_minor"),representative=document.getElementById("representative");
+const officialMethod=document.getElementById("officialDeliveryMethod");
+function syncOfficialDelivery(){
+ const viaEmail=officialMethod.value==="email";
+ form.elements.email.required=viaEmail&&!minor.checked;
+ form.elements.representative_email.required=viaEmail&&minor.checked;
+}
+officialMethod.addEventListener("change",syncOfficialDelivery);
 function syncMinorFields(){
  representative.hidden=!minor.checked;
  representative.querySelectorAll("input,select").forEach(el=>{
   el.disabled=!minor.checked;
-  if(["representative_first_names","representative_last_names","representative_document_type","representative_document_number","representative_email"].includes(el.name))el.required=minor.checked;
+  if(["representative_first_names","representative_last_names","representative_document_type","representative_document_number"].includes(el.name))el.required=minor.checked;
  });
+ syncOfficialDelivery();
 }
 minor.addEventListener("change",syncMinorFields);
 syncMinorFields();
@@ -110,7 +123,7 @@ form.addEventListener("submit",async(e)=>{
   representative_first_names:fd.get("representative_first_names")||null,representative_last_names:fd.get("representative_last_names")||null,
   representative_document_type:fd.get("representative_document_type")||null,representative_document_number:fd.get("representative_document_number")||null,
   representative_phone:fd.get("representative_phone")||null,representative_email:fd.get("representative_email")||null,
-  consumer_conformity:fd.get("consumer_conformity")==="on",preferred_response_channel:fd.get("preferred_response_channel"),complaint_type:fd.get("complaint_type"),
+  consumer_conformity:fd.get("consumer_conformity")==="on",official_delivery_method:fd.get("official_delivery_method"),preferred_response_channel:fd.get("preferred_response_channel"),complaint_type:fd.get("complaint_type"),
   product_service_type:fd.get("product_service_type"),product_service_description:fd.get("product_service_description"),
   amount:fd.get("amount"),detail:fd.get("detail"),consumer_request:fd.get("consumer_request"),turnstile_token:token
  };
@@ -119,7 +132,7 @@ form.addEventListener("submit",async(e)=>{
   const j=await r.json();
   if(!r.ok||!j.ok)throw new Error(j.error||"SUBMISSION_FAILED");
   const c=j.complaint;
-  successCode.textContent=c.public_code;successModal.classList.add("open");closeSuccessModal.focus();
+  successCode.textContent=c.public_code;lastPublicCode=c.public_code;lastReceiptToken=c.receipt_token||"";document.getElementById("trackingButton").hidden=!lastReceiptToken;successModal.classList.add("open");closeSuccessModal.focus();
   form.reset();syncMinorFields();idempotencyKey=null;if(window.turnstile)turnstile.reset();
  }catch(err){show("No se pudo registrar. "+(err.message==="TURNSTILE_FAILED"?"Repite la verificación de seguridad.":"Intenta nuevamente."),"err");if(window.turnstile)turnstile.reset();}
  finally{submit.disabled=false;}
