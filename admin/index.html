@@ -21,7 +21,7 @@
 <section class="panel" id="login"><h1>Acceder a LIREP</h1><p>Sin contraseña adicional. Recibirás un enlace seguro en tu correo administrativo.</p><form id="loginForm"><label>Correo electrónico<br><input id="email" type="email" autocomplete="email" required></label><button id="sendLogin" type="submit">Enviar enlace de acceso</button></form><div id="loginNotice" class="login-notice" role="status" aria-live="polite" hidden><strong id="loginNoticeTitle"></strong><p id="loginMsg"></p></div></section>
 <section id="dashboard" hidden><div class="panel"><div class="actions"><h1 style="margin:0;flex:1">Panel administrativo</h1><button id="logout">Cerrar sesión</button></div><p id="who"></p><label>Empresa<br><select id="org"></select></label><p id="status" role="status"></p></div>
 <div class="panel"><h2>Resumen</h2><div id="metrics" class="metrics"></div></div><div class="panel"><h2>Reclamaciones</h2><div class="scroll"><table><thead><tr><th>Código</th><th>Tipo</th><th>Estado</th><th>Registro</th><th>Vencimiento</th><th></th></tr></thead><tbody id="complaints"></tbody></table></div></div>
-<div class="panel" id="detailPanel" hidden><div class="actions" style="align-items:center;margin-bottom:18px"><h2 style="margin:0;flex:1">Detalle de reclamación</h2><button id="closeDetail" type="button" aria-label="Cerrar detalle de reclamación">Cerrar detalle</button></div><div id="detail" class="detail-grid"></div><section class="detail-box" id="caseTrackingPanel"><h3>Seguimiento y estado del expediente</h3><div id="caseTrackingSummary"></div><p id="caseResponseDeliveryStatus" role="status" aria-live="polite">Consultando el estado de la respuesta...</p><div id="caseTrackingTimeline"></div><div class="actions" id="caseStatusActions"></div><div class="actions" style="margin-top:12px"><button id="refreshCaseDelivery" type="button">Actualizar seguimiento y entrega</button></div></section><h3>Historial de seguimiento</h3><div id="history"></div><p><small>Las notas y borradores se guardan internamente. No se envían automáticamente al consumidor.</small></p><h3>Registrar seguimiento</h3><form id="entryForm"><label>Tipo <select id="entryKind"><option value="internal_note">Nota interna</option><option value="response_draft">Borrador de respuesta (sin enviar)</option></select></label><label>Contenido<br><textarea id="entryBody" rows="4" style="width:100%" required></textarea></label><button>Guardar seguimiento</button></form><section id="formalResponsePanel" class="detail-box" hidden style="margin-top:20px"><h3>Respuesta oficial y aprobación</h3><p><small>El borrador queda guardado en el expediente. Cualquier administrador autorizado puede aprobarlo, incluso si lo redactó. La respuesta aprobada se comunica por correo o por carta según el medio formal seleccionado. La aprobación no equivale a entrega.</small></p><form id="formalResponseForm"><label for="formalResponseText">Texto oficial propuesto</label><textarea id="formalResponseText" rows="7" style="width:100%" minlength="10" required></textarea><button id="formalResponseButton" type="submit">Guardar borrador y solicitar aprobación</button></form><p id="formalResponseGuard" role="status" aria-live="polite" hidden></p><p id="formalResponseStatus" role="status" aria-live="polite"></p><h3>Respuestas y constancia de entrega</h3><div id="formalResponseHistory"></div><div id="paperDeliveryPanel" class="detail-box" hidden><h3>Registrar comunicación por carta</h3><p><small>Adjunta a tu expediente una referencia verificable al despacho o constancia física. Registrar un envío no equivale a confirmar recepción.</small></p><form id="paperDeliveryForm"><input id="paperResponseId" type="hidden"><label>Actuación<select id="paperAction" required><option value="dispatched">Carta despachada</option><option value="delivered">Carta entregada (con constancia)</option><option value="returned">Carta devuelta / no entregada</option></select></label><label>Referencia documental o de courier<input id="paperReference" required minlength="5" maxlength="200" placeholder="Código de seguimiento / acta / cargo"></label><label>Detalle de la evidencia<textarea id="paperNote" rows="3" maxlength="2000" placeholder="Descripción del documento o constancia"></textarea></label><div class="actions"><button type="submit" id="paperSubmit">Guardar actuación</button><button type="button" id="paperCancel">Cancelar</button></div></form><p id="paperMessage" role="status"></p></div></section></div>
+<div class="panel" id="detailPanel" hidden><div class="actions" style="align-items:center;margin-bottom:18px"><h2 style="margin:0;flex:1">Detalle de reclamación</h2><button id="closeDetail" type="button" aria-label="Cerrar detalle de reclamación">Cerrar detalle</button></div><div id="detail" class="detail-grid"></div><section class="detail-box" id="caseTrackingPanel"><h3>Seguimiento y estado del expediente</h3><div id="caseTrackingSummary"></div><p id="caseResponseDeliveryStatus" role="status" aria-live="polite">Consultando el estado de la respuesta...</p><div id="caseTrackingTimeline"></div><div class="actions" id="caseStatusActions"></div><div class="actions" style="margin-top:12px"><button id="refreshCaseDelivery" type="button">Actualizar seguimiento y entrega</button></div></section><h3>Historial de seguimiento</h3><div id="history"></div><p><small>Las notas y borradores se guardan internamente. No se envían automáticamente al consumidor.</small></p><h3>Registrar seguimiento</h3><form id="entryForm"><label>Tipo <select id="entryKind"><option value="internal_note">Nota interna</option><option value="response_draft">Borrador de respuesta (sin enviar)</option></select></label><label>Contenido<br><textarea id="entryBody" rows="4" style="width:100%" required></textarea></label><button>Guardar seguimiento</button></form><section id="formalResponsePanel" class="detail-box" hidden style="margin-top:20px"><h3>Responder al consumidor</h3><p><small>Escribe tu respuesta y pulsa el botón una vez. LIREP conserva la aprobación, el historial y la constancia. La aceptación del proveedor no equivale a la lectura por el consumidor.</small></p><form id="formalResponseForm"><label for="formalResponseText">Respuesta al consumidor</label><textarea id="formalResponseText" rows="7" style="width:100%" minlength="10" required></textarea><button id="formalResponseButton" type="submit">Responder y enviar</button></form><p id="formalResponseGuard" role="status" aria-live="polite" hidden></p><p id="formalResponseStatus" role="status" aria-live="polite"></p><h3>Respuesta registrada y constancia</h3><div id="formalResponseHistory"></div><div id="paperDeliveryPanel" class="detail-box" hidden><h3>Registrar comunicación por carta</h3><p><small>Adjunta a tu expediente una referencia verificable al despacho o constancia física. Registrar un envío no equivale a confirmar recepción.</small></p><form id="paperDeliveryForm"><input id="paperResponseId" type="hidden"><label>Actuación<select id="paperAction" required><option value="dispatched">Carta despachada</option><option value="delivered">Carta entregada (con constancia)</option><option value="returned">Carta devuelta / no entregada</option></select></label><label>Referencia documental o de courier<input id="paperReference" required minlength="5" maxlength="200" placeholder="Código de seguimiento / acta / cargo"></label><label>Detalle de la evidencia<textarea id="paperNote" rows="3" maxlength="2000" placeholder="Descripción del documento o constancia"></textarea></label><div class="actions"><button type="submit" id="paperSubmit">Guardar actuación</button><button type="button" id="paperCancel">Cancelar</button></div></form><p id="paperMessage" role="status"></p></div></section></div>
 <div class="panel" id="membersPanel" hidden><h2>Usuarios de la empresa</h2><div class="members-layout"><section class="members-card"><h3>Colaboradores con acceso</h3><p>Usuarios autorizados y permisos de esta empresa.</p><div class="scroll"><table><thead><tr><th>Correo electrónico</th><th>Rol</th><th>Estado</th></tr></thead><tbody id="members"></tbody></table></div></section><section class="members-card"><h3>Invitar a un colaborador</h3><p>Asigna un rol y envía un enlace seguro de activación.</p><form id="memberForm"><label for="memberEmail">Correo electrónico<input id="memberEmail" type="email" placeholder="colaborador@empresa.com" autocomplete="email" required></label><label for="memberRole">Rol de acceso<select id="memberRole"><option value="viewer">Consulta · solo lectura</option><option value="operator">Operador · gestión</option><option value="company_admin">Administrador · gestión y usuarios</option></select></label><button id="inviteButton" type="submit">Enviar invitación</button></form><p id="inviteStatus" role="status" aria-live="polite"></p><small>El correo debe verificarse. Las invitaciones vencen en 7 días.</small></section></div><section class="members-card" style="margin-top:18px"><h3>Invitaciones pendientes</h3><div id="invites"></div></section></div>
 </section></main><footer class="site-footer">© <span id="copyrightYear">2026</span> 360 Integral Solutions · LIREP — Libro de Reclamaciones Virtual. Todos los derechos reservados.</footer>
 
@@ -376,11 +376,15 @@ async function loadFormalResponses(){
   const canCompose=['company_admin','operator','platform_admin'].includes(selected.role);
   const canCreateDraft=canCompose&&!hasApproved&&!hasPending;
   $('formalResponseForm').hidden=!canCreateDraft;
+  const adminCanSend=['company_admin','platform_admin'].includes(selected.role);
+  $('formalResponseButton').textContent=adminCanSend
+    ?(caseTracking?.official_delivery_method==='postal'?'Aprobar y preparar carta':'Responder y enviar')
+    :'Enviar a aprobación';
   $('formalResponseGuard').hidden=!(hasApproved||hasPending);
   $('formalResponseGuard').textContent=hasApproved
-    ?'Ya existe una respuesta oficial aprobada. No registres otra: revisa su envío y la constancia de entrega.'
+    ?'Tu respuesta ya está aprobada. Solo falta comprobar su comunicación y la constancia.'
     :hasPending
-      ?'Hay una propuesta pendiente de aprobación. Apruébala o recházala antes de preparar otra respuesta.'
+      ?'Hay una respuesta pendiente de aprobación. Un administrador autorizado puede enviarla desde aquí.'
       :'';
   const deliveryById=new Map((deliveries||[]).map(d=>[d.response_id,d]));
   const newest=[...(responses||[])].sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at))[0];
@@ -397,12 +401,12 @@ async function loadFormalResponses(){
     const d=deliveryById.get(r.id);
     const permitted=['company_admin','platform_admin'].includes(selected.role);
     const review=(r.status==='pending_approval'&&permitted)?
-      '<div class="actions"><button type="button" data-approve="'+esc(r.id)+'">'+(r.submitted_by===currentUserId?'Aprobar mi respuesta':'Aprobar')+'</button><button type="button" data-reject="'+esc(r.id)+'">Rechazar</button></div>':'';
+      '<div class="actions"><button type="button" data-approve="'+esc(r.id)+'">'+(caseTracking?.official_delivery_method==='postal'?'Aprobar y preparar carta':'Aprobar y enviar')+'</button><button type="button" data-reject="'+esc(r.id)+'">Rechazar</button></div>':'';
     const paper=r.status==='approved'&&caseTracking?.official_delivery_method==='postal'?'<div class="actions"><button type="button" data-print="'+esc(r.id)+'">Imprimir carta</button>'+(['company_admin','platform_admin','operator'].includes(selected.role)?'<button type="button" data-paper="'+esc(r.id)+'">Registrar envío o entrega</button>':'')+'</div>':'';
     const processAction=r.status==='approved'&&
       caseTracking?.official_delivery_method!=='postal'&&
       ['pending','retry'].includes(d?.status)&&permitted?
-      '<div class="actions"><button type="button" data-process="'+esc(r.id)+'">Procesar envío pendiente</button></div>':'';
+      '<div class="actions"><button type="button" data-process="'+esc(r.id)+'">Enviar respuesta ahora</button></div>':'';
     const delivery=d?'<p><b>Entrega:</b> '+esc(deliveryLabel[d.status]||d.status)+
       (d.sent_at?' · Aceptado: '+esc(new Date(d.sent_at).toLocaleString('es-PE')):'')+(d.delivery_confirmed_at?' · Entregado: '+esc(new Date(d.delivery_confirmed_at).toLocaleString('es-PE')):'')+
       (d.provider_message_id?' · Referencia Resend: '+esc(d.provider_message_id):'')+
@@ -411,6 +415,34 @@ async function loadFormalResponses(){
       '<p>'+esc(r.body).replace(/\n/g,'<br>')+'</p>'+(r.reviewed_at?'<p><small>Revisada: '+esc(new Date(r.reviewed_at).toLocaleString('es-PE'))+(r.review_note?' · '+esc(r.review_note):'')+'</small></p>':'')+delivery+review+paper+processAction+'</div>';
   }).join(''):'<p>Todavía no hay respuestas oficiales propuestas.</p>';
 }
+
+const deliveryOutcome=status=>({
+  accepted:'Correo aceptado por Resend. La constancia se registró; la entrega se verifica por separado.',
+  not_pending:'Este correo ya no está pendiente de envío. Revisa su estado y la constancia.',
+  retry:'El proveedor no aceptó el correo y quedó pendiente de reintento.',
+  failed:'El proveedor rechazó el envío. La incidencia quedó registrada.',
+  accepted_reconciliation_pending:'Resend aceptó el correo, pero falta registrar su constancia. No lo envíes de nuevo.',
+  record_error:'No se pudo registrar el resultado del envío. No lo repitas.',
+  claim_error:'La respuesta está aprobada, pero el servicio no pudo iniciar el envío. No crees otra respuesta.',
+  configuration_missing:'Servicio de correo no disponible: la respuesta queda aprobada y pendiente.'
+})[status]||'Consulta el estado del envío.';
+async function sendApprovedResponse(orgId,responseId){
+  const {data:{session}}=await db.auth.getSession();
+  if(!session?.access_token)throw new Error('Inicia sesión nuevamente para enviar.');
+  const result=await fetch('https://lirep-public-api.vidadecanes-peru.workers.dev/api/v1/admin/response-delivery/process',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
+    body:JSON.stringify({organization_id:orgId,response_id:responseId}),
+    signal:AbortSignal.timeout(90000)
+  });
+  const content=await result.json().catch(()=>null);
+  if(!result.ok){
+    const errors={AUTH_REQUIRED:'Sesión vencida.',ADMIN_ACCESS_DENIED:'Sin permisos para enviar.',RATE_LIMITED:'Demasiados intentos.',SERVICE_UNAVAILABLE:'Servicio de correo temporalmente no disponible.'};
+    throw new Error(errors[content?.error]||'No se pudo contactar al servicio de envío.');
+  }
+  return content?.status||'unknown';
+}
+
 $('formalResponseHistory').addEventListener('click',async e=>{
   const button=e.target.closest('button');if(!button)return;
   if(button.dataset.print){const entry=lastFormalResponses.find(x=>x.id===button.dataset.print);if(entry)printFormalLetter(entry);return}
@@ -418,60 +450,39 @@ $('formalResponseHistory').addEventListener('click',async e=>{
   if(button.dataset.process){
     const orgId=selected?.id,caseId=selectedComplaint,responseId=button.dataset.process;
     if(!orgId||!caseId||!lastFormalResponses.some(r=>r.id===responseId&&r.status==='approved'))return;
-    if(!(await lirepConfirm({
-      title:'Procesar correo oficial pendiente',
-      text:'Se intentará enviar la respuesta aprobada mediante Resend. Si el correo ya fue procesado, la cola impedirá un segundo envío. Esta acción envía un correo real al consumidor.',
-      accept:'Procesar correo'
-    })))return;
-    if(selected?.id!==orgId||selectedComplaint!==caseId)return;
     button.disabled=true;
     try{
-      const {data:{session}}=await db.auth.getSession();
-      if(!session?.access_token)throw new Error('La sesión ha vencido. Inicia sesión nuevamente.');
-      const result=await fetch('https://lirep-public-api.vidadecanes-peru.workers.dev/api/v1/admin/response-delivery/process',{
-        method:'POST',
-        headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-        body:JSON.stringify({organization_id:orgId,response_id:responseId}),
-        signal:AbortSignal.timeout(90000)
-      });
-      const content=await result.json().catch(()=>null);
-      if(!result.ok)throw new Error(({AUTH_REQUIRED:'Sesión no disponible.',ADMIN_ACCESS_DENIED:'No tienes permisos para procesar esta respuesta.',RATE_LIMITED:'Demasiados intentos; prueba después.',SERVICE_UNAVAILABLE:'No fue posible contactar al servicio de correo.'})[content?.error]||'No se pudo procesar el envío.');
-      const messages={
-        accepted:'Resend aceptó el correo. Espera la confirmación de entrega en el seguimiento.',
-        not_pending:'La cola ya no tiene un envío pendiente para esta respuesta. Revisa el estado.',
-        retry:'El proveedor no aceptó el envío; LIREP registró un reintento.',
-        failed:'El proveedor rechazó el envío. Revisa la incidencia antes de continuar.',
-        accepted_reconciliation_pending:'Resend aceptó el mensaje, pero falta conciliar su registro. No lo reenvíes.',
-        record_error:'Existe una incidencia al registrar el resultado. No repitas esta acción.',
-        claim_error:'No pudo reclamarse la cola. Revisa la incidencia.',
-        configuration_missing:'El servicio de correo no está configurado; no se realizó ningún envío.'
-      };
-      message('formalResponseStatus',messages[content?.status]||'Operación finalizada; revisa el seguimiento.');
-      await refreshCaseStatus();
-    }catch(error){message('formalResponseStatus',error.message,true)}
+      const status=await sendApprovedResponse(orgId,responseId);
+      if(selected?.id===orgId&&selectedComplaint===caseId){
+        message('formalResponseStatus',deliveryOutcome(status),!['accepted','not_pending'].includes(status));
+        await refreshCaseStatus();
+      }
+    }catch(error){message('formalResponseStatus','La respuesta sigue aprobada pero no pudo enviarse: '+error.message,true)}
     finally{button.disabled=false}
     return;
   }
   const approve=!!button.dataset.approve,id=button.dataset.approve||button.dataset.reject;
   if(!id)return;
   const orgId=selected.id,caseId=selectedComplaint;
-  const reply=await lirepDialog({
-    title:approve?'Aprobar respuesta oficial':'Rechazar respuesta propuesta',
-    text:approve?
-      (caseTracking?.official_delivery_method==='postal'
-       ?'La respuesta quedará aprobada y pendiente de entrega física. Aprobar no significa que el consumidor la haya recibido.'
-       :'La respuesta quedará aprobada y se programará su envío oficial por correo. Esta decisión no puede deshacerse.')
-      :'Escribe el motivo del rechazo. Quedará registrado en el expediente.',
-    accept:approve?'Aprobar respuesta':'Rechazar propuesta',
-    danger:!approve,reasonRequired:!approve
+  const reply=approve?{confirmed:true,note:null}:await lirepDialog({
+    title:'Rechazar respuesta propuesta',
+    text:'Escribe el motivo del rechazo. Quedará registrado en el expediente.',
+    accept:'Rechazar propuesta',danger:true,reasonRequired:true
   });
   if(!reply.confirmed||selected?.id!==orgId||selectedComplaint!==caseId)return;
   const note=approve?null:reply.note;
   button.disabled=true;
   try{
     await rpc('lirep_admin_a10_review',{p_organization_id:selected.id,p_response_id:id,p_approve:approve,p_note:note});
+    let status=null;
+    if(approve&&caseTracking?.official_delivery_method!=='postal'){
+      try{status=await sendApprovedResponse(orgId,id)}
+      catch(error){status='claim_error'}
+    }
     await Promise.all([loadFormalResponses(),loadCaseTracking()]);
-    message('formalResponseStatus',approve?'Respuesta aprobada; pendiente de comunicación por el medio oficial. Revise el seguimiento y la constancia.':'Respuesta rechazada; el motivo quedó registrado.');
+    message('formalResponseStatus',approve?
+      (caseTracking?.official_delivery_method==='postal'?'Respuesta aprobada. Imprime la carta y registra su entrega.':deliveryOutcome(status)):
+      'Respuesta rechazada; el motivo quedó registrado.',approve&&status&&!['accepted','not_pending'].includes(status));
   }catch(error){message('formalResponseStatus',error.message,true)}finally{button.disabled=false}
 });
 $('formalResponseForm').addEventListener('submit',async e=>{
@@ -483,8 +494,29 @@ $('formalResponseForm').addEventListener('submit',async e=>{
     return;
   }
   const orgId=selected.id,caseId=selectedComplaint;
-  if(!(await lirepConfirm({title:'Enviar propuesta a aprobación',text:'Se guardará el borrador y se enviará a aprobación. Todavía no se notificará al consumidor.',accept:'Guardar propuesta'})))return;
-  if(selected?.id!==orgId||selectedComplaint!==caseId)return;
+  if(['company_admin','platform_admin'].includes(selected.role)){
+    button.disabled=true;
+    try{
+      const answer=await rpc('lirep_admin_reply_and_approve',{
+        p_organization_id:orgId,p_complaint_id:caseId,p_body:body
+      });
+      if(!answer?.response_id)throw new Error('No se confirmó el registro de la respuesta.');
+      pendingDraft=null;$('formalResponseText').value='';
+      let status=null;
+      if(caseTracking?.official_delivery_method!=='postal'){
+        try{status=await sendApprovedResponse(orgId,answer.response_id)}
+        catch(error){status='claim_error'}
+      }
+      await Promise.all([loadHistory(),loadFormalResponses(),loadCaseTracking()]);
+      message('formalResponseStatus',caseTracking?.official_delivery_method==='postal'?
+        'Respuesta aprobada. Imprime la carta y registra su entrega.':
+        deliveryOutcome(status),status&&!['accepted','not_pending'].includes(status));
+    }catch(error){
+      await Promise.allSettled([loadHistory(),loadFormalResponses(),loadCaseTracking()]);
+      message('formalResponseStatus','No se completó el proceso: '+error.message+'. Revisa el historial antes de volver a intentarlo.',true);
+    }finally{button.disabled=false}
+    return;
+  }
   button.disabled=true;
   try{
     const same=pendingDraft&&pendingDraft.organization_id===selected.id&&pendingDraft.complaint_id===selectedComplaint&&pendingDraft.body===body;
