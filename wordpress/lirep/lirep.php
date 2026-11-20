@@ -3,7 +3,7 @@
  * Plugin Name: LIREP - Libro de Reclamaciones Virtual Peru
  * Plugin URI: https://github.com/vidadecanesperu-max/lirep
  * Description: Libro de Reclamaciones LIREP multiempresa, compatible con WordPress, Gutenberg y Elementor. Los datos permanecen en LIREP.
- * Version: 1.7.2
+ * Version: 1.7.3
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: 360 Integral Solutions
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('LIREP_VERSION')) {
-    define('LIREP_VERSION', '1.7.2');
+    define('LIREP_VERSION', '1.7.3');
 }
 if (!defined('LIREP_PROD_BASE')) {
     define('LIREP_PROD_BASE', 'https://lirep-public-api.vidadecanes-peru.workers.dev');
@@ -211,27 +211,11 @@ function lirep_shortcode($atts = array()) {
     lirep_enqueue_assets();
     $src = add_query_arg(array('public_prefix' => $prefix, 'embed' => '1'), $base . '/libro-de-reclamaciones');
     $frame_id = 'lirep-frame-' . wp_unique_id();
-    $nav_id = 'lirep-nav-' . wp_unique_id();
+    // QA251: formulario público de ancho completo, sin navegación lateral.
+    // La navegación del panel administrativo vive en admin/index.html y no se modifica.
     $html = '<div class="lirep-container" data-lirep-embed="1" data-lirep-origin="' . esc_attr($base) . '" data-lirep-prefix="' . esc_attr($prefix) . '" data-lirep-environment="' . esc_attr($environment) . '">';
-    $html .= '<div class="lirep-public-layout">';
-    $html .= '<button class="lirep-public-toggle" type="button" aria-controls="' . esc_attr($nav_id) . '" aria-expanded="false" aria-label="Abrir menú del Libro de Reclamaciones"><span aria-hidden="true">☰</span> Secciones</button>';
-    $html .= '<button class="lirep-public-shade" type="button" hidden aria-label="Cerrar menú del Libro de Reclamaciones"></button>';
-    $html .= '<aside class="lirep-public-nav" id="' . esc_attr($nav_id) . '" data-open="false" aria-label="Secciones del Libro de Reclamaciones"><p class="lirep-public-nav-title">Libro de Reclamaciones</p><nav aria-label="Pasos del formulario">';
-    $steps = array(
-        'inicio' => 'Inicio',
-        'consumidor' => 'Datos del consumidor',
-        'bien' => 'Bien o servicio',
-        'reclamo' => 'Reclamo y solicitud',
-        'informacion' => 'Información y privacidad',
-        'enviar' => 'Registrar reclamación',
-    );
-    foreach ($steps as $step => $caption) {
-        $html .= '<button type="button" data-lirep-go="' . esc_attr($step) . '">' . esc_html($caption) . '</button>';
-    }
-    $html .= '</nav></aside>';
-    $html .= '<div class="lirep-public-content">';
     $html .= '<iframe id="' . esc_attr($frame_id) . '" class="lirep-frame" src="' . esc_url($src) . '" title="Libro de Reclamaciones Virtual" loading="eager" scrolling="no" referrerpolicy="no-referrer"></iframe>';
-    $html .= '</div></div></div>';
+    $html .= '</div>';
     return $html;
 }
 add_shortcode('lirep', 'lirep_shortcode');
@@ -274,7 +258,7 @@ function lirep_valid_release($release) {
 }
 
 function lirep_release_info($force = false) {
-    $key = 'lirep_release_v172';
+    $key = 'lirep_release_v173';
     if (!$force) {
         $cached = get_transient($key);
         if (is_array($cached)) {
