@@ -443,7 +443,7 @@ async function openDetail(id){
     showWorkspaceView('detailPanel',false);
     persistOpenCase(orgId,id);
     const results=await Promise.allSettled([loadHistory(),loadCaseTracking()]);
-    if(version===detailVersion&&selected?.id===orgId&&selectedComplaint===id){try{await Promise.all([loadFormalResponses(),loadDisagreements()])}catch(err){results.push({status:'rejected',reason:err})}}
+    if(version===detailVersion&&selected?.id===orgId&&selectedComplaint===id){try{await loadFormalResponses();await loadDisagreements()}catch(err){results.push({status:'rejected',reason:err})}}
     if(version!==detailVersion||selected?.id!==orgId||selectedComplaint!==id)return;
     const errors=results.filter(x=>x.status==='rejected');
     if(errors.length)message('status','El expediente permanece abierto, pero no fue posible cargar todo el historial. Puede reabrirlo para reintentar.',true);
@@ -528,6 +528,111 @@ $('paperDeliveryForm').addEventListener('submit',async e=>{
 
 
 
+
+/* QA249 | disconformidad interna + control del plazo de cierre administrativo.
+ * Una disconformidad no equivale a una apelación formal ante Indecopi.
+ */
+let currentDisagreements=[];
+function updateAutoCloseStatus(){
+  if(!caseTracking)return;
+  if(caseTracking.status==='closed'){
+    $('caseAutoCloseStatus').textContent='Expediente cerrado administrativamente. Su historial y sus constancias permanecen disponibles.';
+    return;
+  }
+  if(currentDisagreements.some(d=>d.status==='open')){
+    $('caseAutoCloseStatus').textContent='Cierre automático suspendido: existe una disconformidad pendiente.';
+    return;
+  }
+  const sent=lastDeliveryRecords.find(d=>
+    ['delivered','postal_delivered'].includes(d.status)&&d.sent_at&&d.delivery_confirmed_at);
+  if(caseTracking.status==='responded'&&sent){
+    const due=new Date(new Date(sent.sent_at).getTime()+15*86400000);
+    $('caseAutoCloseStatus').textContent='Cierre administrativo previsto: '+
+      due.toLocaleString('es-PE')+' (15 días calendario desde el envío, sin disconformidad pendiente).';
+  }else if(caseTracking.status==='responded'){
+    $('caseAutoCloseStatus').textContent='El cierre automático necesita una entrega acreditada.';
+  }else $('caseAutoCloseStatus').textContent='';
+}
+async function loadDisagreements(){
+  if(!selectedComplaint||!selected)return;
+  const orgId=selected.id,caseId=selectedComplaint;
+  const rows=await rpc('lirep_admin_disagreements_list',{
+    p_organization_id:orgId,p_complaint_id:caseId
+  });
+  if(selected?.id!==orgId||selectedComplaint!==caseId)return;
+  currentDisagreements=Array.isArray(rows)?rows:[];
+  const canWrite=['company_admin','operator','platform_admin'].includes(selected.role);
+  const pending=currentDisagreements.some(d=>d.status==='open');
+  $('disagreementPanel').hidden=false;
+  $('disagreementForm').hidden=!canWrite||pending||
+    !lastFormalResponses.some(r=>r.status==='approved');
+  $('disagreementsList').innerHTML=currentDisagreements.length?
+    currentDisagreements.map(d=>
+      '<div class="timeline"><b>'+
+      (d.status==='open'?'Disconformidad pendiente':'Disconformidad atendida')+
+      '</b> · '+esc(new Date(d.created_at).toLocaleString('es-PE'))+
+      '<p>'+esc(d.description).replace(/\n/g,'<br>')+'</p>'+
+      (d.resolution_note?'<p><b>Atención registrada:</b> '+esc(d.resolution_note)+'</p>':'')+
+      (canWrite&&d.status==='open'?
+        '<button type="button" data-disagreement-resolve="'+esc(d.id)+'">Registrar atención</button>':'')+
+      '</div>').join(''):
+    '<p>Sin disconformidades registradas.</p>';
+  updateAutoCloseStatus();
+}
+$('disagreementForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!selected||!selectedComplaint)return;
+  const orgId=selected.id,caseId=selectedComplaint;
+  const description=$('disagreementBody').value.trim();
+  if(description.length<10){
+    message('disagreementStatus','Describe la disconformidad y el canal de recepción (mínimo 10 caracteres).',true);
+    return;
+  }
+  const confirm=await lirepConfirm({
+    title:'Registrar disconformidad',
+    text:'Se conservará la disconformidad como actuación interna y el cierre automático quedará suspendido mientras esté pendiente.',
+    accept:'Registrar'
+  });
+  if(!confirm||selected?.id!==orgId||selectedComplaint!==caseId)return;
+  const button=$('disagreementSubmit');button.disabled=true;
+  try{
+    await rpc('lirep_admin_disagreement_record',{
+      p_organization_id:orgId,p_complaint_id:caseId,p_description:description
+    });
+    $('disagreementBody').value='';
+    await loadDisagreements();await load();
+    message('disagreementStatus','Disconformidad registrada. El cierre automático está suspendido.');
+  }catch(error){message('disagreementStatus',error.message,true)}
+  finally{button.disabled=false}
+});
+$('disagreementsList').addEventListener('click',async event=>{
+  const button=event.target.closest('button[data-disagreement-resolve]');
+  if(!button||!selected||!selectedComplaint)return;
+  const orgId=selected.id,caseId=selectedComplaint;
+  const dialog=await lirepDialog({
+    title:'Registrar atención de la disconformidad',
+    text:'Describe la atención y cómo se informó al consumidor. El cierre se mantendrá sujeto al plazo de 15 días y a la constancia de entrega.',
+    accept:'Guardar atención',reasonRequired:true
+  });
+  if(!dialog.confirmed)return;
+  if((dialog.note||'').trim().length<10){
+    message('disagreementStatus','La atención documentada debe tener al menos 10 caracteres.',true);
+    return;
+  }
+  if(selected?.id!==orgId||selectedComplaint!==caseId)return;
+  button.disabled=true;
+  try{
+    await rpc('lirep_admin_disagreement_resolve',{
+      p_organization_id:orgId,
+      p_disagreement_id:button.dataset.disagreementResolve,
+      p_resolution_note:dialog.note.trim()
+    });
+    await loadDisagreements();await load();
+    message('disagreementStatus','Atención registrada y conservada en el historial de la disconformidad.');
+  }catch(error){message('disagreementStatus',error.message,true)}
+  finally{button.disabled=false}
+});
+
 async function refreshProviderEvidence(orgId,responseId){
   const {data:{session}}=await db.auth.getSession();
   if(!session?.access_token)throw new Error('La sesión ha vencido.');
@@ -567,7 +672,7 @@ async function refreshCaseStatus(manual=false){
         catch(error){providerStatus='lookup_failed'}
       }
     }
-    const results=await Promise.allSettled([loadCaseTracking(),loadFormalResponses(),loadDisagreements()]);
+    const results=await Promise.allSettled([loadCaseTracking(),(async()=>{await loadFormalResponses();await loadDisagreements()})()]);
     if(selected?.id!==orgId||selectedComplaint!==caseId||$('detailPanel').hidden)return;
     if(manual){
       const stamp=new Date().toLocaleTimeString('es-PE');
