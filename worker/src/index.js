@@ -315,16 +315,26 @@ async function onboardingAuthLink(env,email) {
   // Supabase GoTrue returns the generated URL inside properties.action_link.
   // Some SDK wrappers expose it at the top level; support both without logging tokens.
   const actionLink=data?.properties?.action_link||data?.action_link;
+  // QA257: never mail a GET /auth/v1/verify action link: email previewers
+  // can redeem the one-time token before the administrator does.
+  // The hash is sent to our inert page; verification needs an explicit click.
+  let verificationHash=data?.properties?.hashed_token||data?.hashed_token||"";
+  if(!verificationHash&&typeof actionLink==="string"){
+    try {const link=new URL(actionLink);
+      if(link.hostname===new URL(env.SUPABASE_URL).hostname&&link.pathname.endsWith("/auth/v1/verify"))
+        verificationHash=link.searchParams.get("token")||"";
+    }catch{}
+  }
   // GoTrue's REST generate_link response exposes the user fields at the root.
   // SDK wrappers may instead nest the user under `user`.
   const userId=data?.user?.id||data?.id;
-  if(!res.ok||!isUuid(userId)||typeof actionLink!=="string"||!actionLink.startsWith("https://")) {
+  if(!res.ok||!isUuid(userId)||!/^[a-f0-9]{64}$/i.test(verificationHash)) {
     const code=typeof data?.code==="string"?data.code:(typeof data?.error_code==="string"?data.error_code:"unknown");
-    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_user:!!userId,has_action_link:!!actionLink}));
+    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_user:!!userId,has_verification_hash:/^[a-f0-9]{64}$/i.test(verificationHash)}));
     // Safe machine-readable diagnostic: never expose email, credentials or generated link.
-    throw new Error("ONBOARDING_AUTH_"+res.status+"_"+(res.ok?"SHAPE":"HTTP")+"_"+(userId?"USER":"NOUSER")+"_"+(actionLink?"LINK":"NOLINK")+"_"+(code==="unknown"?"UNKNOWN":code.replace(/[^a-zA-Z0-9_]/g,"").slice(0,40)));
+    throw new Error("ONBOARDING_AUTH_"+res.status+"_"+(res.ok?"SHAPE":"HTTP")+"_"+(userId?"USER":"NOUSER")+"_"+(verificationHash?"HASH":"NOHASH")+"_"+(code==="unknown"?"UNKNOWN":code.replace(/[^a-zA-Z0-9_]/g,"").slice(0,40)));
   }
-  return {user:{id:userId},action_link:actionLink};
+  return {user:{id:userId},token_hash:verificationHash.toLowerCase()};
 }
 async function onboardingRoute(request,env,url) {
   const path=url.pathname.slice(onboardingBase.length);
@@ -394,16 +404,21 @@ async function onboardingRoute(request,env,url) {
     let auth;
     try { auth=await onboardingAuthLink(env,row.contact_email); }
     catch(error) { const diagnostic=String(error?.message||error); console.error("LIREP_ONBOARDING_AUTH",diagnostic); return json({ok:false,error:"activation_auth_unavailable",diagnostic:diagnostic.startsWith("ONBOARDING_AUTH_")?diagnostic:"AUTH_REQUEST_FAILED",retryable:true},503); }
-    try { await lirepRpc("lirep_onboarding_activate",{p_request_id:id,p_user_id:auth.user.id},env); }
+    let activation;
+    try { activation=await lirepRpc("lirep_onboarding_activate",{p_request_id:id,p_user_id:auth.user.id},env); }
     catch(error) { console.error("LIREP_ONBOARDING_TENANT",String(error?.message||error)); return json({ok:false,error:"activation_tenant_unavailable",retryable:true},503); }
     try {
+      const activatedPrefix=typeof activation?.public_prefix==="string"&&/^[A-Z0-9]{8}$/.test(activation.public_prefix)?activation.public_prefix:"";
+      // The hash travels in the URL fragment, never in an HTTP GET request.
+      // On the admin page a user must press "Confirmar acceso" to consume it.
+      const safeAccessUrl="https://lirep.360insol.com/"+(activatedPrefix?"?public_prefix="+activatedPrefix:"")+"#lirep_login_token="+auth.token_hash;
       await onboardingMail(env,row.contact_email,"Acceso administrativo a LIREP",
-        '<p>Tu Libro de Reclamaciones está activo.</p><p><a href="'+auth.action_link.replace(/&/g,"&amp;")+'">Acceder a LIREP</a></p><p>Este enlace es personal y temporal.</p>');
+        '<p>Tu Libro de Reclamaciones está activo.</p><p><a href="'+safeAccessUrl.replace(/&/g,"&amp;")+'">Acceder a LIREP</a></p><p>En la página pulsa «Confirmar acceso». Este enlace es personal y temporal.</p>');
     } catch(error) {
       console.error("LIREP_ONBOARDING_ACCESS_EMAIL",String(error?.message||error));
       return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>Empresa activada</h1><p>La activación se completó, pero el correo de acceso no pudo enviarse. No vuelvas a registrar la empresa; solicita un nuevo acceso desde el panel administrativo.</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
     }
-    return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>LIREP activado</h1><p>Revisa tu correo para acceder a la administración. Vuelve a WordPress y pulsa «Comprobar estado».</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer"}});
+    return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>LIREP activado</h1><p>Revisa tu correo y pulsa «Acceder a LIREP». En la página de acceso confirma el ingreso. WordPress actualizará el estado de la empresa automáticamente.</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer"}});
   }
   const status=typeof input.status_token==="string"?input.status_token:"";
   if(!/^[a-f0-9]{64}$/.test(status)||await onboardingHash(status)!==row.status_token_hash)
