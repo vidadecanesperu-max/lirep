@@ -31,7 +31,10 @@ function boot(){
      {id:orgA,role:"company_admin",name:"Org A",prefix:"VIDACANE"},
      {id:orgB,role:"company_admin",name:"Org B",prefix:"BTEST001"}],
      lirep_admin_company_memberships:[],lirep_admin_list_invitations:[],
-     lirep_admin_case_entries_list:[],lirep_admin_a10_list:[],lirep_admin_response_delivery_status:[],lirep_admin_case_tracking:{status:'submitted',official_delivery_method:'postal',history:[{status:'submitted',changed_at:'2026-11-19T00:00:00Z'}],due_at:'2026-12-01'}};
+     lirep_admin_case_entries_list:[],
+     lirep_admin_a10_list:[{id:"ffffffff-ffff-4fff-8fff-ffffffffffff",status:"approved",submitted_at:"2026-11-19T19:09:00Z",body:"Respuesta validada en entorno QA",submitted_by:uid}],
+     lirep_admin_response_delivery_status:[{response_id:"ffffffff-ffff-4fff-8fff-ffffffffffff",status:"pending",attempts:0}],
+     lirep_admin_case_tracking:{status:'submitted',official_delivery_method:'postal',history:[{status:'submitted',changed_at:'2026-11-19T00:00:00Z'}],due_at:'2026-12-01'}};
    if(name==="lirep_admin_list_complaints")return {data:[{id:o===orgA?idA:idB,public_code:"VIDACANE-LR001",complaint_type:"reclamo",status:"submitted",submitted_at:"2026-11-19",response_due_at:"2026-12-01"}],error:null};
    if(name==="lirep_admin_case_detail")return {data:{public_code:"VIDACANE-LR001",complaint_type:"reclamo",status:"submitted",consumer:{},establishment:"QA",submitted_at:"2026-11-19",response_due_at:"2026-12-01",product_service_description:"test",product_service_type:"servicio",amount:1,preferred_response_channel:"email",detail:"QA",consumer_request:"QA"},error:null};
    if(!(name in predefined))throw Error("Unexpected RPC "+name);
@@ -50,6 +53,12 @@ assert.equal(a.get("detailPanel").hidden,true);
 await execute(a,'openDetail("'+idA+'")');
 assert.equal(a.get("detailPanel").hidden,false);
 assert.equal(storage.get(keyA),idA);
+assert.match(a.get("caseResponseDeliveryStatus").textContent,/Respuesta oficial: Aprobada/);
+assert.match(a.get("caseResponseDeliveryStatus").textContent,/Comunicación: En cola/);
+await a.get("refreshCaseDelivery").click();
+assert.equal(a.get("detailPanel").hidden,false,"manual status refresh must preserve case");
+assert.match(a.get("caseResponseDeliveryStatus").textContent,/En cola/);
+
 a.get("formalResponseText").value="Borrador sin guardar";
 const prior=a.calls.get("lirep_admin_list_complaints");
 for(const e of ["TOKEN_REFRESHED","SIGNED_IN","USER_UPDATED"])for(const cb of a.events)cb(e,{user:{id:uid}});
