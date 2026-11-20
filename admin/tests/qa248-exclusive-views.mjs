@@ -18,7 +18,7 @@ assert.match(html,/data-section="notesViewPanel"/);
 assert.match(html,/\.lirep-topbar \.lirep-nav-toggle:not\(\[hidden\]\)\{display:inline-flex!important\}/);
 class Element {
  constructor(id=""){
-  this.id=id;this.hidden=["dashboard","detailPanel","responseViewPanel","notesViewPanel","membersPanel","lirepNavShade"].includes(id);
+  this.id=id;this.hidden=["dashboard","detailPanel","responseViewPanel","notesViewPanel","membersPanel","lirepNavShade","lirepNavToggle"].includes(id);
   this.value="";this.textContent="";this.innerHTML="";this.dataset={};this.style={};this.listeners={};this.attributes={};this.className="";
  }
  addEventListener(type,handler){this.listeners[type]=handler}
