@@ -5,7 +5,8 @@ import worker from "../src/index.js";
 const env={
   SUPABASE_URL:"https://fake.supabase.co",
   SUPABASE_SERVICE_ROLE_KEY:"test-service-role",
-  RESEND_API_KEY:"test-key",
+  RESEND_API_KEY:"send-only-key",
+  RESEND_READ_API_KEY:"read-only-role-key",
   LIREP_ENABLE_MULTIEMPRESA_EMAIL:"true"
 };
 const id="5b52f613-149b-4ee9-934b-a9ce1e01b6e3";
@@ -32,6 +33,7 @@ async function scenario(lastEvent, recipientMismatch=false){
       throw Error("Unexpected RPC "+rpc);
     }
     if(u.hostname==="api.resend.com"){
+      assert.equal(opts.headers.Authorization,"Bearer read-only-role-key");
       requests.push({method:opts.method||"GET",url:u.pathname});
       assert.equal(opts.method,"GET","must not send new emails");
       assert.equal(u.pathname,"/emails/provider-test-123");
