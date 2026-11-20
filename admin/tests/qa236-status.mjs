@@ -1,0 +1,25 @@
+// QA236: case status and response delivery tracked separately; no new messages sent.
+import fs from "node:fs";
+import vm from "node:vm";
+import assert from "node:assert/strict";
+const html=fs.readFileSync(new URL("../index.html",import.meta.url),"utf8");
+const script=html.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1]?.trimStart().replace(/^import[^\n]+\n/,"");
+assert.ok(script);
+new vm.Script(script,{filename:"admin/index.html"});
+assert.match(html,/id="caseResponseDeliveryStatus" role="status" aria-live="polite"/);
+assert.match(html,/id="refreshCaseDelivery" type="button"/);
+assert.match(html,/approved:'Aprobada'/);
+assert.doesNotMatch(html,/<b>approved<\/b>/);
+assert.match(script,/const newest=\[\.\.\.\(responses\|\|\[\]\)\]\.sort/);
+assert.match(script,/Comunicación: '\+deliveryState/);
+const refresh=script.match(/async function refreshCaseStatus\(\)\{([\s\S]*?)\n\}/)?.[1];
+assert.ok(refresh,"refreshCaseStatus() exists");
+assert.match(refresh,/loadCaseTracking\(\)/);
+assert.match(refresh,/loadFormalResponses\(\)/);
+assert.match(refresh,/selectedComplaint/);
+assert.match(refresh,/statusRefreshing/);
+assert.doesNotMatch(refresh,/rpc\('lirep_admin_(?:a10_review|case_status_update|record_paper_delivery|a10_submit)/);
+assert.doesNotMatch(refresh,/selectedComplaint\s*=\s*null/);
+assert.match(script,/document\.visibilityState!=='hidden'/);
+assert.match(script,/45000/);
+console.log("QA236 PASS | Spanish approval label, read-only status poll, explicit refresh and preserved case");
