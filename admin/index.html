@@ -114,7 +114,7 @@
 @media(max-width:750px){#dashboard .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style></head>
 <body><header class="lirep-topbar"><span class="lirep-topbar-title"><strong>LIREP</strong> · Gestión administrativa multiempresa</span><button id="lirepNavToggle" class="lirep-nav-toggle" type="button" aria-controls="lirepSidebar" aria-expanded="false" aria-label="Abrir menú de secciones" hidden><span class="bars" aria-hidden="true">☰</span></button></header><main>
-<section class="panel" id="login"><h1>Acceder a LIREP</h1><p>Sin contraseña adicional. Recibirás un enlace seguro en tu correo administrativo.</p><form id="loginForm"><label>Correo electrónico<br><input id="email" type="email" autocomplete="email" required></label><button id="sendLogin" type="submit">Enviar enlace de acceso</button></form><div id="loginNotice" class="login-notice" role="status" aria-live="polite" hidden><strong id="loginNoticeTitle"></strong><p id="loginMsg"></p></div></section>
+<section class="panel" id="login"><h1>Acceder a LIREP</h1><p>Sin contraseña adicional. Recibirás un enlace seguro en tu correo administrativo.</p><div id="firstAccessConfirm" hidden><p>Tu empresa ya está activada. Para abrir el panel, confirma tu acceso seguro.</p><button type="button" id="firstAccessButton">Confirmar acceso</button><p id="firstAccessNotice" role="status" aria-live="polite"></p></div><form id="loginForm"><label>Correo electrónico<br><input id="email" type="email" autocomplete="email" required></label><button id="sendLogin" type="submit">Enviar enlace de acceso</button></form><div id="loginNotice" class="login-notice" role="status" aria-live="polite" hidden><strong id="loginNoticeTitle"></strong><p id="loginMsg"></p></div></section>
 <section id="dashboard" hidden><div class="lirep-workspace">
 <button id="lirepNavShade" class="lirep-nav-shade" type="button" hidden aria-label="Cerrar menú"></button>
 <aside id="lirepSidebar" class="lirep-sidebar" aria-label="Menú principal" data-open="false">
@@ -157,6 +157,16 @@ import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 const ADMIN_ORIGIN='https://lirep.360insol.com';
 const URL='https://hiidqmrgrioidvemixfe.supabase.co',KEY='sb_publishable_j85TVkmeDJ3Qn31Ueyp0-g_t03SWOwW';
 const db=createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'implicit'}});
+/* QA257: the onboarding email contains a token in the fragment of this
+   inert page, not a direct /auth/v1/verify GET. Only a human click redeems it.
+   Remove the secret immediately from the URL without logging or storing it. */
+const initialHash=new URLSearchParams(location.hash.slice(1));
+let firstAccessHash=initialHash.get('lirep_login_token')||'';
+if(firstAccessHash){
+  history.replaceState(null,'',location.pathname+location.search);
+  if(!/^[a-f0-9]{64}$/i.test(firstAccessHash))firstAccessHash='';
+}
+
 const $=id=>document.getElementById(id);$('copyrightYear').textContent=new Date().getFullYear();let organizations=[],selected=null,selectedComplaint=null,currentUserId=null,pendingDraft=null,initializationPromise=null,detailVersion=0,loadVersion=0,caseData=null,caseTracking=null,lastFormalResponses=[],lastDeliveryRecords=[],statusRefreshing=false;
 const prefix=(new URLSearchParams(location.search).get('public_prefix')||'').toUpperCase();
 const publicCode=s=>String(s??'').replace(/^[A-F0-9]{8}-(?=LR\d+-)/i,'');
@@ -412,6 +422,29 @@ async function load(){
     }
   }
 }
+if(firstAccessHash){
+  $('firstAccessConfirm').hidden=false;
+  $('loginForm').hidden=true;
+}
+$('firstAccessButton').addEventListener('click',async()=>{
+  if(!firstAccessHash)return;
+  const button=$('firstAccessButton');
+  button.disabled=true;button.textContent='Verificando acceso…';
+  const token=firstAccessHash;
+  firstAccessHash=''; // one attempt per page and never persist
+  try{
+    const {error}=await db.auth.verifyOtp({token_hash:token,type:'magiclink'});
+    if(error)throw error;
+    $('firstAccessConfirm').hidden=true;
+    $('loginForm').hidden=false;
+    await initialize(); // existing member/tenant authorization is unchanged
+  }catch{
+    $('firstAccessNotice').textContent='Este enlace ya no es válido. Solicita un nuevo acceso con tu correo administrativo.';
+    $('loginForm').hidden=false;
+  }finally{
+    button.disabled=false;button.textContent='Confirmar acceso';
+  }
+});
 $('loginForm').addEventListener('submit',async e=>{e.preventDefault();const email=$('email').value.trim().toLowerCase(),button=$('sendLogin');if(button.disabled)return;button.disabled=true;button.textContent='Solicitando acceso…';$('loginNotice').hidden=true;try{const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:ADMIN_ORIGIN+'/'+(prefix?'?public_prefix='+encodeURIComponent(prefix):''),shouldCreateUser:false}});if(error)throw error;$('loginNoticeTitle').textContent='Solicitud de acceso recibida';$('loginMsg').textContent='Si el correo está autorizado, recibirás un enlace seguro para ingresar al panel administrativo de LIREP. Revisa también la carpeta de correo no deseado.';$('loginNotice').hidden=false;$('loginNotice').style.borderColor='#b6dfc9';$('loginNotice').style.background='#f0fbf4';}catch(err){$('loginNoticeTitle').textContent='No se pudo procesar la solicitud';$('loginMsg').textContent='Intenta nuevamente en unos minutos. Si el problema continúa, contacta al administrador.';$('loginNotice').hidden=false;$('loginNotice').style.borderColor='#e8c5ca';$('loginNotice').style.background='#fff4f5';}finally{button.disabled=false;button.textContent='Enviar enlace de acceso';}});
 $('org').addEventListener('change',()=>load().catch(e=>message('status',e.message,true)));
 $('complaints').addEventListener('click',async e=>{
