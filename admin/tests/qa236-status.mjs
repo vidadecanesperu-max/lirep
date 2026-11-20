@@ -12,7 +12,7 @@ assert.match(html,/approved:'Aprobada'/);
 assert.doesNotMatch(html,/<b>approved<\/b>/);
 assert.match(script,/const newest=\[\.\.\.\(responses\|\|\[\]\)\]\.sort/);
 assert.match(script,/Comunicación: '\+deliveryState/);
-const refresh=script.match(/async function refreshCaseStatus\(\)\{([\s\S]*?)\n\}/)?.[1];
+const refresh=script.match(/async function refreshCaseStatus\(manual=false\)\{([\s\S]*?)\n\}/)?.[1];
 assert.ok(refresh,"refreshCaseStatus() exists");
 assert.match(refresh,/loadCaseTracking\(\)/);
 assert.match(refresh,/loadFormalResponses\(\)/);
