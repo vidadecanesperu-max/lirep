@@ -1,0 +1,17 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const worker=fs.readFileSync(new URL("../src/index.js",import.meta.url),"utf8");
+const wrangler=fs.readFileSync(new URL("../wrangler.jsonc",import.meta.url),"utf8");
+assert.match(worker,/async scheduled\(event, env, ctx\)/);
+assert.match(worker,/LIREP_CRON_INVOKED/);
+assert.match(worker,/LIREP_CRON_DELIVERY_MISSING_BINDING/);
+assert.match(worker,/LIREP_CRON_DELIVERY_START/);
+assert.match(worker,/LIREP_CRON_DELIVERY_NO_DUE_JOB/);
+assert.match(worker,/LIREP_CRON_DELIVERY_CLAIMED/);
+assert.match(worker,/LIREP_CRON_DELIVERY_PROVIDER_ACCEPTED/);
+assert.match(worker,/ctx\.waitUntil\(deliverApprovedResponses\(env\)/);
+assert.match(worker,/Idempotency-Key/);
+assert.match(wrangler,/"crons":\s*\[\s*"\*\/5 \* \* \* \*"\s*\]/);
+assert.match(wrangler,/"observability"\s*:\s*\{\s*"enabled"\s*:\s*true/);
+assert.doesNotMatch(worker,/console\.(?:info|log)\("LIREP_CRON_(?:INVOKED|DELIVERY_\w+)"\s*,\s*(?:job|env|response|result)\b/,"No PII in trace markers");
+console.log("QA243 PASS | cron config, scheduled handler, safe trace labels, idempotency unchanged");
