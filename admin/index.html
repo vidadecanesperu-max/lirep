@@ -1,6 +1,22 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIREP · Administración</title>
-<style>:root{font:16px system-ui;color:#17243b;background:#f5f7fb}*{box-sizing:border-box}body{margin:0}header{background:#162842;color:white;padding:20px 5%}main{max-width:1540px;margin:35px auto;padding:0 20px}.panel{background:white;border:1px solid #dfe6ef;border-radius:16px;padding:25px;margin-bottom:20px}input,select,button,textarea{font:inherit;padding:11px;border:1px solid #ccd6e3;border-radius:8px}button{background:#172842;color:white;cursor:pointer}button:disabled{opacity:.5}input{max-width:100%;width:350px}label{display:block;margin:12px 0}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:11px;border-bottom:1px solid #e4e9f0}small{color:#59677b}.error{color:#a11b32}.success{color:#146c43}.login-notice{margin-top:18px;padding:16px 18px;border:1px solid #b6dfc9;border-left:5px solid #16804a;border-radius:10px;background:#f0fbf4;color:#125c39}.login-notice strong{display:block;margin-bottom:5px}.login-notice p{margin:0}.login-notice[hidden]{display:none!important}[hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap}.scroll{overflow:auto} .detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.detail-box{background:#f7f9fc;border:1px solid #e1e8f0;border-radius:12px;padding:18px}.detail-box h3{margin-top:0}.field{margin:12px 0;overflow-wrap:anywhere}.field b{display:block;color:#59677b;font-size:12px}.timeline{padding:14px;border-left:3px solid #24446c;background:#f7f9fc;margin:12px 0}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{background:#f7f9fc;padding:15px;border-radius:10px}.metric strong{font-size:26px;display:block}@media(max-width:750px){.detail-grid,.metrics{grid-template-columns:repeat(2,1fr)}}@media(max-width:480px){.detail-grid,.metrics{grid-template-columns:1fr}main{padding:0 10px}.panel{padding:16px}} .members-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(290px,.8fr);gap:18px;align-items:start}.members-card{min-width:0;padding:20px;border:1px solid #dfe6ef;border-radius:12px;background:#f8fafd}.members-card h3{margin:0 0 8px}.members-card p{color:#59677b}.members-card label{font-weight:600;font-size:14px}.members-card input,.members-card select{display:block;width:100%;max-width:none;margin-top:7px;background:white}.members-card button{width:100%}.members-card .scroll{max-width:100%}.members-card td,.members-card th{font-size:14px}.site-footer{max-width:1540px;margin:auto;padding:20px;text-align:center;color:#59677b;font-size:13px;border-top:1px solid #dfe6ef}@media(max-width:850px){.members-layout{grid-template-columns:1fr}}@media(max-width:480px){.members-card{padding:12px}.members-card td,.members-card th{font-size:12px;padding:9px 5px}}</style></head>
+<style>:root{font:16px system-ui;color:#17243b;background:#f5f7fb}*{box-sizing:border-box}body{margin:0}header{background:#162842;color:white;padding:20px 5%}main{max-width:1540px;margin:35px auto;padding:0 20px}.panel{background:white;border:1px solid #dfe6ef;border-radius:16px;padding:25px;margin-bottom:20px}input,select,button,textarea{font:inherit;padding:11px;border:1px solid #ccd6e3;border-radius:8px}button{background:#172842;color:white;cursor:pointer}button:disabled{opacity:.5}input{max-width:100%;width:350px}label{display:block;margin:12px 0}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:11px;border-bottom:1px solid #e4e9f0}small{color:#59677b}.error{color:#a11b32}.success{color:#146c43}.login-notice{margin-top:18px;padding:16px 18px;border:1px solid #b6dfc9;border-left:5px solid #16804a;border-radius:10px;background:#f0fbf4;color:#125c39}.login-notice strong{display:block;margin-bottom:5px}.login-notice p{margin:0}.login-notice[hidden]{display:none!important}[hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap}.scroll{overflow:auto} .detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.detail-box{background:#f7f9fc;border:1px solid #e1e8f0;border-radius:12px;padding:18px}.detail-box h3{margin-top:0}.field{margin:12px 0;overflow-wrap:anywhere}.field b{display:block;color:#59677b;font-size:12px}.timeline{padding:14px;border-left:3px solid #24446c;background:#f7f9fc;margin:12px 0}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{background:#f7f9fc;padding:15px;border-radius:10px}.metric strong{font-size:26px;display:block}@media(max-width:750px){.detail-grid,.metrics{grid-template-columns:repeat(2,1fr)}}@media(max-width:480px){.detail-grid,.metrics{grid-template-columns:1fr}main{padding:0 10px}.panel{padding:16px}} .members-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(290px,.8fr);gap:18px;align-items:start}.members-card{min-width:0;padding:20px;border:1px solid #dfe6ef;border-radius:12px;background:#f8fafd}.members-card h3{margin:0 0 8px}.members-card p{color:#59677b}.members-card label{font-weight:600;font-size:14px}.members-card input,.members-card select{display:block;width:100%;max-width:none;margin-top:7px;background:white}.members-card button{width:100%}.members-card .scroll{max-width:100%}.members-card td,.members-card th{font-size:14px}.site-footer{max-width:1540px;margin:auto;padding:20px;text-align:center;color:#59677b;font-size:13px;border-top:1px solid #dfe6ef}@media(max-width:850px){.members-layout{grid-template-columns:1fr}}@media(max-width:480px){.members-card{padding:12px}.members-card td,.members-card th{font-size:12px;padding:9px 5px}}
+/* QA235 | LIREP design-system modal */
+.lirep-modal-backdrop{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.64);z-index:10000}
+.lirep-modal-card{width:min(100%,510px);max-height:min(88vh,720px);overflow-y:auto;background:#fff;border:1px solid #dce3ed;border-radius:16px;box-shadow:0 24px 78px rgba(6,24,49,.28);padding:26px}
+.lirep-modal-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#f1f5fa;color:#172842;font-size:22px;font-weight:700;margin-bottom:14px}
+.lirep-modal-card h2{margin:0 0 10px;font-size:20px;line-height:1.35;color:#172842}
+.lirep-modal-card p{color:#40506a;line-height:1.6;margin:0 0 18px}
+.lirep-modal-card label{font-size:14px;font-weight:650}
+.lirep-modal-card textarea{width:100%;max-width:none;min-height:100px;margin-top:8px;resize:vertical}
+.lirep-modal-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:23px}
+.lirep-modal-actions button{min-width:110px}
+.lirep-modal-actions .lirep-secondary{background:#fff;color:#172842;border:1px solid #cad5e2}
+.lirep-modal-actions .lirep-danger{background:#9a2639;border-color:#9a2639;color:#fff}
+.lirep-modal-card [role="alert"]{color:#a11b32;margin-top:8px}
+.lirep-modal-card :is(button,textarea):focus-visible{outline:3px solid #5a80af;outline-offset:2px}
+@media(max-width:480px){.lirep-modal-card{padding:20px}.lirep-modal-actions button{flex:1}}
+</style></head>
 <body><header><strong>LIREP</strong> · Gestión administrativa multiempresa</header><main>
 <section class="panel" id="login"><h1>Acceder a LIREP</h1><p>Sin contraseña adicional. Recibirás un enlace seguro en tu correo administrativo.</p><form id="loginForm"><label>Correo electrónico<br><input id="email" type="email" autocomplete="email" required></label><button id="sendLogin" type="submit">Enviar enlace de acceso</button></form><div id="loginNotice" class="login-notice" role="status" aria-live="polite" hidden><strong id="loginNoticeTitle"></strong><p id="loginMsg"></p></div></section>
 <section id="dashboard" hidden><div class="panel"><div class="actions"><h1 style="margin:0;flex:1">Panel administrativo</h1><button id="logout">Cerrar sesión</button></div><p id="who"></p><label>Empresa<br><select id="org"></select></label><p id="status" role="status"></p></div>
@@ -8,6 +24,22 @@
 <div class="panel" id="detailPanel" hidden><div class="actions" style="align-items:center;margin-bottom:18px"><h2 style="margin:0;flex:1">Detalle de reclamación</h2><button id="closeDetail" type="button" aria-label="Cerrar detalle de reclamación">Cerrar detalle</button></div><div id="detail" class="detail-grid"></div><section class="detail-box" id="caseTrackingPanel"><h3>Seguimiento y estado del expediente</h3><div id="caseTrackingSummary"></div><div id="caseTrackingTimeline"></div><div class="actions" id="caseStatusActions"></div></section><h3>Historial de seguimiento</h3><div id="history"></div><p><small>Las notas y borradores se guardan internamente. No se envían automáticamente al consumidor.</small></p><h3>Registrar seguimiento</h3><form id="entryForm"><label>Tipo <select id="entryKind"><option value="internal_note">Nota interna</option><option value="response_draft">Borrador de respuesta (sin enviar)</option></select></label><label>Contenido<br><textarea id="entryBody" rows="4" style="width:100%" required></textarea></label><button>Guardar seguimiento</button></form><section id="formalResponsePanel" class="detail-box" hidden style="margin-top:20px"><h3>Respuesta oficial y aprobación</h3><p><small>El borrador queda guardado en el expediente. Cualquier administrador autorizado puede aprobarlo, incluso si lo redactó. La respuesta aprobada se comunica por correo o por carta según el medio formal seleccionado. La aprobación no equivale a entrega.</small></p><form id="formalResponseForm"><label for="formalResponseText">Texto oficial propuesto</label><textarea id="formalResponseText" rows="7" style="width:100%" minlength="10" required></textarea><button id="formalResponseButton" type="submit">Guardar borrador y solicitar aprobación</button></form><p id="formalResponseStatus" role="status" aria-live="polite"></p><h3>Respuestas y constancia de entrega</h3><div id="formalResponseHistory"></div><div id="paperDeliveryPanel" class="detail-box" hidden><h3>Registrar comunicación por carta</h3><p><small>Adjunta a tu expediente una referencia verificable al despacho o constancia física. Registrar un envío no equivale a confirmar recepción.</small></p><form id="paperDeliveryForm"><input id="paperResponseId" type="hidden"><label>Actuación<select id="paperAction" required><option value="dispatched">Carta despachada</option><option value="delivered">Carta entregada (con constancia)</option><option value="returned">Carta devuelta / no entregada</option></select></label><label>Referencia documental o de courier<input id="paperReference" required minlength="5" maxlength="200" placeholder="Código de seguimiento / acta / cargo"></label><label>Detalle de la evidencia<textarea id="paperNote" rows="3" maxlength="2000" placeholder="Descripción del documento o constancia"></textarea></label><div class="actions"><button type="submit" id="paperSubmit">Guardar actuación</button><button type="button" id="paperCancel">Cancelar</button></div></form><p id="paperMessage" role="status"></p></div></section></div>
 <div class="panel" id="membersPanel" hidden><h2>Usuarios de la empresa</h2><div class="members-layout"><section class="members-card"><h3>Colaboradores con acceso</h3><p>Usuarios autorizados y permisos de esta empresa.</p><div class="scroll"><table><thead><tr><th>Correo electrónico</th><th>Rol</th><th>Estado</th></tr></thead><tbody id="members"></tbody></table></div></section><section class="members-card"><h3>Invitar a un colaborador</h3><p>Asigna un rol y envía un enlace seguro de activación.</p><form id="memberForm"><label for="memberEmail">Correo electrónico<input id="memberEmail" type="email" placeholder="colaborador@empresa.com" autocomplete="email" required></label><label for="memberRole">Rol de acceso<select id="memberRole"><option value="viewer">Consulta · solo lectura</option><option value="operator">Operador · gestión</option><option value="company_admin">Administrador · gestión y usuarios</option></select></label><button id="inviteButton" type="submit">Enviar invitación</button></form><p id="inviteStatus" role="status" aria-live="polite"></p><small>El correo debe verificarse. Las invitaciones vencen en 7 días.</small></section></div><section class="members-card" style="margin-top:18px"><h3>Invitaciones pendientes</h3><div id="invites"></div></section></div>
 </section></main><footer class="site-footer">© <span id="copyrightYear">2026</span> 360 Integral Solutions · LIREP — Libro de Reclamaciones Virtual. Todos los derechos reservados.</footer>
+
+<div id="lirepDialogBackdrop" class="lirep-modal-backdrop" hidden>
+  <section id="lirepDialog" class="lirep-modal-card" role="dialog" aria-modal="true" aria-labelledby="lirepDialogTitle" aria-describedby="lirepDialogText" tabindex="-1">
+    <div class="lirep-modal-mark" aria-hidden="true">?</div>
+    <h2 id="lirepDialogTitle">Confirmar operación</h2>
+    <p id="lirepDialogText"></p>
+    <label id="lirepDialogReasonLabel" for="lirepDialogReason" hidden>Motivo de la decisión
+      <textarea id="lirepDialogReason" rows="4" maxlength="2000"></textarea>
+    </label>
+    <p id="lirepDialogError" role="alert" hidden></p>
+    <div class="lirep-modal-actions">
+      <button id="lirepDialogCancel" class="lirep-secondary" type="button">Cancelar</button>
+      <button id="lirepDialogAccept" type="button">Confirmar</button>
+    </div>
+  </section>
+</div>
 <script type="module">
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 const ADMIN_ORIGIN='https://lirep.360insol.com';
@@ -28,9 +60,59 @@ function persistOpenCase(orgId,id){
   const key=openCaseKey(orgId);if(!key)return;
   try{if(id)sessionStorage.setItem(key,id);else sessionStorage.removeItem(key)}catch{}
 }
-function closeDetail(){
+
+// QA235 | Un único diálogo personalizado; sin confirm/prompt/alert.
+let activeLIREPDialog=null;
+function finishLIREPDialog(confirmed){
+  if(!activeLIREPDialog)return;
+  const current=activeLIREPDialog;
+  const note=$('lirepDialogReason').value.trim();
+  if(confirmed&&current.reasonRequired&&note.length<3){
+    $('lirepDialogError').hidden=false;
+    $('lirepDialogError').textContent='Indica un motivo de al menos 3 caracteres.';
+    $('lirepDialogReason').focus?.();
+    return;
+  }
+  activeLIREPDialog=null;
+  $('lirepDialogBackdrop').hidden=true;
+  $('lirepDialogReason').value='';
+  $('lirepDialogError').hidden=true;
+  current.previouslyFocused?.focus?.();
+  current.resolve({confirmed,note:confirmed&&current.reasonRequired?note:null});
+}
+$('lirepDialogAccept').addEventListener('click',()=>finishLIREPDialog(true));
+$('lirepDialogCancel').addEventListener('click',()=>finishLIREPDialog(false));
+$('lirepDialogBackdrop').addEventListener('keydown',event=>{
+  if(event.key==='Escape'){event.preventDefault();finishLIREPDialog(false);return}
+  if(event.key!=='Tab'||!activeLIREPDialog)return;
+  const controls=activeLIREPDialog.reasonRequired?
+    [$('lirepDialogReason'),$('lirepDialogCancel'),$('lirepDialogAccept')]:
+    [$('lirepDialogCancel'),$('lirepDialogAccept')];
+  const first=controls[0],last=controls[controls.length-1];
+  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus?.()}
+  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus?.()}
+});
+function lirepDialog({title,text,accept='Confirmar',danger=false,reasonRequired=false}){
+  if(activeLIREPDialog)return Promise.resolve({confirmed:false,note:null});
+  $('lirepDialogTitle').textContent=title;
+  $('lirepDialogText').textContent=text;
+  $('lirepDialogAccept').textContent=accept;
+  $('lirepDialogAccept').className=danger?'lirep-danger':'';
+  $('lirepDialogReasonLabel').hidden=!reasonRequired;
+  $('lirepDialogReason').required=reasonRequired;
+  $('lirepDialogReason').value='';
+  $('lirepDialogError').hidden=true;
+  $('lirepDialogBackdrop').hidden=false;
+  const previouslyFocused=document.activeElement;
+  const promise=new Promise(resolve=>{activeLIREPDialog={resolve,previouslyFocused,reasonRequired}});
+  if(reasonRequired)$('lirepDialogReason').focus?.();
+  else $('lirepDialogCancel').focus?.();
+  return promise;
+}
+async function lirepConfirm(options){return (await lirepDialog(options)).confirmed}
+async function closeDetail(){
   const text=$('formalResponseText').value.trim();
-  if(text&&!confirm('El texto de respuesta todavía no ha sido guardado. ¿Cerrar el detalle y descartar el texto?'))return;
+  if(text&&!(await lirepConfirm({title:'Descartar texto sin guardar',text:'El texto todavía no se ha guardado. Si cierras el detalle, se descartará.',accept:'Descartar y cerrar',danger:true})))return;
   detailVersion++;
   persistOpenCase(selected?.id,null);
   selectedComplaint=null;
@@ -209,7 +291,9 @@ async function loadCaseTracking(){
 }
 $('caseStatusActions').addEventListener('click',async e=>{
   const button=e.target.closest('button[data-status]');if(!button||!selectedComplaint)return;
-  if(!confirm('¿Registrar este cambio de estado en el expediente?'))return;
+  const orgId=selected.id,caseId=selectedComplaint,target=button.dataset.status;
+  if(!(await lirepConfirm({title:'Cambiar estado del reclamo',text:target==='closed'?'¿Cerrar este expediente? Su historial y sus constancias permanecerán disponibles.':'¿Registrar el inicio de atención de este reclamo?',accept:target==='closed'?'Cerrar expediente':'Registrar cambio'})))return;
+  if(selected?.id!==orgId||selectedComplaint!==caseId)return;
   button.disabled=true;
   try{
     await rpc('lirep_admin_case_status_update',{
@@ -234,7 +318,10 @@ $('paperDeliveryForm').addEventListener('submit',async e=>{
   if(button.disabled||!selectedComplaint)return;
   const action=$('paperAction').value,reference=$('paperReference').value.trim(),note=$('paperNote').value.trim();
   if((action==='delivered'||action==='returned')&&note.length<10){message('paperMessage','Describe el documento que acredita la actuación (mínimo 10 caracteres).',true);return}
-  if(!confirm('¿Registrar '+(action==='delivered'?'entrega documentada':action==='dispatched'?'despacho':'devolución')+' con esta referencia?'))return;
+  const orgId=selected.id,caseId=selectedComplaint;
+  const description=action==='delivered'?'la entrega documentada':action==='dispatched'?'el despacho de la carta':'la devolución de la carta';
+  if(!(await lirepConfirm({title:'Registrar comunicación por carta',text:'¿Confirmas '+description+' con la referencia '+reference+'? Esta actuación quedará en el historial.',accept:'Guardar actuación',danger:action==='returned'})))return;
+  if(selected?.id!==orgId||selectedComplaint!==caseId)return;
   button.disabled=true;
   try{
     await rpc('lirep_admin_record_paper_delivery',{
@@ -280,9 +367,19 @@ $('formalResponseHistory').addEventListener('click',async e=>{
   if(button.dataset.paper){$('paperResponseId').value=button.dataset.paper;$('paperDeliveryPanel').hidden=false;$('paperDeliveryPanel').scrollIntoView({block:'nearest'});return}
   const approve=!!button.dataset.approve,id=button.dataset.approve||button.dataset.reject;
   if(!id)return;
-  const note=approve?null:prompt('Indique el motivo del rechazo:');
-  if(!approve&&!note?.trim())return;
-  if(!confirm(approve?(caseTracking?.official_delivery_method==='postal'?'¿Aprobar esta respuesta? Quedará pendiente de entrega por carta.':'¿Aprobar esta respuesta? Se programará su envío oficial por correo.'):'¿Rechazar la propuesta?'))return;
+  const orgId=selected.id,caseId=selectedComplaint;
+  const reply=await lirepDialog({
+    title:approve?'Aprobar respuesta oficial':'Rechazar respuesta propuesta',
+    text:approve?
+      (caseTracking?.official_delivery_method==='postal'
+       ?'La respuesta quedará aprobada y pendiente de entrega física. Aprobar no significa que el consumidor la haya recibido.'
+       :'La respuesta quedará aprobada y se programará su envío oficial por correo. Esta decisión no puede deshacerse.')
+      :'Escribe el motivo del rechazo. Quedará registrado en el expediente.',
+    accept:approve?'Aprobar respuesta':'Rechazar propuesta',
+    danger:!approve,reasonRequired:!approve
+  });
+  if(!reply.confirmed||selected?.id!==orgId||selectedComplaint!==caseId)return;
+  const note=approve?null:reply.note;
   button.disabled=true;
   try{
     await rpc('lirep_admin_a10_review',{p_organization_id:selected.id,p_response_id:id,p_approve:approve,p_note:note});
@@ -294,7 +391,9 @@ $('formalResponseForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const button=$('formalResponseButton'),body=$('formalResponseText').value.trim();
   if(button.disabled||!selectedComplaint||body.length<10)return;
-  if(!confirm('Se registrará el borrador en el expediente y se solicitará aprobación. ¿Continuar?'))return;
+  const orgId=selected.id,caseId=selectedComplaint;
+  if(!(await lirepConfirm({title:'Enviar propuesta a aprobación',text:'Se guardará el borrador y se enviará a aprobación. Todavía no se notificará al consumidor.',accept:'Guardar propuesta'})))return;
+  if(selected?.id!==orgId||selectedComplaint!==caseId)return;
   button.disabled=true;
   try{
     const same=pendingDraft&&pendingDraft.organization_id===selected.id&&pendingDraft.complaint_id===selectedComplaint&&pendingDraft.body===body;
