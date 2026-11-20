@@ -29,8 +29,19 @@ function add_settings_error() {}
 function get_option($name, $default = '') { return array_key_exists($name, $GLOBALS['options']) ? $GLOBALS['options'][$name] : $default; }
 function get_transient($name) { return $GLOBALS['transients'][$name] ?? false; }
 function set_transient($name, $value, $seconds) { $GLOBALS['transients'][$name] = $value; }
-function wp_parse_url($value) { return parse_url($value); }
+function wp_parse_url($value, $component = -1) { return parse_url($value, $component); }
 function current_user_can($cap) { return $GLOBALS['is_admin']; }
+function is_admin() { return $GLOBALS['is_admin']; }
+function home_url($path = '/') { return 'https://example.com' . $path; }
+function wp_unslash($value) { return $value; }
+function sanitize_key($value) { return preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $value)); }
+function update_option($name, $value, $autoload = null) { $GLOBALS['options'][$name] = $value; return true; }
+function delete_option($name) { unset($GLOBALS['options'][$name]); return true; }
+function wp_json_encode($value) { return json_encode($value); }
+function wp_remote_post($url, $args) {
+    $GLOBALS['onboarding_calls'][] = array('url' => $url, 'payload' => json_decode($args['body'], true));
+    return array('code' => 200, 'body' => json_encode(array('ok' => true, 'state' => $GLOBALS['onboarding_status'])));
+}
 function wp_unique_id() { static $i = 0; return ++$i; }
 function shortcode_atts($defaults, $atts, $shortcode) { return array_merge($defaults, $atts); }
 function add_query_arg($args, $url) { return $url . '?' . http_build_query($args); }
@@ -61,7 +72,7 @@ function qa($condition, $name) {
 }
 qa(isset($GLOBALS['shortcodes']['lirep']), 'Shortcode registered');
 qa(!function_exists('lirep_settings_page') && !function_exists('lirep_admin_menu'), 'Legacy admin page removed at source');
-qa(LIREP_VERSION === '1.7.5', 'Self-service version loaded');
+qa(LIREP_VERSION === '1.7.6', 'Self-service version loaded');
 qa(function_exists('lirep_onboarding_ajax') && function_exists('lirep_onboarding_challenge'), 'Self-service endpoints registered');
 qa(strpos(lirep_onboarding_error_message('domain_challenge_failed'), 'REST') !== false, 'Domain proof guidance localized');
 qa(strpos(lirep_onboarding_error_message('review_required'), 'revisión') !== false, 'Existing company conflict guidance localized');
@@ -100,7 +111,7 @@ qa(strpos($prod_html, 'lirep-public-toggle') === false, 'Public hamburger absent
 qa(strpos($prod_html, 'lirep-public-nav') === false, 'Public form stages have no external navigation');
 qa(strpos($prod_html, 'data-lirep-go="admin"') === false, 'Public view never exposes administrative navigation');
 
-$tag = 'lirep-wp-v1.7.6';
+$tag = 'lirep-wp-v1.7.7';
 $url = 'https://github.com/vidadecanesperu-max/lirep/releases/download/' . $tag . '/lirep.zip';
 $digest = hash('sha256', $GLOBALS['asset_content']);
 $release = array('tag_name' => $tag, 'draft' => false, 'prerelease' => false, 'body' => '[LIREP-SECURITY] Fix', 'assets' => array(array('name' => 'lirep.zip', 'browser_download_url' => $url, 'digest' => 'sha256:' . $digest, 'size' => 1500)));
@@ -111,15 +122,15 @@ $nohash = $release; unset($nohash['assets'][0]['digest']);
 qa(lirep_valid_release($nohash) === null, 'Release without SHA256 rejected');
 $prerelease = $release; $prerelease['prerelease'] = true;
 qa(lirep_valid_release($prerelease) === null, 'Prerelease rejected');
-$wrongtag = $release; $wrongtag['tag_name'] = 'v1.7.6';
+$wrongtag = $release; $wrongtag['tag_name'] = 'v1.7.7';
 qa(lirep_valid_release($wrongtag) === null, 'Unrelated release rejected');
 $GLOBALS['remote_releases'] = array($release);
 $info = lirep_release_info();
-qa($info['version'] === '1.7.6' && $GLOBALS['requests'] === 1, 'Release discovered');
+qa($info['version'] === '1.7.7' && $GLOBALS['requests'] === 1, 'Release discovered');
 qa(lirep_release_info()['sha256'] === $digest && $GLOBALS['requests'] === 1, 'Release cached');
 qa(lirep_update_plugins_github('unchanged', array(), 'another/plugin.php', array()) === 'unchanged', 'Other GitHub plugins unaffected');
 $update = lirep_update_plugins_github(null, array(), 'lirep/lirep.php', array());
-qa($update['version'] === '1.7.6' && $update['package'] === $url && $update['lirep_security'], 'WordPress update metadata');
+qa($update['version'] === '1.7.7' && $update['package'] === $url && $update['lirep_security'], 'WordPress update metadata');
 qa(lirep_upgrader_pre_download(false, 'https://example.org/plugin.zip', null, array()) === false, 'Other package downloads unaffected');
 $download = lirep_upgrader_pre_download(false, $url, null, array());
 qa(is_string($download) && file_exists($download) && hash_file('sha256', $download) === $digest, 'Verified SHA256 download');
@@ -133,4 +144,43 @@ $GLOBALS['options']['lirep_auto_security_updates'] = '1';
 qa(lirep_auto_update_plugin(false, $item) === true, 'Automatic security updates opt-in');
 qa(lirep_auto_update_plugin(false, (object) array('plugin' => 'another/plugin.php', 'lirep_security' => true)) === false, 'No changes to other plugin auto-updates');
 qa(lirep_auto_update_plugin(false, (object) array('plugin' => 'lirep/lirep.php', 'lirep_security' => false)) === false, 'Nonsecurity updates not forced');
+// QA256: reproduces company activated centrally while local WordPress still says "pending".
+unset($GLOBALS['options']['lirep_public_prefix']);
+$GLOBALS['onboarding_calls'] = array();
+$GLOBALS['options']['lirep_onboarding_state'] = array(
+    'id' => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'status_token' => 'mock-private-status-token',
+    'domain' => 'example.com',
+);
+$_GET['page'] = 'lirep';
+$GLOBALS['onboarding_status'] = array('state' => 'pending', 'domain_verified' => true);
+lirep_onboarding_sync_on_admin_open();
+qa(count($GLOBALS['onboarding_calls']) === 1 && !isset($GLOBALS['options']['lirep_public_prefix']), 'Pending stays pending; no premature activation');
+$GLOBALS['onboarding_status'] = array(
+    'state' => 'active', 'invitation_sent' => true, 'public_prefix' => 'ABC12345',
+);
+lirep_onboarding_sync_on_admin_open();
+qa(get_option('lirep_public_prefix') === 'ABC12345'
+   && !isset($GLOBALS['options']['lirep_onboarding_state']), 'Confirmed backend status auto-syncs local WordPress and clears stale pending');
+qa(count($GLOBALS['onboarding_calls']) === 2
+   && str_ends_with($GLOBALS['onboarding_calls'][1]['url'], '/api/v1/onboarding/status'), 'Only read-only status endpoint called');
+lirep_onboarding_sync_on_admin_open();
+qa(count($GLOBALS['onboarding_calls']) === 2, 'Already active WordPress avoids repeat status queries');
+unset($GLOBALS['options']['lirep_public_prefix']);
+$GLOBALS['options']['lirep_onboarding_state'] = array(
+    'id' => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'status_token' => 'mock-private-status-token',
+    'domain' => 'another-example.com',
+);
+lirep_onboarding_sync_on_admin_open();
+qa(count($GLOBALS['onboarding_calls']) === 2, 'Wrong WordPress domain cannot synchronize another company');
+$GLOBALS['options']['lirep_onboarding_state']['domain'] = 'example.com';
+$GLOBALS['is_admin'] = false;
+lirep_onboarding_sync_on_admin_open();
+qa(count($GLOBALS['onboarding_calls']) === 2, 'Visitors cannot run administrative synchronization');
+$GLOBALS['is_admin'] = true;
+unset($_GET['page']);
+lirep_onboarding_sync_on_admin_open();
+qa(count($GLOBALS['onboarding_calls']) === 2, 'Other WordPress pages do not query activation');
+
 echo "LIREP QA PLUGIN: {$passed}/{$passed} PASS\n";

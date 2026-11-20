@@ -3,7 +3,7 @@
  * Plugin Name: LIREP - Libro de Reclamaciones Virtual Peru
  * Plugin URI: https://github.com/vidadecanesperu-max/lirep
  * Description: Libro de Reclamaciones LIREP multiempresa, compatible con WordPress, Gutenberg y Elementor. Los datos permanecen en LIREP.
- * Version: 1.7.5
+ * Version: 1.7.6
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: 360 Integral Solutions
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('LIREP_VERSION')) {
-    define('LIREP_VERSION', '1.7.5');
+    define('LIREP_VERSION', '1.7.6');
 }
 if (!defined('LIREP_PROD_BASE')) {
     define('LIREP_PROD_BASE', 'https://lirep-public-api.vidadecanes-peru.workers.dev');
@@ -206,7 +206,7 @@ function lirep_valid_release($release) {
 }
 
 function lirep_release_info($force = false) {
-    $key = 'lirep_release_v175';
+    $key = 'lirep_release_v176';
     if (!$force) {
         $cached = get_transient($key);
         if (is_array($cached)) {
