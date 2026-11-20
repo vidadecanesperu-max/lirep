@@ -1,6 +1,6 @@
 <?php
 /**
- * LIREP v1.7.2 — WordPress self-service onboarding.
+ * LIREP v1.7.3 — WordPress self-service onboarding.
  * No Supabase keys, platform credentials or service-role secrets are stored here.
  */
 if (!defined('ABSPATH')) { exit; }

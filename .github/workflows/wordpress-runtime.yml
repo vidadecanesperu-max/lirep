@@ -51,8 +51,7 @@ jobs:
             $html = do_shortcode("[lirep]");
             if (strpos($html, "VIDACANE") === false || strpos($html, "lirep-frame") === false) { throw new Exception("SHORTCODE_RENDER_FAILED"); }
             if (strpos($html, "<script>") !== false) { throw new Exception("INLINE_SCRIPT_NOT_ALLOWED"); }
-            if (strpos($html, "lirep-public-nav") === false || strpos($html, "lirep-public-toggle") === false) { throw new Exception("PLUGIN_MENU_MISSING"); }
-            if (strpos($html, "data-lirep-go=\"consumidor\"") === false || strpos($html, "data-lirep-go=\"enviar\"") === false) { throw new Exception("PLUGIN_NAVIGATION_INCOMPLETE"); }
+            if (strpos($html, "lirep-public-nav") !== false || strpos($html, "lirep-public-toggle") !== false || strpos($html, "lirep-public-layout") !== false) { throw new Exception("PUBLIC_MENU_MUST_BE_ABSENT"); }
             if (strpos($html, "referrerpolicy=\"no-referrer\"") === false) { throw new Exception("FRAME_PRIVACY_MISSING"); }
             if (!did_action("elementor/loaded")) { throw new Exception("ELEMENTOR_NOT_LOADED"); }
             if (!function_exists("lirep_onboarding_ajax")) { throw new Exception("ONBOARDING_NOT_LOADED"); }
