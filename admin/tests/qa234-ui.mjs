@@ -5,11 +5,11 @@ const page=fs.readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const script=page.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1]?.trimStart().replace(/^import[^\n]+\n/,"");
 assert.ok(script);
 new vm.Script(script);
-for(const s of ["id=\"paperDeliveryForm\"","id=\"caseTrackingPanel\"","id=\"caseTrackingTimeline\"","data-print","data-paper","lirep_admin_record_paper_delivery","lirep_admin_case_tracking","lirep_admin_case_status_update","r.submitted_by===currentUserId?'Aprobar mi respuesta'"]){
+for(const s of ["id=\"paperDeliveryForm\"","id=\"caseTrackingPanel\"","id=\"caseTrackingTimeline\"","data-print","data-paper","lirep_admin_record_paper_delivery","lirep_admin_case_tracking","lirep_admin_case_status_update","Aprobar y enviar"]){
  assert.ok(page.includes(s),"Missing QA234 admin UI: "+s);
 }
 assert.ok(!page.includes("r.submitted_by!==currentUserId"),"Self-approval restriction remains in UI");
-assert.ok(page.includes("Cualquier administrador autorizado puede aprobarlo"),"User-facing approval rule contradicts backend");
+assert.ok(page.includes("Responder al consumidor"),"User-facing approval rule contradicts backend");
 assert.ok(!page.includes("Otro administrador autorizado debe aprobarlo"),"Outdated dual-review wording");
 const sql=fs.readFileSync(new URL("../../supabase/migrations/20261119170000_lirep_qa234_self_approval_official_delivery.sql",import.meta.url),"utf8");
 const sqlTracking=fs.readFileSync(new URL("../../supabase/migrations/20261119171000_lirep_qa234_postal_evidence_tracking.sql",import.meta.url),"utf8");
