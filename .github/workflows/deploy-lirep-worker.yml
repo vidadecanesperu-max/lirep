@@ -28,6 +28,7 @@ jobs:
           node worker/tests/qa243-scheduled.mjs
           node worker/tests/qa244-admin-delivery.mjs
           node worker/tests/qa246-evidence-refresh.mjs
+          node worker/tests/qa247-public-nav.mjs
           npm run verify
           grep -Fq '"name": "lirep-public-api"' worker/wrangler.jsonc
       - name: Ensure existing Cloudflare credential

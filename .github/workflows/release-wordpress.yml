@@ -37,6 +37,7 @@ jobs:
           php wordpress/tests/qa-plugin.php
           node --check wordpress/lirep/assets/js/lirep-embed.js
           node wordpress/tests/qa-embed.mjs
+          node wordpress/tests/qa247-nav.mjs
           npm run verify
       - name: Ensure release tag points to reviewed main history
         if: startsWith(github.ref, 'refs/tags/')

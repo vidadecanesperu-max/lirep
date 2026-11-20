@@ -1,0 +1,39 @@
+name: LIREP QA247 - admin and WordPress mobile navigation
+on:
+  pull_request:
+    paths:
+      - 'admin/**'
+      - 'worker/**'
+      - 'wordpress/**'
+      - '.github/workflows/qa247-mobile-menu.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  navigation-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: none
+      - name: Test real admin UI, WordPress plugin and public form without delivery side effects
+        run: |
+          set -euo pipefail
+          php -l wordpress/lirep/lirep.php
+          php wordpress/tests/qa-plugin.php
+          node --check wordpress/lirep/assets/js/lirep-embed.js
+          node --check worker/src/index.js
+          node admin/tests/qa247-sidebar.mjs
+          node admin/tests/qa232-detail.mjs
+          node admin/tests/qa246-unified-refresh.mjs
+          node worker/tests/qa247-public-nav.mjs
+          node worker/tests/qa234-tracking.mjs
+          node wordpress/tests/qa247-nav.mjs
+          node wordpress/tests/qa-embed.mjs
+          npm run verify
+          echo 'QA247 PASS | no submission or real email'
