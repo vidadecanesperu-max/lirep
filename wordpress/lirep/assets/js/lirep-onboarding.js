@@ -82,13 +82,50 @@
     } catch (error) { modal(error.message); }
     finally { busy(status, false); }
   });
+  // QA256: vigilar la activación confirmada cuando se abre el enlace en otra pestaña.
+  // Una consulta de estado jamás reenvía el correo ni altera una empresa.
+  let autoBusy = false;
+  let lastAutoCheck = 0;
+  async function syncAfterExternalConfirmation() {
+    if (!status || autoBusy || document.hidden) return;
+    if (Date.now() - lastAutoCheck < 10000) return;
+    autoBusy = true;
+    lastAutoCheck = Date.now();
+    try {
+      const data = await run("status");
+      if (data.state === "active" && data.invitation_sent && /^[A-Z0-9]{8}$/.test(data.public_prefix || "")) {
+        window.location.reload(); // La API local ya guardó el prefijo validado.
+        return;
+      }
+      if (progress) {
+        progress.textContent = [
+          data.email_verified ? "Correo verificado" : "Correo pendiente",
+          data.domain_verified ? "Dominio verificado" : "Dominio pendiente",
+          data.invitation_sent ? "Acceso administrativo enviado" : "Acceso pendiente",
+        ].join(" · ");
+      }
+    } catch {
+      // La falta temporal de red no cancela ni reinicia la activación.
+      if (progress) progress.textContent = "Consultando activación. Si no hay conexión, vuelve a abrir esta pantalla.";
+    } finally {
+      autoBusy = false;
+    }
+  }
+  if (status) {
+    window.addEventListener("focus", syncAfterExternalConfirmation);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) syncAfterExternalConfirmation();
+    });
+    window.setInterval(syncAfterExternalConfirmation, 15000);
+    syncAfterExternalConfirmation();
+  }
   const verify = document.getElementById("lirep-verify");
   verify?.addEventListener("click", async () => {
     busy(verify, true);
     try {
       const data = await run("verify-domain");
       if (data.notice === "EMAIL_SENT") {
-        modal("Dominio verificado. Enviamos un enlace al correo indicado. Verifícalo y vuelve a pulsar «Verificar dominio y continuar» para completar la activación.");
+        modal("Dominio verificado. Enviamos un enlace al correo indicado. Confirma la activación desde el correo: al volver a esta pantalla, LIREP detectará automáticamente que tu empresa está activa.");
       } else if (data.state === "active" && data.invitation_sent) {
         modal("¡LIREP activado! Se envió el acceso administrativo al correo verificado.");
         close.onclick = () => { dismiss(); window.location.reload(); };
