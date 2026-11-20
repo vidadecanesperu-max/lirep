@@ -20,7 +20,6 @@ const idB="dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const uid="eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const keyA="lirep.open-case.v1."+uid+"."+orgA;
 const storage=new Map(),ss={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
-let allowClose=true;
 function boot(){
  const elements=new Map(),events=[],calls=new Map();
  const get=id=>{if(!elements.has(id))elements.set(id,new E(id));return elements.get(id)};
@@ -40,7 +39,7 @@ function boot(){
  }};
  const ctx=vm.createContext({createClient:()=>db,document:{getElementById:get,createElement:()=>new E()},URLSearchParams,
    location:{search:"?public_prefix=VIDACANE",hash:"",pathname:"/"},history:{replaceState(){}},
-   sessionStorage:ss,setTimeout,clearTimeout,Date,Map,Promise,console,confirm:()=>allowClose,prompt:()=>null});
+   sessionStorage:ss,setTimeout,clearTimeout,Date,Map,Promise,console});
  vm.runInContext(script,ctx);
  return {ctx,get,events,calls};
 }
@@ -60,9 +59,17 @@ assert.equal(a.get("formalResponseText").value,"Borrador sin guardar");
 assert.equal(a.calls.get("lirep_admin_list_complaints"),prior);
 await execute(a,"load()");
 assert.equal(a.get("detailPanel").hidden,false);
-allowClose=false;await a.get("closeDetail").click();
-assert.equal(a.get("detailPanel").hidden,false);
-allowClose=true;await a.get("closeDetail").click();
+const cancelled=a.get("closeDetail").click();
+assert.equal(a.get("lirepDialogBackdrop").hidden,false,"custom confirmation must be visible");
+assert.equal(a.get("detailPanel").hidden,false,"case must remain open while modal is visible");
+await a.get("lirepDialogCancel").click();
+await cancelled;
+assert.equal(a.get("lirepDialogBackdrop").hidden,true);
+assert.equal(a.get("detailPanel").hidden,false,"cancel must preserve the opened case");
+const accepted=a.get("closeDetail").click();
+assert.equal(a.get("lirepDialogBackdrop").hidden,false);
+await a.get("lirepDialogAccept").click();
+await accepted;
 assert.equal(a.get("detailPanel").hidden,true);
 assert.equal(storage.has(keyA),false);
 const b=boot();await sleep();assert.equal(b.get("detailPanel").hidden,true);
