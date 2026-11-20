@@ -677,6 +677,28 @@ function trackingHtml(d) {
   }).join("");
   return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Seguimiento LIREP</title><style>body{font:16px system-ui;background:#f5f7fa;color:#18253d;margin:0;padding:24px}.card{max-width:780px;margin:auto;background:#fff;padding:26px;border-radius:12px;border:1px solid #d9e1eb}h1{font-size:1.6rem}h2{font-size:1.1rem}li{margin:10px 0}.box{background:#f1f5f9;padding:15px;border-radius:8px}small{color:#596579}</style></head><body><main class="card"><h1>Seguimiento de reclamación</h1><p class="box"><b>Código:</b> '+escHtml(displayComplaintCode(d.code))+'<br><b>Estado:</b> '+escHtml(names[d.status]||d.status)+'<br><b>Registro:</b> '+escHtml(when(d.submitted_at))+'<br><b>Vencimiento:</b> '+escHtml(when(d.due_at))+'<br><b>Respuesta formal:</b> '+escHtml(channel)+'</p><h2>Historial de estados</h2><ol>'+history+'</ol><h2>Comunicaciones oficiales</h2><ol>'+(communications||'<li>Aún no hay entrega de respuesta registrada.</li>')+'</ol><small>Esta página muestra el seguimiento sin exponer datos personales ni notas internas. La aceptación de un correo no prueba que haya sido entregado o leído.</small></main></body></html>';
 }
+// QA244: authenticate the signed-in administrator, never a supplied company name.
+// The caller's JWT determines membership and role; a service-role client is not
+// used for this authorization lookup.
+async function authorizedDeliveryAdmin(jwt, organizationId, env) {
+  if (!env.SUPABASE_PUBLISHABLE_KEY || !env.SUPABASE_URL) return false;
+  const response=await fetch(env.SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/rpc/lirep_admin_my_organizations",{
+    method:"POST",
+    headers:{
+      "apikey":env.SUPABASE_PUBLISHABLE_KEY,
+      "authorization":"Bearer "+jwt,
+      "content-type":"application/json",
+      "accept":"application/json"
+    },
+    body:"{}",
+    signal:AbortSignal.timeout(10000)
+  });
+  if (!response.ok) return false;
+  const organizations=await response.json().catch(()=>null);
+  return Array.isArray(organizations)&&organizations.some(o=>
+    o?.id===organizationId&&["company_admin","platform_admin"].includes(o.role));
+}
+
 export default {
   async scheduled(event, env, ctx) {
     // Markers contain no consumer data: diagnose scheduled invocation vs queue failures.
@@ -801,6 +823,45 @@ export default {
     if (url.pathname.startsWith(onboardingBase)) {
       try { return await onboardingRoute(request,env,url); }
       catch (error) { console.error("ONBOARDING_ERROR",String(error?.message||error)); return json({ok:false,error:"onboarding_not_configured"},503); }
+    }
+
+
+    if (url.pathname==="/api/v1/admin/response-delivery/process") {
+      const origin=request.headers.get("origin")||"";
+      if(origin!=="https://lirep.360insol.com")return json({ok:false,error:"ORIGIN_NOT_ALLOWED"},403);
+      const headers={
+        "Access-Control-Allow-Origin":origin,
+        "Access-Control-Allow-Methods":"POST,OPTIONS",
+        "Access-Control-Allow-Headers":"authorization,content-type",
+        "Vary":"Origin",
+        "Cache-Control":"no-store"
+      };
+      if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
+      if(request.method!=="POST")return json({ok:false,error:"METHOD_NOT_ALLOWED"},405,headers);
+      const size=Number(request.headers.get("content-length")||0);
+      if(size>4096)return json({ok:false,error:"PAYLOAD_TOO_LARGE"},413,headers);
+      const auth=/^Bearer\s+([^\s]+)$/i.exec(request.headers.get("authorization")||"");
+      if(!auth||auth[1].length<100||auth[1].length>8192)
+        return json({ok:false,error:"AUTH_REQUIRED"},401,headers);
+      const ip=request.headers.get("CF-Connecting-IP")||"unknown";
+      const rate=await env.SUBMIT_RATE_LIMITER.limit({key:"admin-delivery:"+ip});
+      if(!rate.success)return json({ok:false,error:"RATE_LIMITED"},429,headers);
+      let payload;
+      try{payload=await request.json()}catch{return json({ok:false,error:"INVALID_JSON"},400,headers)}
+      const organizationId=payload?.organization_id,responseId=payload?.response_id;
+      if(!isUuid(organizationId)||!isUuid(responseId))
+        return json({ok:false,error:"INVALID_RESPONSE_REFERENCE"},400,headers);
+      try{
+        const authorized=await authorizedDeliveryAdmin(auth[1],organizationId,env);
+        if(!authorized)return json({ok:false,error:"ADMIN_ACCESS_DENIED"},403,headers);
+        const result=await deliverApprovedResponses(env,{
+          organizationId,responseId
+        });
+        return json({ok:true,status:result?.status||"unknown"},200,headers);
+      }catch(error){
+        console.error("LIREP_ADMIN_DELIVERY_PROCESS_FAILED",String(error?.message||"").slice(0,90));
+        return json({ok:false,error:"SERVICE_UNAVAILABLE"},503,headers);
+      }
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
