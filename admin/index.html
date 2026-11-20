@@ -79,11 +79,34 @@
 .lirep-technical-details{border-top:1px solid #e4e9f0;margin-top:12px;padding-top:12px;color:#536680;font-size:13px}
 .lirep-technical-details summary{cursor:pointer;font-weight:650}
 .lirep-technical-details p{overflow-wrap:anywhere}
+
+/* QA248 | One section per navigation item; mobile menu inside application header */
+#dashboard .lirep-workspace [data-workspace-panel][data-view-hidden="true"]{display:none!important}
+.lirep-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lirep-topbar .lirep-topbar-title{min-width:0;font-size:15px;line-height:1.35}
+.lirep-topbar .lirep-nav-toggle{display:none!important;margin:0;padding:8px 11px;align-items:center;justify-content:center;min-height:40px;min-width:44px;background:transparent;border:1px solid #7689a5;color:#fff;border-radius:8px;box-shadow:none}
+.lirep-topbar .lirep-nav-toggle .bars{font-size:25px;line-height:1}
+#responseViewPanel{padding:24px}
+#responseViewPanel .reply-tracking-panel{margin:0;background:#f8fafd}
+#notesViewPanel>#history .timeline{margin:14px 0 20px;padding:18px 20px;line-height:1.6}
+#notesViewPanel>#entryForm{margin:12px 0 26px}
+#notesViewPanel>#entryForm textarea{margin-top:8px;min-height:100px}
+@media(max-width:900px){
+ .lirep-topbar{padding:11px 14px}
+ .lirep-topbar .lirep-nav-toggle:not([hidden]){display:inline-flex!important}
+ #dashboard .lirep-workspace>.lirep-nav-toggle{display:none!important}
+ #dashboard .lirep-workspace{margin-top:0}
+ #dashboard .lirep-sidebar{top:0}
+}
+@media(max-width:480px){
+ .lirep-topbar .lirep-topbar-title{font-size:12.5px}
+ #responseViewPanel{padding:14px}
+ #responseViewPanel .reply-tracking-panel{padding:14px}
+}
 </style></head>
-<body><header><strong>LIREP</strong> · Gestión administrativa multiempresa</header><main>
+<body><header class="lirep-topbar"><span class="lirep-topbar-title"><strong>LIREP</strong> · Gestión administrativa multiempresa</span><button id="lirepNavToggle" class="lirep-nav-toggle" type="button" aria-controls="lirepSidebar" aria-expanded="false" aria-label="Abrir menú de secciones" hidden><span class="bars" aria-hidden="true">☰</span></button></header><main>
 <section class="panel" id="login"><h1>Acceder a LIREP</h1><p>Sin contraseña adicional. Recibirás un enlace seguro en tu correo administrativo.</p><form id="loginForm"><label>Correo electrónico<br><input id="email" type="email" autocomplete="email" required></label><button id="sendLogin" type="submit">Enviar enlace de acceso</button></form><div id="loginNotice" class="login-notice" role="status" aria-live="polite" hidden><strong id="loginNoticeTitle"></strong><p id="loginMsg"></p></div></section>
 <section id="dashboard" hidden><div class="lirep-workspace">
-<button id="lirepNavToggle" class="lirep-nav-toggle" type="button" aria-controls="lirepSidebar" aria-expanded="false" aria-label="Abrir menú de secciones"><span class="bars" aria-hidden="true">☰</span><span>Secciones</span></button>
 <button id="lirepNavShade" class="lirep-nav-shade" type="button" hidden aria-label="Cerrar menú"></button>
 <aside id="lirepSidebar" class="lirep-sidebar" aria-label="Menú principal" data-open="false">
   <p class="lirep-sidebar-title">Gestión de reclamaciones</p>
@@ -93,15 +116,15 @@
     <button type="button" data-section="complaintsPanel">Reclamaciones</button>
     <div class="lirep-nav-divider" aria-hidden="true"></div>
     <button type="button" data-section="detailPanel" data-case-nav hidden>Expediente</button>
-    <button type="button" data-section="formalResponsePanel" data-case-nav hidden>Respuesta y seguimiento</button>
-    <button type="button" data-section="history" data-case-nav hidden>Notas internas</button>
+    <button type="button" data-section="responseViewPanel" data-case-nav hidden>Respuesta y seguimiento</button>
+    <button type="button" data-section="notesViewPanel" data-case-nav hidden>Notas internas</button>
     <div class="lirep-nav-divider" aria-hidden="true"></div>
     <button type="button" data-section="membersPanel">Usuarios y permisos</button>
   </nav>
-</aside><div class="lirep-workspace-content"><div class="panel" id="introPanel"><div class="actions"><h1 style="margin:0;flex:1">Panel administrativo</h1><button id="logout">Cerrar sesión</button></div><p id="who"></p><label>Empresa<br><select id="org"></select></label><p id="status" role="status"></p></div>
-<div class="panel" id="summaryPanel"><h2>Resumen</h2><div id="metrics" class="metrics"></div></div><div class="panel" id="complaintsPanel"><h2>Reclamaciones</h2><div class="scroll"><table><thead><tr><th>Código</th><th>Tipo</th><th>Estado</th><th>Registro</th><th>Vencimiento</th><th></th></tr></thead><tbody id="complaints"></tbody></table></div></div>
-<div class="panel" id="detailPanel" hidden><div class="actions" style="align-items:center;margin-bottom:18px"><h2 style="margin:0;flex:1">Detalle de reclamación</h2><button id="closeDetail" type="button" aria-label="Cerrar detalle de reclamación">Cerrar detalle</button></div><div id="detail" class="detail-grid"></div><section id="formalResponsePanel" class="detail-box reply-tracking-panel" hidden><h3>Respuesta y seguimiento del expediente</h3><div id="caseTrackingPanel" class="tracking-overview"><div id="caseTrackingSummary"></div><p id="caseResponseDeliveryStatus" role="status" aria-live="polite">Consultando el estado de la respuesta...</p><details id="caseTrackingHistory" class="tracking-details"><summary>Ver historial de estados</summary><div id="caseTrackingTimeline"></div></details><div class="actions" id="caseStatusActions"></div><div class="actions refresh-row"><button id="refreshCaseDelivery" type="button">Actualizar estado y entrega</button><span id="caseRefreshStatus" role="status" aria-live="polite"></span></div><p id="providerVerifiedStatus" class="provider-checked"></p></div><p class="response-explainer"><small>Redacta la respuesta una sola vez. LIREP conserva la aprobación, la comunicación y su constancia. La aceptación del envío no confirma su entrega al destinatario.</small></p><form id="formalResponseForm"><label for="formalResponseText">Respuesta al consumidor</label><textarea id="formalResponseText" rows="7" style="width:100%" minlength="10" required></textarea><button id="formalResponseButton" type="submit">Responder y enviar</button></form><p id="formalResponseGuard" role="status" aria-live="polite" hidden></p><p id="formalResponseStatus" role="status" aria-live="polite"></p><h4 class="response-history-title">Respuesta oficial y constancia</h4><div id="formalResponseHistory"></div><div id="paperDeliveryPanel" class="detail-box" hidden><h3>Registrar comunicación por carta</h3><p><small>Adjunta a tu expediente una referencia verificable al despacho o constancia física. Registrar un envío no equivale a confirmar recepción.</small></p><form id="paperDeliveryForm"><input id="paperResponseId" type="hidden"><label>Actuación<select id="paperAction" required><option value="dispatched">Carta despachada</option><option value="delivered">Carta entregada (con constancia)</option><option value="returned">Carta devuelta / no entregada</option></select></label><label>Referencia documental o de courier<input id="paperReference" required minlength="5" maxlength="200" placeholder="Código de seguimiento / acta / cargo"></label><label>Detalle de la evidencia<textarea id="paperNote" rows="3" maxlength="2000" placeholder="Descripción del documento o constancia"></textarea></label><div class="actions"><button type="submit" id="paperSubmit">Guardar actuación</button><button type="button" id="paperCancel">Cancelar</button></div></form><p id="paperMessage" role="status"></p></div></section><h3>Notas y actuaciones internas</h3><div id="history"></div><p><small>Las notas y borradores se guardan internamente. No se envían automáticamente al consumidor.</small></p><h3>Añadir anotación interna</h3><form id="entryForm"><label>Tipo <select id="entryKind"><option value="internal_note">Nota interna</option><option value="response_draft">Borrador de respuesta (sin enviar)</option></select></label><label>Contenido<br><textarea id="entryBody" rows="4" style="width:100%" required></textarea></label><button>Guardar seguimiento</button></form></div>
-<div class="panel" id="membersPanel" hidden><h2>Usuarios de la empresa</h2><div class="members-layout"><section class="members-card"><h3>Colaboradores con acceso</h3><p>Usuarios autorizados y permisos de esta empresa.</p><div class="scroll"><table><thead><tr><th>Correo electrónico</th><th>Rol</th><th>Estado</th></tr></thead><tbody id="members"></tbody></table></div></section><section class="members-card"><h3>Invitar a un colaborador</h3><p>Asigna un rol y envía un enlace seguro de activación.</p><form id="memberForm"><label for="memberEmail">Correo electrónico<input id="memberEmail" type="email" placeholder="colaborador@empresa.com" autocomplete="email" required></label><label for="memberRole">Rol de acceso<select id="memberRole"><option value="viewer">Consulta · solo lectura</option><option value="operator">Operador · gestión</option><option value="company_admin">Administrador · gestión y usuarios</option></select></label><button id="inviteButton" type="submit">Enviar invitación</button></form><p id="inviteStatus" role="status" aria-live="polite"></p><small>El correo debe verificarse. Las invitaciones vencen en 7 días.</small></section></div><section class="members-card" style="margin-top:18px"><h3>Invitaciones pendientes</h3><div id="invites"></div></section></div>
+</aside><div class="lirep-workspace-content"><div class="panel" id="introPanel" data-workspace-panel data-view-hidden="false"><div class="actions"><h1 style="margin:0;flex:1">Panel administrativo</h1><button id="logout">Cerrar sesión</button></div><p id="who"></p><label>Empresa<br><select id="org"></select></label><p id="status" role="status"></p></div>
+<div class="panel" id="summaryPanel" data-workspace-panel data-view-hidden="true"><h2>Resumen</h2><div id="metrics" class="metrics"></div></div><div class="panel" id="complaintsPanel" data-workspace-panel data-view-hidden="true"><h2>Reclamaciones</h2><div class="scroll"><table><thead><tr><th>Código</th><th>Tipo</th><th>Estado</th><th>Registro</th><th>Vencimiento</th><th></th></tr></thead><tbody id="complaints"></tbody></table></div></div>
+<div class="panel" id="detailPanel" data-workspace-panel data-view-hidden="true" hidden><div class="actions" style="align-items:center;margin-bottom:18px"><h2 style="margin:0;flex:1">Detalle de reclamación</h2><button id="closeDetail" type="button" aria-label="Cerrar detalle de reclamación">Cerrar detalle</button></div><div id="detail" class="detail-grid"></div></div><div class="panel" id="responseViewPanel" data-workspace-panel data-view-hidden="true" hidden><section id="formalResponsePanel" class="detail-box reply-tracking-panel" hidden><h3>Respuesta y seguimiento del expediente</h3><div id="caseTrackingPanel" class="tracking-overview"><div id="caseTrackingSummary"></div><p id="caseResponseDeliveryStatus" role="status" aria-live="polite">Consultando el estado de la respuesta...</p><details id="caseTrackingHistory" class="tracking-details"><summary>Ver historial de estados</summary><div id="caseTrackingTimeline"></div></details><div class="actions" id="caseStatusActions"></div><div class="actions refresh-row"><button id="refreshCaseDelivery" type="button">Actualizar estado y entrega</button><span id="caseRefreshStatus" role="status" aria-live="polite"></span></div><p id="providerVerifiedStatus" class="provider-checked"></p></div><p class="response-explainer"><small>Redacta la respuesta una sola vez. LIREP conserva la aprobación, la comunicación y su constancia. La aceptación del envío no confirma su entrega al destinatario.</small></p><form id="formalResponseForm"><label for="formalResponseText">Respuesta al consumidor</label><textarea id="formalResponseText" rows="7" style="width:100%" minlength="10" required></textarea><button id="formalResponseButton" type="submit">Responder y enviar</button></form><p id="formalResponseGuard" role="status" aria-live="polite" hidden></p><p id="formalResponseStatus" role="status" aria-live="polite"></p><h4 class="response-history-title">Respuesta oficial y constancia</h4><div id="formalResponseHistory"></div><div id="paperDeliveryPanel" class="detail-box" hidden><h3>Registrar comunicación por carta</h3><p><small>Adjunta a tu expediente una referencia verificable al despacho o constancia física. Registrar un envío no equivale a confirmar recepción.</small></p><form id="paperDeliveryForm"><input id="paperResponseId" type="hidden"><label>Actuación<select id="paperAction" required><option value="dispatched">Carta despachada</option><option value="delivered">Carta entregada (con constancia)</option><option value="returned">Carta devuelta / no entregada</option></select></label><label>Referencia documental o de courier<input id="paperReference" required minlength="5" maxlength="200" placeholder="Código de seguimiento / acta / cargo"></label><label>Detalle de la evidencia<textarea id="paperNote" rows="3" maxlength="2000" placeholder="Descripción del documento o constancia"></textarea></label><div class="actions"><button type="submit" id="paperSubmit">Guardar actuación</button><button type="button" id="paperCancel">Cancelar</button></div></form><p id="paperMessage" role="status"></p></div></section></div><div class="panel" id="notesViewPanel" data-workspace-panel data-view-hidden="true" hidden><h2>Notas y actuaciones internas</h2><div id="history"</div><p><small>Las notas y borradores se guardan internamente. No se envían automáticamente al consumidor.</small></p><h3>Añadir anotación interna</h3><form id="entryForm"><label>Tipo <select id="entryKind"><option value="internal_note">Nota interna</option><option value="response_draft">Borrador de respuesta (sin enviar)</option></select></label><label>Contenido<br><textarea id="entryBody" rows="4" style="width:100%" required></textarea></label><button>Guardar seguimiento</button></form></div>
+<div class="panel" id="membersPanel" data-workspace-panel data-view-hidden="true" hidden><h2>Usuarios de la empresa</h2><div class="members-layout"><section class="members-card"><h3>Colaboradores con acceso</h3><p>Usuarios autorizados y permisos de esta empresa.</p><div class="scroll"><table><thead><tr><th>Correo electrónico</th><th>Rol</th><th>Estado</th></tr></thead><tbody id="members"></tbody></table></div></section><section class="members-card"><h3>Invitar a un colaborador</h3><p>Asigna un rol y envía un enlace seguro de activación.</p><form id="memberForm"><label for="memberEmail">Correo electrónico<input id="memberEmail" type="email" placeholder="colaborador@empresa.com" autocomplete="email" required></label><label for="memberRole">Rol de acceso<select id="memberRole"><option value="viewer">Consulta · solo lectura</option><option value="operator">Operador · gestión</option><option value="company_admin">Administrador · gestión y usuarios</option></select></label><button id="inviteButton" type="submit">Enviar invitación</button></form><p id="inviteStatus" role="status" aria-live="polite"></p><small>El correo debe verificarse. Las invitaciones vencen en 7 días.</small></section></div><section class="members-card" style="margin-top:18px"><h3>Invitaciones pendientes</h3><div id="invites"></div></section></div>
 </div></div></section></main><footer class="site-footer">© <span id="copyrightYear">2026</span> 360 Integral Solutions · LIREP — Libro de Reclamaciones Virtual. Todos los derechos reservados.</footer>
 
 <div id="lirepDialogBackdrop" class="lirep-modal-backdrop" hidden>
@@ -159,9 +182,14 @@ sidebar.addEventListener('keydown',event=>{
   if(event.shiftKey&&document.activeElement===buttons[0]){event.preventDefault();buttons.at(-1).focus();}
   else if(!event.shiftKey&&document.activeElement===buttons.at(-1)){event.preventDefault();buttons[0].focus();}
 });
+const workspaceViewIds=['introPanel','summaryPanel','complaintsPanel','detailPanel','responseViewPanel','notesViewPanel','membersPanel'];
+let activeWorkspaceView='introPanel';
 function updateCaseNavigation(){
   const visible=!$('detailPanel').hidden;
   for(const item of document.querySelectorAll?.('[data-case-nav]')||[])item.hidden=!visible;
+  $('responseViewPanel').hidden=!visible;
+  $('notesViewPanel').hidden=!visible;
+  if(!visible&&['detailPanel','responseViewPanel','notesViewPanel'].includes(activeWorkspaceView))showWorkspaceView('complaintsPanel',false);
 }
 function markActiveSection(id){
   for(const item of sidebar.querySelectorAll?.('button[data-section]')||[]){
@@ -169,14 +197,20 @@ function markActiveSection(id){
     else item.removeAttribute?.('aria-current');
   }
 }
+function showWorkspaceView(id,scroll=true){
+  if(!workspaceViewIds.includes(id))return false;
+  const target=$(id);
+  if(!target||target.hidden)return false;
+  activeWorkspaceView=id;
+  for(const key of workspaceViewIds)$(key).dataset.viewHidden=key===id?'false':'true';
+  markActiveSection(id);
+  if(scroll)window?.scrollTo?.({top:0,behavior:'instant'});
+  return true;
+}
 sidebar.addEventListener('click',event=>{
   const button=event.target?.closest?.('button[data-section]');
   if(!button||button.hidden)return;
-  const target=$(button.dataset.section);
-  if(!target||target.hidden)return;
-  markActiveSection(button.dataset.section);
-  closeSidebar();
-  target.scrollIntoView?.({behavior:'smooth',block:'start'});
+  if(showWorkspaceView(button.dataset.section))closeSidebar();
 });
 if(typeof window!=='undefined'){
  window.addEventListener('keydown',event=>{if(event.key==='Escape'&&sidebar.dataset.open==='true')closeSidebar();});
@@ -251,6 +285,7 @@ async function closeDetail(){
   pendingDraft=null;caseData=null;caseTracking=null;lastFormalResponses=[];lastDeliveryRecords=[];
   $('formalResponseText').value='';
   $('detailPanel').hidden=true;updateCaseNavigation();
+  showWorkspaceView('complaintsPanel',false);
   $('caseResponseDeliveryStatus').textContent='';
   $('caseRefreshStatus').textContent='';
   $('providerVerifiedStatus').textContent='';
@@ -265,7 +300,7 @@ async function initialize(){
   initializationPromise=(async()=>{
     try{
       const {data:{session}}=await db.auth.getSession();
-      $('login').hidden=!!session;$('dashboard').hidden=!session;
+      $('login').hidden=!!session;$('dashboard').hidden=!session;navToggle.hidden=!session;
       if(!session)return;
       const {data:{user}}=await db.auth.getUser();
       if(!user?.id)throw new Error('No se pudo verificar la sesión de usuario.');
@@ -303,7 +338,7 @@ async function load(){
   if(companyChanged){
     // Otro tenant = otro expediente. Nunca mostrar datos del tenant anterior.
     detailVersion++;selectedComplaint=null;pendingDraft=null;caseData=null;caseTracking=null;lastFormalResponses=[];lastDeliveryRecords=[];
-    $('detailPanel').hidden=true;updateCaseNavigation();$('formalResponseText').value='';
+    $('detailPanel').hidden=true;updateCaseNavigation();showWorkspaceView('complaintsPanel',false);$('formalResponseText').value='';
   }
   selected=next;
   const orgId=next.id;
@@ -323,6 +358,8 @@ async function load(){
   ].map(([key,value])=>'<div class="metric">'+esc(key)+'<strong>'+value+'</strong></div>').join('');
   const admin=['company_admin','platform_admin'].includes(next.role);
   $('membersPanel').hidden=!admin;
+  for(const button of sidebar.querySelectorAll?.('button[data-section="membersPanel"]')||[])button.hidden=!admin;
+  if(!admin&&activeWorkspaceView==='membersPanel')showWorkspaceView('introPanel',false);
   if(admin){
     const members=await rpc('lirep_admin_company_memberships',{p_organization_id:orgId});
     if(version!==loadVersion||selected?.id!==orgId)return;
@@ -390,6 +427,7 @@ async function openDetail(id){
     $('formalResponseForm').hidden=true; // Only enable after checking response state for this case.
     $('formalResponseGuard').hidden=true;
     $('detailPanel').hidden=false;updateCaseNavigation();
+    showWorkspaceView('detailPanel',false);
     persistOpenCase(orgId,id);
     const results=await Promise.allSettled([loadHistory(),loadCaseTracking()]);
     if(version===detailVersion&&selected?.id===orgId&&selectedComplaint===id){try{await loadFormalResponses()}catch(err){results.push({status:'rejected',reason:err})}}
@@ -399,7 +437,7 @@ async function openDetail(id){
   }catch(error){
     if(version!==detailVersion||selected?.id!==orgId||selectedComplaint!==id)return;
     selectedComplaint=null;
-    $('detailPanel').hidden=true;
+    $('detailPanel').hidden=true;updateCaseNavigation();
     // No cerrar los demás detalles por fallo; el error pertenece a este expediente.
     persistOpenCase(orgId,null);
     message('status',error.message,true);
@@ -740,7 +778,7 @@ db.auth.onAuthStateChange((event,session)=>{
   if(event==='SIGNED_OUT'){
     loadVersion++;detailVersion++;selectedComplaint=null;selected=null;
     organizations=[];currentUserId=null;pendingDraft=null;
-    $('detailPanel').hidden=true;$('dashboard').hidden=true;$('login').hidden=false;
+    $('detailPanel').hidden=true;updateCaseNavigation();$('dashboard').hidden=true;$('login').hidden=false;navToggle.hidden=true;closeSidebar();
     return;
   }
   if((event==='SIGNED_IN'||event==='INITIAL_SESSION')&&session?.user?.id&&session.user.id!==currentUserId){
