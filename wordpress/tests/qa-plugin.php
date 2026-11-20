@@ -96,7 +96,7 @@ qa(lirep_shortcode() !== $prod_html, 'Unique frame IDs');
 qa(strpos($prod_html, 'lirep-public-layout') === false && strpos($prod_html, 'lirep-public-nav') === false, 'Public form has no lateral menu');
 qa(strpos($prod_html, 'lirep-public-toggle') === false && strpos($prod_html, 'lirep-public-shade') === false, 'Public form has no hamburger or overlay');
 qa(strpos($prod_html, 'lirep-public-toggle') === false, 'Public hamburger absent');
-qa(strpos($prod_html, 'data-lirep-go="consumidor"') !== false && strpos($prod_html, 'data-lirep-go="enviar"') !== false, 'Navigation covers form stages');
+qa(strpos($prod_html, 'lirep-public-nav') === false, 'Public form stages have no external navigation');
 qa(strpos($prod_html, 'data-lirep-go="admin"') === false, 'Public view never exposes administrative navigation');
 
 $tag = 'lirep-wp-v1.7.3';
