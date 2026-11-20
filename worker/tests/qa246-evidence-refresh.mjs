@@ -8,7 +8,7 @@ const token="header."+("payload".repeat(22))+".signature";
 const email="test@example.invalid",message="msg_qa246";
 let role="company_admin",orgs=[org],due=true,postEmails=0,providerReads=0,claims=0,completes=0;
 const env={SUPABASE_URL:"https://example.supabase.co",SUPABASE_PUBLISHABLE_KEY:"mock-public",
-  SUPABASE_SERVICE_ROLE_KEY:"mock-service",RESEND_API_KEY:"mock-resend",
+  SUPABASE_SERVICE_ROLE_KEY:"mock-service",RESEND_API_KEY:"mock-send-only",RESEND_READ_API_KEY:"mock-read-full",
   SUBMIT_RATE_LIMITER:{async limit(){return {success:true}}}};
 const original=globalThis.fetch;
 globalThis.fetch=async(url,options={})=>{
@@ -39,6 +39,7 @@ globalThis.fetch=async(url,options={})=>{
  }
  if(u.hostname==="api.resend.com"&&u.pathname.endsWith("/"+message)){
    assert.equal(method,"GET");
+   assert.equal(options.headers.Authorization,"Bearer mock-read-full","Read uses dedicated credential, never sending key");
    providerReads++;
    return Response.json({id:message,to:[email],last_event:"delivered"});
  }
@@ -60,6 +61,15 @@ try{
  assert.equal((await worker.fetch(req(),env,{})).status,403);
  assert.equal(claims,0);assert.equal(providerReads,0);
  orgs=[org];
+ // No valid read key: fail closed before claiming a delivery check or sending.
+ const savedReadKey=env.RESEND_READ_API_KEY;
+ delete env.RESEND_READ_API_KEY;
+ const missing=await worker.fetch(req(),env,{});
+ assert.equal(missing.status,200);
+ assert.equal((await missing.json()).status,"read_credential_missing");
+ assert.equal(claims,0);
+ assert.equal(providerReads,0);
+ env.RESEND_READ_API_KEY=savedReadKey;
  const first=await worker.fetch(req(),env,{});
  assert.equal(first.status,200);
  assert.deepEqual(await first.json(),{ok:true,status:"checked",event:"delivered"});
