@@ -499,7 +499,11 @@ async function callSupabase(payload, env) {
  * 'sending' nunca se reclaman nuevamente de forma automática.
  */
 async function deliverApprovedResponses(env) {
-  if (!env.RESEND_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return;
+  if (!env.RESEND_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("LIREP_CRON_DELIVERY_MISSING_BINDING");
+    return;
+  }
+  console.info("LIREP_CRON_DELIVERY_START");
   for (let i = 0; i < 5; i++) {
     let job;
     try {
@@ -508,7 +512,11 @@ async function deliverApprovedResponses(env) {
       console.error("LIREP_RESPONSE_CLAIM_FAILED", String(error?.message || "RPC_FAILED").slice(0,100));
       return;
     }
-    if (!job) return;
+    if (!job) {
+      console.info("LIREP_CRON_DELIVERY_NO_DUE_JOB");
+      return;
+    }
+    console.info("LIREP_CRON_DELIVERY_CLAIMED");
     let providerAccepted = false;
     try {
       if (!isUuid(job.queue_id) || !isUuid(job.response_id) ||
@@ -553,6 +561,7 @@ async function deliverApprovedResponses(env) {
         throw error;
       }
       providerAccepted = true;
+      console.info("LIREP_CRON_DELIVERY_PROVIDER_ACCEPTED");
       await lirepRpc("lirep_admin_response_delivery_complete", {
         p_queue_id: job.queue_id,
         p_success: true,
@@ -660,6 +669,8 @@ function trackingHtml(d) {
 }
 export default {
   async scheduled(event, env, ctx) {
+    // Markers contain no consumer data: diagnose scheduled invocation vs queue failures.
+    console.info("LIREP_CRON_INVOKED", String(event?.cron || "unknown"));
     ctx.waitUntil(reconcileOfficialResponseEvents(env).catch(()=>console.error("LIREP_EVIDENCE_CRON_FAILED")));
 
     ctx.waitUntil(deliverApprovedResponses(env).catch(() => console.error("LIREP_RESPONSE_SCHEDULER_FAILED")));
