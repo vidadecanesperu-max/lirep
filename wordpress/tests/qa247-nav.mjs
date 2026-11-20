@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import vm from "node:vm";
+const root=new URL("../lirep/",import.meta.url);
+const php=fs.readFileSync(new URL("lirep.php",root),"utf8");
+const css=fs.readFileSync(new URL("assets/css/lirep-embed.css",root),"utf8");
+const script=fs.readFileSync(new URL("assets/js/lirep-embed.js",root),"utf8");
+new vm.Script(script);
+assert.match(php,/Version: 1\.7\.2/);
+assert.match(php,/data-lirep-embed="1"/);
+assert.match(php,/lirep-public-layout/);
+assert.match(php,/lirep-public-toggle/);
+assert.match(php,/lirep-public-shade/);
+assert.match(php,/aria-controls=/);
+assert.match(php,/aria-expanded=\\\\"false/); // PHP source quote is escaped in assembled string
+for(const section of ["inicio","consumidor","bien","reclamo","informacion","enviar"]){
+ assert.match(php,new RegExp("'"+section+"' => "));
+}
+assert.match(css,/@media\(max-width:900px\)/);
+assert.match(css,/\.lirep-public-nav\[data-open="true"\]/);
+assert.match(css,/\.lirep-public-nav button\[data-lirep-go\]/);
+assert.match(script,/type:'lirep:navigate'/);
+assert.match(script,/type:'lirep:nav-shell'/);
+assert.match(script,/event\.origin !== origin \|\| event\.source !== frame\.contentWindow/);
+assert.match(script,/data\.prefix !== prefix/);
+assert.match(script,/Number\.isFinite\(offset\)/);
+assert.match(script,/event\.key === 'Escape'/);
+assert.match(script,/event\.key !== 'Tab'/);
+assert.doesNotMatch(php,/Resend|SUPABASE_SERVICE_ROLE_KEY|CLOUDFLARE_API_TOKEN/);
+console.log("QA247 WORDPRESS PASS | plugin shell menu, scoped styles, keyboard and origin-safe messaging");
