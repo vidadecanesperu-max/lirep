@@ -79,7 +79,7 @@ import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 const ADMIN_ORIGIN='https://lirep.360insol.com';
 const URL='https://hiidqmrgrioidvemixfe.supabase.co',KEY='sb_publishable_j85TVkmeDJ3Qn31Ueyp0-g_t03SWOwW';
 const db=createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'implicit'}});
-const $=id=>document.getElementById(id);$('copyrightYear').textContent=new Date().getFullYear();let organizations=[],selected=null,selectedComplaint=null,currentUserId=null,pendingDraft=null,initializationPromise=null,detailVersion=0,loadVersion=0,caseData=null,caseTracking=null,lastFormalResponses=[],statusRefreshing=false;
+const $=id=>document.getElementById(id);$('copyrightYear').textContent=new Date().getFullYear();let organizations=[],selected=null,selectedComplaint=null,currentUserId=null,pendingDraft=null,initializationPromise=null,detailVersion=0,loadVersion=0,caseData=null,caseTracking=null,lastFormalResponses=[],lastDeliveryRecords=[],statusRefreshing=false;
 const prefix=(new URLSearchParams(location.search).get('public_prefix')||'').toUpperCase();
 const publicCode=s=>String(s??'').replace(/^[A-F0-9]{8}-(?=LR\d+-)/i,'');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -150,10 +150,12 @@ async function closeDetail(){
   detailVersion++;
   persistOpenCase(selected?.id,null);
   selectedComplaint=null;
-  pendingDraft=null;caseData=null;caseTracking=null;lastFormalResponses=[];
+  pendingDraft=null;caseData=null;caseTracking=null;lastFormalResponses=[];lastDeliveryRecords=[];
   $('formalResponseText').value='';
   $('detailPanel').hidden=true;
   $('caseResponseDeliveryStatus').textContent='';
+  $('caseRefreshStatus').textContent='';
+  $('providerVerifiedStatus').textContent='';
   message('status','Detalle cerrado por el usuario.');
 }
 $('closeDetail').addEventListener('click',closeDetail);
@@ -202,7 +204,7 @@ async function load(){
   const companyChanged=!!oldId&&oldId!==next.id;
   if(companyChanged){
     // Otro tenant = otro expediente. Nunca mostrar datos del tenant anterior.
-    detailVersion++;selectedComplaint=null;pendingDraft=null;caseData=null;caseTracking=null;lastFormalResponses=[];
+    detailVersion++;selectedComplaint=null;pendingDraft=null;caseData=null;caseTracking=null;lastFormalResponses=[];lastDeliveryRecords=[];
     $('detailPanel').hidden=true;$('formalResponseText').value='';
   }
   selected=next;
@@ -259,7 +261,7 @@ async function openDetail(id){
   const version=++detailVersion;
   if(selectedComplaint!==id){
     // Se sustituyó el expediente por elección del usuario.
-    pendingDraft=null;caseData=null;caseTracking=null;lastFormalResponses=[];$('formalResponseText').value='';
+    pendingDraft=null;caseData=null;caseTracking=null;lastFormalResponses=[];lastDeliveryRecords=[];$('formalResponseText').value='';
     $('detailPanel').hidden=true;
   }
   selectedComplaint=id;
@@ -268,6 +270,8 @@ async function openDetail(id){
     if(version!==detailVersion||selected?.id!==orgId||selectedComplaint!==id)return;
     caseData=data;
     $('caseResponseDeliveryStatus').textContent='Consultando el estado de la respuesta...';
+    $('caseRefreshStatus').textContent='';
+    $('providerVerifiedStatus').textContent='';
     const c=data.consumer||{};
     $('detail').innerHTML='<section class="detail-box"><h3>Identificación</h3>'+
       field('Código',publicCode(data.public_code))+field('Tipo',label(data.complaint_type))+
@@ -374,23 +378,74 @@ $('paperDeliveryForm').addEventListener('submit',async e=>{
 });
 
 
-async function refreshCaseStatus(){
-  if(statusRefreshing||!selected||!selectedComplaint||$('detailPanel').hidden)return;
+
+async function refreshProviderEvidence(orgId,responseId){
+  const {data:{session}}=await db.auth.getSession();
+  if(!session?.access_token)throw new Error('La sesión ha vencido.');
+  const result=await fetch('https://lirep-public-api.vidadecanes-peru.workers.dev/api/v1/admin/response-delivery/refresh',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
+    body:JSON.stringify({organization_id:orgId,response_id:responseId}),
+    signal:AbortSignal.timeout(25000)
+  });
+  const payload=await result.json().catch(()=>null);
+  if(!result.ok)throw new Error(({ADMIN_ACCESS_DENIED:'No autorizado.',RATE_LIMITED:'Límite de consultas alcanzado.',SERVICE_UNAVAILABLE:'El servicio está temporalmente indisponible.'})[payload?.error]||'No fue posible consultar Resend.');
+  return payload?.status||'unknown';
+}
+async function refreshCaseStatus(manual=false){
+  if(!selected||!selectedComplaint||$('detailPanel').hidden)return;
+  if(statusRefreshing){
+    if(manual)$('caseRefreshStatus').textContent='Ya hay una consulta en curso.';
+    return;
+  }
   const orgId=selected.id,caseId=selectedComplaint;
   statusRefreshing=true;
-  const button=$('refreshCaseDelivery');
+  const button=$('refreshCaseDelivery'),normalLabel='Actualizar estado y entrega';
   button.disabled=true;
+  if(manual){
+    button.textContent='Consultando…';
+    $('caseRefreshStatus').textContent='Comprobando seguimiento y entrega…';
+  }
+  let providerStatus='not_applicable';
   try{
-    const results=await Promise.allSettled([loadCaseTracking(),loadFormalResponses()]);
-    if(selected?.id!==orgId||selectedComplaint!==caseId)return;
-    if(results.some(r=>r.status==='rejected')){
-      message('status','No se pudo actualizar todo el seguimiento. El expediente continúa abierto.',true);
+    if(manual&&['company_admin','platform_admin'].includes(selected.role)){
+      const approved=lastFormalResponses.find(r=>r.status==='approved');
+      const delivery=lastDeliveryRecords.find(d=>d.response_id===approved?.id);
+      // Read only the provider's already accepted message. No resend ever.
+      if(approved&&delivery?.channel!=='postal'&&
+         ['sent','delayed'].includes(delivery?.status)&&!delivery?.delivery_confirmed_at){
+        try{providerStatus=await refreshProviderEvidence(orgId,approved.id)}
+        catch(error){providerStatus='lookup_failed'}
+      }
     }
-  }finally{statusRefreshing=false;button.disabled=false}
+    const results=await Promise.allSettled([loadCaseTracking(),loadFormalResponses()]);
+    if(selected?.id!==orgId||selectedComplaint!==caseId||$('detailPanel').hidden)return;
+    if(manual){
+      const stamp=new Date().toLocaleTimeString('es-PE');
+      const errors=results.filter(r=>r.status==='rejected');
+      const confirmed=lastDeliveryRecords.some(d=>d.delivery_confirmed_at&&['delivered','postal_delivered'].includes(d.status));
+      const deliveryNote=confirmed?'Entrega confirmada según la constancia.':
+        lastDeliveryRecords.some(d=>d.status==='sent')?'Correo aceptado por Resend; entrega todavía no confirmada.':
+        'Estado de comunicación consultado.';
+      const providerNote=providerStatus==='lookup_failed'||providerStatus==='claim_error'?
+        ' No fue posible consultar Resend; revisa el estado guardado.':
+        providerStatus==='not_due'?' Resend fue consultado recientemente.':'';
+      $('caseRefreshStatus').textContent=errors.length?
+        'Consulta parcial a las '+stamp+'. No se actualizaron todos los datos; vuelve a intentarlo.':
+        'Actualizado a las '+stamp+'. '+deliveryNote+providerNote;
+    }
+  }catch(error){
+    if(manual&&selected?.id===orgId&&selectedComplaint===caseId)
+      $('caseRefreshStatus').textContent='No pudo actualizarse el estado: '+error.message;
+  }finally{
+    statusRefreshing=false;
+    button.disabled=false;
+    button.textContent=normalLabel;
+  }
 }
-$('refreshCaseDelivery').addEventListener('click',refreshCaseStatus);
+$('refreshCaseDelivery').addEventListener('click',()=>refreshCaseStatus(true));
 if(typeof setInterval==='function')setInterval(()=>{
-  if(document.visibilityState!=='hidden')refreshCaseStatus();
+  if(document.visibilityState!=='hidden')refreshCaseStatus(false);
 },45000);
 
 const deliveryLabel={pending:'En cola',sending:'Procesando correo',retry:'Reintento programado',sent:'Aceptado por Resend (entrega no confirmada)',delivered:'Entregado según Resend (servidor destinatario)',delayed:'Entrega demorada por el proveedor',bounced:'Correo rebotado (requiere revisión)',suppressed:'Envío suprimido (requiere revisión)',complained:'Destinatario marcó el correo como spam',failed:'Envío fallido (requiere revisión)',manual_required:'Pendiente de coordinación manual',approved:'Aprobada',draft:'Borrador',postal_pending:'Carta pendiente de despacho',postal_dispatched:'Carta despachada (pendiente de recepción)',postal_delivered:'Entrega de carta documentada',postal_returned:'Carta devuelta (requiere revisión)',pending_approval:'Pendiente de aprobación',rejected:'Rechazada'};
@@ -403,6 +458,7 @@ async function loadFormalResponses(){
   ]);
   if(selected?.id!==orgId||selectedComplaint!==caseId)return;
   lastFormalResponses=responses||[];
+  lastDeliveryRecords=deliveries||[];
   // One official response workflow at a time. An approved response must never
   // be duplicated by the still-visible compose form while delivery is pending.
   const hasApproved=lastFormalResponses.some(r=>r.status==='approved');
@@ -428,8 +484,14 @@ async function loadFormalResponses(){
     const deliveryState=channelState?.status?deliveryLabel[channelState.status]||channelState.status:
       (newest.status==='approved'?'Comunicación pendiente de registro':'No corresponde todavía');
     $('caseResponseDeliveryStatus').textContent='Respuesta oficial: '+responseLabel+' · Comunicación: '+deliveryState;
+    const lastChecked=channelState?.provider_checked_at;
+    $('providerVerifiedStatus').textContent=lastChecked
+      ?'Última consulta registrada en Resend: '+new Date(lastChecked).toLocaleString('es-PE')+
+        (channelState?.provider_event?' · Evento: '+(deliveryLabel[channelState.provider_event]||channelState.provider_event):'')
+      :(channelState?.status==='sent'?'Resend aceptó el correo; no hay confirmación de entrega.':'');
   }else{
     $('caseResponseDeliveryStatus').textContent='Respuesta oficial: sin propuesta registrada';
+    $('providerVerifiedStatus').textContent='';
   }
   $('formalResponseHistory').innerHTML=(responses||[]).length?(responses||[]).map(r=>{
     const d=deliveryById.get(r.id);
