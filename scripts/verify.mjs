@@ -71,7 +71,7 @@ for (const [name, passed] of [
   ['WordPress release integrity', plugin.includes("hash_file('sha256'") && plugin.includes('hash_equals')],
   ['WordPress updater official source', plugin.includes('update_plugins_github.com') && plugin.includes('LIREP_RELEASE_API')],
   ['WordPress automatic security opt-in', plugin.includes('lirep_auto_security_updates') && plugin.includes('lirep_security')],
-  ['WordPress 1.7.3 header', plugin.includes('* Version: 1.7.3')],
+  ['WordPress 1.7.4 header', plugin.includes('* Version: 1.7.4')],
   ['WordPress self-service wizard', plugin.includes("includes/onboarding.php") && wizard.includes('lirep_onboarding_challenge')],
   ['WordPress onboarding readiness gate', wizard.includes('lirep_onboarding_is_ready') && wizard.includes('No se pudo conectar con el servicio de activación')],
   ['WordPress no service-role secrets', !wizard.includes('SUPABASE_SERVICE_ROLE_KEY')],
