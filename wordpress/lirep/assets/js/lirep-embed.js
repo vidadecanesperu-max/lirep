@@ -13,6 +13,70 @@
     if (!frame || !/^https:\/\/[a-z0-9.-]+$/i.test(origin || '') || !/^[A-Z0-9]{8}$/.test(prefix || '')) return;
     if (known) known.add(container);
     container.setAttribute('data-lirep-initialized', '1');
+    // The shortcode owns the menu; the cross-origin iframe owns form content.
+    // Only allowlisted section identifiers travel to the exact trusted Worker origin.
+    var sections = ['inicio', 'consumidor', 'bien', 'reclamo', 'informacion', 'enviar'];
+    var nav = container.querySelector('.lirep-public-nav');
+    var toggle = container.querySelector('.lirep-public-toggle');
+    var shade = container.querySelector('.lirep-public-shade');
+    var previousFocus = null;
+    function closeMenu() {
+      if (!nav || !toggle || !shade) return;
+      nav.setAttribute('data-open', 'false');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-label', 'Abrir menú del Libro de Reclamaciones');
+      shade.hidden = true;
+      if (previousFocus && previousFocus.focus) previousFocus.focus();
+      previousFocus = null;
+    }
+    function openMenu() {
+      if (!nav || !toggle || !shade) return;
+      previousFocus = document.activeElement || toggle;
+      nav.setAttribute('data-open', 'true');
+      toggle.setAttribute('aria-expanded', 'true');
+      toggle.setAttribute('aria-label', 'Cerrar menú del Libro de Reclamaciones');
+      shade.hidden = false;
+      var first = nav.querySelector('button[data-lirep-go]');
+      if (first && first.focus) first.focus();
+    }
+    if (nav && toggle && shade && nav.querySelectorAll) {
+      toggle.addEventListener('click', function () {
+        if (nav.getAttribute('data-open') === 'true') closeMenu();
+        else openMenu();
+      });
+      shade.addEventListener('click', closeMenu);
+      nav.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') { event.preventDefault(); closeMenu(); return; }
+        if (event.key !== 'Tab' || nav.getAttribute('data-open') !== 'true') return;
+        var buttons = Array.prototype.slice.call(nav.querySelectorAll('button[data-lirep-go]'));
+        if (!buttons.length) return;
+        if (event.shiftKey && document.activeElement === buttons[0]) {
+          event.preventDefault(); buttons[buttons.length - 1].focus();
+        } else if (!event.shiftKey && document.activeElement === buttons[buttons.length - 1]) {
+          event.preventDefault(); buttons[0].focus();
+        }
+      });
+      nav.addEventListener('click', function (event) {
+        var button = event.target && event.target.closest && event.target.closest('button[data-lirep-go]');
+        if (!button) return;
+        var section = button.getAttribute('data-lirep-go');
+        if (sections.indexOf(section) < 0) return;
+        var buttons = nav.querySelectorAll('button[data-lirep-go]');
+        for (var i = 0; i < buttons.length; i++) {
+          if (buttons[i] === button) buttons[i].setAttribute('aria-current', 'step');
+          else buttons[i].removeAttribute('aria-current');
+        }
+        closeMenu();
+        if (frame.contentWindow) frame.contentWindow.postMessage({type:'lirep:navigate',prefix:prefix,section:section},origin);
+      });
+      window.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && nav.getAttribute('data-open') === 'true') closeMenu();
+      });
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 900 && nav.getAttribute('data-open') === 'true') closeMenu();
+      });
+    }
+
     var lastHeight = 0;
     var timer = null;
     var accepted = false;
@@ -25,7 +89,18 @@
     function handleMessage(event) {
       if (event.origin !== origin || event.source !== frame.contentWindow) return;
       var data = event.data;
-      if (!data || data.type !== 'lirep:resize' || data.prefix !== prefix) return;
+      if (!data || data.prefix !== prefix) return;
+      if (data.type === 'lirep:section') {
+        if (sections.indexOf(data.section) < 0) return;
+        var offset = Number(data.offset);
+        if (!Number.isFinite(offset) || offset < 0 || offset > 15000) return;
+        if (frame.getBoundingClientRect && typeof window.scrollTo === 'function') {
+          var top = frame.getBoundingClientRect().top + (window.scrollY || 0) + offset - 24;
+          window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+        }
+        return;
+      }
+      if (data.type !== 'lirep:resize') return;
       var height = Number(data.height);
       if (!Number.isFinite(height) || height < 300 || height > 15000) return;
       var next = Math.ceil(height + 12);
