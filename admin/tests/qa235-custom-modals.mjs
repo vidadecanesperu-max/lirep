@@ -22,7 +22,7 @@ assert.match(html,/note\.length<3/);
 assert.match(html,/function lirepDialog\(/);
 assert.match(html,/async function lirepConfirm\(/);
 assert.doesNotMatch(script,/\b(?:confirm|prompt|alert)\s*\(/i,"No native Chrome modal may remain");
-assert.match(html,/Aprobar respuesta oficial/);
+assert.match(html,/Aprobar y enviar/);
 assert.match(html,/Rechazar respuesta propuesta/);
 assert.match(html,/Descartar texto sin guardar/);
 assert.match(html,/Registrar comunicación por carta/);

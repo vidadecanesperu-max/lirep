@@ -1,0 +1,31 @@
+name: LIREP QA245 - simple reply and secure Worker authorization
+on:
+  pull_request:
+    paths:
+      - 'admin/**'
+      - 'worker/**'
+      - 'supabase/migrations/20261119205000_lirep_qa245_service_permissions.sql'
+      - 'supabase/migrations/20261119205100_lirep_qa245_one_click_reply.sql'
+      - '.github/workflows/qa245-one-click.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa245:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run simulated UI, SQL and Worker safety tests
+        run: |
+          set -euo pipefail
+          node admin/tests/qa245-one-click.mjs
+          node admin/tests/qa232-detail.mjs
+          node admin/tests/qa234-ui.mjs
+          node admin/tests/qa235-custom-modals.mjs
+          node admin/tests/qa244-ui.mjs
+          node worker/tests/qa244-admin-delivery.mjs
+          npm run verify
+          echo 'QA245 PASS | no real mail, claim or complaint mutation'
