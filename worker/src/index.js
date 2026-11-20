@@ -608,17 +608,22 @@ async function deliverApprovedResponses(env, specific = null) {
  * Solo lee mensajes previamente aceptados; NO los reenvía.
  * "delivered" es confirmación del servidor receptor, no de lectura del usuario.
  */
-async function reconcileOfficialResponseEvents(env) {
-  if (!env.RESEND_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return;
-  for (let i = 0; i < 5; i++) {
+async function reconcileOfficialResponseEvents(env, specific = null) {
+  if (!env.RESEND_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return {status:"configuration_missing"};
+  for (let i = 0; i < (specific?1:5); i++) {
     let task;
     try {
-      task = await lirepRpc("lirep_admin_response_evidence_claim", {}, env);
+      task = specific
+        ? await lirepRpc("lirep_admin_response_evidence_claim_one", {
+            p_organization_id:specific.organizationId,
+            p_response_id:specific.responseId
+          }, env)
+        : await lirepRpc("lirep_admin_response_evidence_claim", {}, env);
     } catch (error) {
       console.error("LIREP_EVIDENCE_CLAIM_FAILED", String(error?.message||"RPC_FAILED").slice(0,100));
-      return;
+      return {status:"claim_error"};
     }
-    if (!task) return;
+    if (!task) return {status:"not_due"};
     try {
       if (!isUuid(task.evidence_id) ||
           !task.provider_message_id ||
@@ -650,12 +655,15 @@ async function reconcileOfficialResponseEvents(env) {
         p_provider_message_id:task.provider_message_id,
         p_last_event:event
       },env);
+      if(specific)return {status:"checked",event};
     } catch (error) {
       // La consulta fallida nunca genera correo ni reenvía automáticamente;
       // la próxima revisión se programa desde el último claim SQL.
       console.warn("LIREP_EVIDENCE_LOOKUP_PENDING",task.evidence_id,String(error?.message||"UNKNOWN").slice(0,100));
+      if(specific)return {status:"lookup_failed"};
     }
   }
+  return {status:"complete"};
 }
 
 
@@ -826,7 +834,9 @@ export default {
     }
 
 
-    if (url.pathname==="/api/v1/admin/response-delivery/process") {
+    if (url.pathname==="/api/v1/admin/response-delivery/process" ||
+        url.pathname==="/api/v1/admin/response-delivery/refresh") {
+      const checkProvider=url.pathname.endsWith("/refresh");
       const origin=request.headers.get("origin")||"";
       if(origin!=="https://lirep.360insol.com")return json({ok:false,error:"ORIGIN_NOT_ALLOWED"},403);
       const headers={
@@ -844,7 +854,9 @@ export default {
       if(!auth||auth[1].length<100||auth[1].length>8192)
         return json({ok:false,error:"AUTH_REQUIRED"},401,headers);
       const ip=request.headers.get("CF-Connecting-IP")||"unknown";
-      const rate=await env.SUBMIT_RATE_LIMITER.limit({key:"admin-delivery:"+ip});
+      const rate=await env.SUBMIT_RATE_LIMITER.limit({
+        key:(checkProvider?"admin-evidence:":"admin-delivery:")+ip
+      });
       if(!rate.success)return json({ok:false,error:"RATE_LIMITED"},429,headers);
       let payload;
       try{payload=await request.json()}catch{return json({ok:false,error:"INVALID_JSON"},400,headers)}
@@ -854,10 +866,11 @@ export default {
       try{
         const authorized=await authorizedDeliveryAdmin(auth[1],organizationId,env);
         if(!authorized)return json({ok:false,error:"ADMIN_ACCESS_DENIED"},403,headers);
-        const result=await deliverApprovedResponses(env,{
-          organizationId,responseId
-        });
-        return json({ok:true,status:result?.status||"unknown"},200,headers);
+        const result=checkProvider
+          ? await reconcileOfficialResponseEvents(env,{organizationId,responseId})
+          : await deliverApprovedResponses(env,{organizationId,responseId});
+        return json({ok:true,status:result?.status||"unknown",
+          ...(checkProvider&&result?.event?{event:result.event}:{})},200,headers);
       }catch(error){
         console.error("LIREP_ADMIN_DELIVERY_PROCESS_FAILED",String(error?.message||"").slice(0,90));
         return json({ok:false,error:"SERVICE_UNAVAILABLE"},503,headers);

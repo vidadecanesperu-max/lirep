@@ -7,7 +7,7 @@ const html=fs.readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const js=html.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1]?.trimStart().replace(/^import[^\n]+\n/,"");
 assert.ok(js);
 new vm.Script(js);
-assert.match(html,/Responder al consumidor/);
+assert.match(html,/Respuesta y seguimiento del expediente/);
 assert.match(html,/Responder y enviar/);
 assert.match(js,/adminCanSend/);
 assert.match(js,/Aprobar y enviar/);
