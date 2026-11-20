@@ -60,7 +60,7 @@ function qa($condition, $name) {
     echo "PASS | {$name}\n";
 }
 qa(isset($GLOBALS['shortcodes']['lirep']), 'Shortcode registered');
-qa(LIREP_VERSION === '1.7.1', 'Self-service version loaded');
+qa(LIREP_VERSION === '1.7.2', 'Self-service version loaded');
 qa(function_exists('lirep_onboarding_ajax') && function_exists('lirep_onboarding_challenge'), 'Self-service endpoints registered');
 qa(strpos(lirep_onboarding_error_message('domain_challenge_failed'), 'REST') !== false, 'Domain proof guidance localized');
 qa(strpos(lirep_onboarding_error_message('review_required'), 'revisión') !== false, 'Existing company conflict guidance localized');
@@ -93,8 +93,13 @@ qa(strpos($prod_html, 'data-lirep-origin') !== false && strpos($prod_html, '<scr
 qa(strpos($prod_html, '<iframe') !== false && strpos($prod_html, 'referrerpolicy="no-referrer"') !== false, 'Secure embedded form without external fallback');
 qa(isset($GLOBALS['styles']['lirep-embed']) && isset($GLOBALS['scripts']['lirep-embed']), 'Assets enqueued');
 qa(lirep_shortcode() !== $prod_html, 'Unique frame IDs');
+qa(strpos($prod_html, 'class="lirep-public-layout"') !== false, 'WordPress embed includes an accessible sidebar');
+qa(strpos($prod_html, 'class="lirep-public-toggle"') !== false, 'Mobile hamburger present');
+qa(strpos($prod_html, 'aria-expanded="false"') !== false, 'Hamburger begins closed');
+qa(strpos($prod_html, 'data-lirep-go="consumidor"') !== false && strpos($prod_html, 'data-lirep-go="enviar"') !== false, 'Navigation covers form stages');
+qa(strpos($prod_html, 'data-lirep-go="admin"') === false, 'Public view never exposes administrative navigation');
 
-$tag = 'lirep-wp-v1.7.2';
+$tag = 'lirep-wp-v1.7.3';
 $url = 'https://github.com/vidadecanesperu-max/lirep/releases/download/' . $tag . '/lirep.zip';
 $digest = hash('sha256', $GLOBALS['asset_content']);
 $release = array('tag_name' => $tag, 'draft' => false, 'prerelease' => false, 'body' => '[LIREP-SECURITY] Fix', 'assets' => array(array('name' => 'lirep.zip', 'browser_download_url' => $url, 'digest' => 'sha256:' . $digest, 'size' => 1500)));
@@ -105,15 +110,15 @@ $nohash = $release; unset($nohash['assets'][0]['digest']);
 qa(lirep_valid_release($nohash) === null, 'Release without SHA256 rejected');
 $prerelease = $release; $prerelease['prerelease'] = true;
 qa(lirep_valid_release($prerelease) === null, 'Prerelease rejected');
-$wrongtag = $release; $wrongtag['tag_name'] = 'v1.7.2';
+$wrongtag = $release; $wrongtag['tag_name'] = 'v1.7.3';
 qa(lirep_valid_release($wrongtag) === null, 'Unrelated release rejected');
 $GLOBALS['remote_releases'] = array($release);
 $info = lirep_release_info();
-qa($info['version'] === '1.7.2' && $GLOBALS['requests'] === 1, 'Release discovered');
+qa($info['version'] === '1.7.3' && $GLOBALS['requests'] === 1, 'Release discovered');
 qa(lirep_release_info()['sha256'] === $digest && $GLOBALS['requests'] === 1, 'Release cached');
 qa(lirep_update_plugins_github('unchanged', array(), 'another/plugin.php', array()) === 'unchanged', 'Other GitHub plugins unaffected');
 $update = lirep_update_plugins_github(null, array(), 'lirep/lirep.php', array());
-qa($update['version'] === '1.7.2' && $update['package'] === $url && $update['lirep_security'], 'WordPress update metadata');
+qa($update['version'] === '1.7.3' && $update['package'] === $url && $update['lirep_security'], 'WordPress update metadata');
 qa(lirep_upgrader_pre_download(false, 'https://example.org/plugin.zip', null, array()) === false, 'Other package downloads unaffected');
 $download = lirep_upgrader_pre_download(false, $url, null, array());
 qa(is_string($download) && file_exists($download) && hash_file('sha256', $download) === $digest, 'Verified SHA256 download');
