@@ -55,6 +55,10 @@ assert.equal(a.get("detailPanel").hidden,false);
 assert.equal(storage.get(keyA),idA);
 assert.match(a.get("caseResponseDeliveryStatus").textContent,/Respuesta oficial: Aprobada/);
 assert.match(a.get("caseResponseDeliveryStatus").textContent,/Comunicación: En cola/);
+assert.equal(a.get("formalResponseForm").hidden,true,"approved answer must suppress new draft form");
+assert.equal(a.get("formalResponseGuard").hidden,false,"guard message must be visible");
+assert.match(a.get("formalResponseGuard").textContent,/Ya existe una respuesta oficial aprobada/);
+
 await a.get("refreshCaseDelivery").click();
 assert.equal(a.get("detailPanel").hidden,false,"manual status refresh must preserve case");
 assert.match(a.get("caseResponseDeliveryStatus").textContent,/En cola/);
