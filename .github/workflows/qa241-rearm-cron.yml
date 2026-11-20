@@ -1,0 +1,32 @@
+name: LIREP QA241 - re-register existing cron once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa241-rearm-cron.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rearm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-register current five-minute schedule on existing Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT_ID: 6aa99604577aed2046cf3a569db95b3f
+          SCRIPT_NAME: lirep-public-api
+        run: |
+          set -euo pipefail
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo '::error::Cloudflare token unavailable'; exit 1; }
+          URL="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$SCRIPT_NAME/schedules"
+          curl --fail --silent --show-error -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$URL" -o /tmp/qa241-before.json
+          jq -e '.success==true and (.result.schedules|length)==1 and .result.schedules[0].cron=="*/5 * * * *"' /tmp/qa241-before.json >/dev/null || { echo '::error::Unexpected existing schedule; refusing overwrite'; exit 1; }
+          echo 'PASS | only the expected five-minute Cron Trigger exists'
+          curl --fail --silent --show-error -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' --data '[{"cron":"*/5 * * * *"}]' "$URL" -o /tmp/qa241-updated.json
+          jq -e '.success==true and (.result.schedules|length)==1 and .result.schedules[0].cron=="*/5 * * * *"' /tmp/qa241-updated.json >/dev/null || { echo '::error::Cloudflare did not accept Cron Trigger update'; exit 1; }
+          curl --fail --silent --show-error -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$URL" -o /tmp/qa241-after.json
+          jq -e '.success==true and (.result.schedules|length)==1 and .result.schedules[0].cron=="*/5 * * * *"' /tmp/qa241-after.json >/dev/null || { echo '::error::Unexpected schedule after re-register'; exit 1; }
+          echo 'PASS | existing Worker cron re-registered and verified via Cloudflare API'
+          echo 'No Worker deploy, no forced email, no complaint changes, no plan upgrades'
+          rm -f /tmp/qa241-before.json /tmp/qa241-updated.json /tmp/qa241-after.json
