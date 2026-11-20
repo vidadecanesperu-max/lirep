@@ -3,7 +3,7 @@ Contributors: vidadecanesperu-max
 Tags: libro de reclamaciones, peru, reclamos, elementor, shortcode
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 1.7.2
+Stable tag: 1.7.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -41,6 +41,11 @@ El ZIP se puede instalar en WordPress compatible, pero para recibir reclamacione
 La búsqueda de versiones utiliza GitHub Releases. Las actualizaciones normales se muestran en Plugins. Las automáticas de seguridad requieren activar la opción y publicar una versión oficial marcada [LIREP-SECURITY], con asset lirep.zip y digest SHA-256.
 
 == Changelog ==
+= 1.7.3 =
+* Formulario público sin menú lateral ni menú sándwich; ancho completo en escritorio y móviles.
+* La navegación administrativa conserva sus opciones y funcionamiento.
+* Elimina los elementos de navegación en el HTML del shortcode en lugar de ocultarlos con CSS.
+
 = 1.7.2 =
 * Menú lateral por secciones en el contenido público, compatible con Gutenberg y Elementor.
 * Menú sándwich accesible en móviles, con navegación dentro del formulario sin recargar ni perder datos.
