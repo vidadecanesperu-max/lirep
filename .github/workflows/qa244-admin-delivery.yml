@@ -1,0 +1,29 @@
+name: LIREP QA244 - Authorized delivery fallback
+on:
+  pull_request:
+    paths:
+      - 'worker/**'
+      - 'admin/**'
+      - 'supabase/migrations/20261119195900_lirep_qa244_claim_specific_response.sql'
+      - '.github/workflows/qa244-admin-delivery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  secure-delivery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test tenant-scoped sender and admin UI entirely offline
+        run: |
+          set -euo pipefail
+          node --check worker/src/index.js
+          node worker/tests/qa244-admin-delivery.mjs
+          node admin/tests/qa244-ui.mjs
+          node worker/tests/qa243-scheduled.mjs
+          node admin/tests/qa232-detail.mjs
+          npm run verify
+          echo 'QA244 PASS | no real emails or production interactions'
