@@ -1,0 +1,31 @@
+name: LIREP QA246 - unified tracking and real evidence refresh
+on:
+  pull_request:
+    paths:
+      - 'admin/**'
+      - 'worker/**'
+      - 'supabase/migrations/20261120085000_lirep_qa246_live_evidence.sql'
+      - '.github/workflows/qa246-unified-refresh.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa246:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate layout and safe provider GET refresh
+        run: |
+          set -euo pipefail
+          node --check worker/src/index.js
+          node admin/tests/qa246-unified-refresh.mjs
+          node admin/tests/qa232-detail.mjs
+          node admin/tests/qa236-status.mjs
+          node admin/tests/qa245-one-click.mjs
+          node worker/tests/qa246-evidence-refresh.mjs
+          node worker/tests/qa244-admin-delivery.mjs
+          npm run verify
+          echo 'QA246 PASS | no Resend POST, no new complaint or actual send'
