@@ -12,7 +12,7 @@ assert.match(php,/lirep-public-layout/);
 assert.match(php,/lirep-public-toggle/);
 assert.match(php,/lirep-public-shade/);
 assert.match(php,/aria-controls=/);
-assert.match(php,/aria-expanded=\\\\"false/); // PHP source quote is escaped in assembled string
+assert.match(php,/aria-expanded="false"/);
 for(const section of ["inicio","consumidor","bien","reclamo","informacion","enviar"]){
  assert.match(php,new RegExp("'"+section+"' => "));
 }
