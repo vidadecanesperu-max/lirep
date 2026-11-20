@@ -6,7 +6,7 @@ const php=fs.readFileSync(new URL("lirep.php",root),"utf8");
 const css=fs.readFileSync(new URL("assets/css/lirep-embed.css",root),"utf8");
 const script=fs.readFileSync(new URL("assets/js/lirep-embed.js",root),"utf8");
 new vm.Script(script);
-assert.match(php,/Version: 1\\.7\\.3/);
+assert.match(php,/Version: 1\.7\.3/);
 assert.match(php,/data-lirep-embed="1"/);
 assert.match(php,/class="lirep-frame"/);
 assert.doesNotMatch(php,/lirep-public-nav|lirep-public-toggle|lirep-public-shade|lirep-public-layout/);
