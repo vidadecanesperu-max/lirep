@@ -47,7 +47,7 @@ globalThis.fetch=async(url,opts={})=>{
     return Response.json({id:"mock-resend-id"});
   }
   if(u.hostname==="example.supabase.co"&&u.pathname==="/auth/v1/admin/generate_link")
-    return Response.json({user:{id:"123e4567-e89b-42d3-a456-426614174001"},action_link:"https://example.supabase.co/auth/v1/verify?token=mock"});
+    return Response.json({user:{id:"123e4567-e89b-42d3-a456-426614174001"},properties:{action_link:"https://example.supabase.co/auth/v1/verify?token="+("a".repeat(64)),hashed_token:"a".repeat(64),verification_type:"magiclink"}});
   if(u.hostname==="example.supabase.co"&&u.pathname==="/rest/v1/rpc/lirep_onboarding_activate"){
     row.state="active";row.public_prefix="TEST1234";row.invitation_sent_at=new Date().toISOString();
     return Response.json({public_prefix:"TEST1234"});
@@ -86,6 +86,11 @@ try{
   assert.equal(active.data.state.state,"active");
   assert.equal(active.data.state.public_prefix,"TEST1234");
   assert.equal(mailBodies.length,2);
+  const adminMail=mailBodies[1].html;
+  assert.match(adminMail,/https:\/\/lirep\.360insol\.com\/\?public_prefix=TEST1234#lirep_login_token=/);
+  assert.ok(!adminMail.includes("/auth/v1/verify"),"No redeemable GET links in access email");
+  assert.ok(adminMail.includes("Confirmar acceso"),"Human confirmation is required");
+
   const cancelled=await call("/api/v1/onboarding/cancel","POST",credentials);
   assert.equal(cancelled.status,409);
 }finally{globalThis.fetch=savedFetch;}
