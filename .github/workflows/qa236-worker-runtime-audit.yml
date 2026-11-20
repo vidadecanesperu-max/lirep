@@ -35,5 +35,16 @@ jobs:
               echo "::error::Required Worker secret $name missing"; exit 1
             fi
           done
-          rm -f /tmp/lirep-schedules.json /tmp/lirep-secrets.json
-          echo 'QA236 PASS | no production updates, no secret values disclosed'
+          echo 'Checking stored Cloudflare cron events for the last 40 minutes (sanitized output)'
+          START_MS=$(date -u -d '40 minutes ago' +%s%3N)
+          END_MS=$(date -u +%s%3N)
+          jq -n --argjson from "$START_MS" --argjson to "$END_MS" '{view:"events",limit:200,timeframe:{from:$from,to:$to},filters:[{key:"$metadata.service",operation:"eq",type:"string",value:"lirep-public-api"}]}' > /tmp/lirep-query-request.json
+          STATUS=$(curl --silent --show-error -o /tmp/lirep-query-result.json -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' -X POST --data-binary @/tmp/lirep-query-request.json "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/observability/telemetry/query")
+          if [ "$STATUS" = '200' ] && jq -e '.success==true' /tmp/lirep-query-result.json >/dev/null 2>&1; then
+            jq -r '"PASS | log query succeeded", "Total log events: " + ((.result.events // [])|length|tostring), "Scheduled call evidence: " + (((.result.events // [])|tostring|test("scheduled|cron|LIREP_RESPONSE";"i"))|tostring), "Response claim error evidence: " + (((.result.events // [])|tostring|contains("LIREP_RESPONSE_CLAIM_FAILED"))|tostring), "Scheduler error evidence: " + (((.result.events // [])|tostring|contains("LIREP_RESPONSE_SCHEDULER_FAILED"))|tostring)' /tmp/lirep-query-result.json
+          else
+            echo "INFO | log query unavailable (HTTP $STATUS); cron and secret name checks still valid"
+            jq -r '.errors[]?.message // empty' /tmp/lirep-query-result.json | cut -c1-180 || true
+          fi
+          rm -f /tmp/lirep-schedules.json /tmp/lirep-secrets.json /tmp/lirep-query-request.json /tmp/lirep-query-result.json
+          echo 'QA237 PASS | read-only; no production update or secret values printed'
