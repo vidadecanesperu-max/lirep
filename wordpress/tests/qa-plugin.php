@@ -60,7 +60,7 @@ function qa($condition, $name) {
     echo "PASS | {$name}\n";
 }
 qa(isset($GLOBALS['shortcodes']['lirep']), 'Shortcode registered');
-qa(LIREP_VERSION === '1.7.2', 'Self-service version loaded');
+qa(LIREP_VERSION === '1.7.3', 'Self-service version loaded');
 qa(function_exists('lirep_onboarding_ajax') && function_exists('lirep_onboarding_challenge'), 'Self-service endpoints registered');
 qa(strpos(lirep_onboarding_error_message('domain_challenge_failed'), 'REST') !== false, 'Domain proof guidance localized');
 qa(strpos(lirep_onboarding_error_message('review_required'), 'revisión') !== false, 'Existing company conflict guidance localized');
@@ -93,8 +93,8 @@ qa(strpos($prod_html, 'data-lirep-origin') !== false && strpos($prod_html, '<scr
 qa(strpos($prod_html, '<iframe') !== false && strpos($prod_html, 'referrerpolicy="no-referrer"') !== false, 'Secure embedded form without external fallback');
 qa(isset($GLOBALS['styles']['lirep-embed']) && isset($GLOBALS['scripts']['lirep-embed']), 'Assets enqueued');
 qa(lirep_shortcode() !== $prod_html, 'Unique frame IDs');
-qa(strpos($prod_html, 'class="lirep-public-layout"') !== false, 'WordPress embed includes an accessible sidebar');
-qa(strpos($prod_html, 'class="lirep-public-toggle"') !== false, 'Mobile hamburger present');
+qa(strpos($prod_html, 'lirep-public-layout') === false && strpos($prod_html, 'lirep-public-nav') === false, 'Public form has no lateral menu');
+qa(strpos($prod_html, 'lirep-public-toggle') === false && strpos($prod_html, 'lirep-public-shade') === false, 'Public form has no hamburger or overlay');
 qa(strpos($prod_html, 'aria-expanded="false"') !== false, 'Hamburger begins closed');
 qa(strpos($prod_html, 'data-lirep-go="consumidor"') !== false && strpos($prod_html, 'data-lirep-go="enviar"') !== false, 'Navigation covers form stages');
 qa(strpos($prod_html, 'data-lirep-go="admin"') === false, 'Public view never exposes administrative navigation');
