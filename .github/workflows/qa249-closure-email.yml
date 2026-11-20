@@ -1,0 +1,31 @@
+name: LIREP QA249 - Corporate emails, closing and disagreements
+on:
+  pull_request:
+    paths:
+      - 'admin/**'
+      - 'worker/**'
+      - 'supabase/migrations/20261120111500_lirep_qa249_disagreement_auto_close.sql'
+      - '.github/workflows/qa249-closure-email.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa249:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: No production email - offline proof
+        run: |
+          set -euo pipefail
+          node --check worker/src/index.js
+          node admin/tests/qa249-closure-appeals.mjs
+          node admin/tests/qa248-exclusive-views.mjs
+          node worker/tests/response-delivery.mjs
+          node worker/tests/verified-delivery.mjs
+          node worker/tests/qa243-scheduled.mjs
+          node worker/tests/qa247-public-nav.mjs
+          npm run verify
+          echo 'QA249 PASS | email template, no external mail, role isolation and 15 day eligibility'

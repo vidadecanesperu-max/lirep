@@ -22,6 +22,7 @@ jobs:
           node --check worker/src/index.js
           node worker/tests/onboarding.mjs
           node worker/tests/response-delivery.mjs
+          node admin/tests/qa249-closure-appeals.mjs
           node worker/tests/verified-delivery.mjs
           node worker/tests/qa233-official-email.mjs
           node worker/tests/qa234-tracking.mjs

@@ -26,7 +26,7 @@ assert.match(js,/\/api\/v1\/admin\/response-delivery\/refresh/);
 assert.match(js,/new Date\(\)\.toLocaleTimeString\('es-PE'\)/);
 assert.match(js,/lastChecked=channelState\?\.provider_checked_at/);
 assert.match(js,/providerStatus==='not_due'/);
-assert.match(js,/Promise\.allSettled\(\[loadCaseTracking\(\),loadFormalResponses\(\)\]\)/);
+assert.match(js,/Promise\.allSettled\(\[loadCaseTracking\(\),\(async\(\)=>\{await loadFormalResponses\(\);await loadDisagreements\(\)\}\)\(\)\]\)/);
 assert.match(js,/button\.textContent=normalLabel/);
 assert.doesNotMatch(js,/\b(?:confirm|prompt|alert)\s*\(/);
 const sql=fs.readFileSync(new URL("../../supabase/migrations/20261120085000_lirep_qa246_live_evidence.sql",import.meta.url),"utf8");

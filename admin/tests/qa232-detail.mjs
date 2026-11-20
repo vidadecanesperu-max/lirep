@@ -32,6 +32,8 @@ function boot(){
      {id:orgB,role:"company_admin",name:"Org B",prefix:"BTEST001"}],
      lirep_admin_company_memberships:[],lirep_admin_list_invitations:[],
      lirep_admin_case_entries_list:[],
+     lirep_admin_disagreements_list:[],
+     lirep_admin_disagreements_summary:{closed:0,appealed:0,appeals_pending:0},
      lirep_admin_a10_list:[{id:"ffffffff-ffff-4fff-8fff-ffffffffffff",status:"approved",submitted_at:"2026-11-19T19:09:00Z",body:"Respuesta validada en entorno QA",submitted_by:uid}],
      lirep_admin_response_delivery_status:[{response_id:"ffffffff-ffff-4fff-8fff-ffffffffffff",status:"pending",attempts:0}],
      lirep_admin_case_tracking:{status:'submitted',official_delivery_method:'postal',history:[{status:'submitted',changed_at:'2026-11-19T00:00:00Z'}],due_at:'2026-12-01'}};
