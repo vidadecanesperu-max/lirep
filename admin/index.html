@@ -124,14 +124,15 @@
     <button type="button" data-section="summaryPanel">Resumen general</button>
     <button type="button" data-section="complaintsPanel">Reclamaciones</button>
     <div class="lirep-nav-divider" aria-hidden="true"></div>
-    <button type="button" data-section="detailPanel" data-case-nav hidden>Expediente</button>
-    <button type="button" data-section="responseViewPanel" data-case-nav hidden>Respuesta y seguimiento</button>
-    <button type="button" data-section="notesViewPanel" data-case-nav hidden>Notas internas</button>
+    <button type="button" data-section="detailPanel" data-case-nav>Expediente</button>
+    <button type="button" data-section="responseViewPanel" data-case-nav>Respuesta y seguimiento</button>
+    <button type="button" data-section="notesViewPanel" data-case-nav>Notas internas</button>
     <div class="lirep-nav-divider" aria-hidden="true"></div>
     <button type="button" data-section="membersPanel">Usuarios y permisos</button>
   </nav>
 </aside><div class="lirep-workspace-content"><div class="panel" id="introPanel" data-workspace-panel data-view-hidden="false"><div class="actions"><h1 style="margin:0;flex:1">Panel administrativo</h1><button id="logout">Cerrar sesión</button></div><p id="who"></p><label>Empresa<br><select id="org"></select></label><p id="status" role="status"></p></div>
 <div class="panel" id="summaryPanel" data-workspace-panel data-view-hidden="true"><h2>Resumen</h2><div id="metrics" class="metrics"></div><p><small>«Apelados» contabiliza reclamaciones con disconformidad registrada ante la empresa. No equivale a una apelación formal ante Indecopi.</small></p></div><div class="panel" id="complaintsPanel" data-workspace-panel data-view-hidden="true"><h2>Reclamaciones</h2><div class="scroll"><table><thead><tr><th>Código</th><th>Tipo</th><th>Estado</th><th>Registro</th><th>Vencimiento</th><th></th></tr></thead><tbody id="complaints"></tbody></table></div></div>
+<div class="panel" id="caseEmptyPanel" data-workspace-panel data-view-hidden="true"><h2 id="caseEmptyTitle">Expediente</h2><p id="caseEmptyText" role="status">No existen reclamaciones o expedientes registrados para esta empresa.</p></div>
 <div class="panel" id="detailPanel" data-workspace-panel data-view-hidden="true" hidden><div class="actions" style="align-items:center;margin-bottom:18px"><h2 style="margin:0;flex:1">Detalle de reclamación</h2><button id="closeDetail" type="button" aria-label="Cerrar detalle de reclamación">Cerrar detalle</button></div><div id="detail" class="detail-grid"></div></div><div class="panel" id="responseViewPanel" data-workspace-panel data-view-hidden="true" hidden><section id="formalResponsePanel" class="detail-box reply-tracking-panel" hidden><h3>Respuesta y seguimiento del expediente</h3><div id="caseTrackingPanel" class="tracking-overview"><div id="caseTrackingSummary"></div><p id="caseResponseDeliveryStatus" role="status" aria-live="polite">Consultando el estado de la respuesta...</p><p id="caseAutoCloseStatus" role="status" aria-live="polite"></p><details id="caseTrackingHistory" class="tracking-details"><summary>Ver historial de estados</summary><div id="caseTrackingTimeline"></div></details><div class="actions" id="caseStatusActions"></div><div class="actions refresh-row"><button id="refreshCaseDelivery" type="button">Actualizar estado y entrega</button><span id="caseRefreshStatus" role="status" aria-live="polite"></span></div><p id="providerVerifiedStatus" class="provider-checked"></p></div><p class="response-explainer"><small>Redacta la respuesta una sola vez. LIREP conserva la aprobación, la comunicación y su constancia. La aceptación del envío no confirma su entrega al destinatario.</small></p><form id="formalResponseForm"><label for="formalResponseText">Respuesta al consumidor</label><textarea id="formalResponseText" rows="7" style="width:100%" minlength="10" required></textarea><button id="formalResponseButton" type="submit">Responder y enviar</button></form><p id="formalResponseGuard" role="status" aria-live="polite" hidden></p><p id="formalResponseStatus" role="status" aria-live="polite"></p><h4 class="response-history-title">Respuesta oficial y constancia</h4><div id="formalResponseHistory"></div><div id="paperDeliveryPanel" class="detail-box" hidden><h3>Registrar comunicación por carta</h3><p><small>Adjunta a tu expediente una referencia verificable al despacho o constancia física. Registrar un envío no equivale a confirmar recepción.</small></p><form id="paperDeliveryForm"><input id="paperResponseId" type="hidden"><label>Actuación<select id="paperAction" required><option value="dispatched">Carta despachada</option><option value="delivered">Carta entregada (con constancia)</option><option value="returned">Carta devuelta / no entregada</option></select></label><label>Referencia documental o de courier<input id="paperReference" required minlength="5" maxlength="200" placeholder="Código de seguimiento / acta / cargo"></label><label>Detalle de la evidencia<textarea id="paperNote" rows="3" maxlength="2000" placeholder="Descripción del documento o constancia"></textarea></label><div class="actions"><button type="submit" id="paperSubmit">Guardar actuación</button><button type="button" id="paperCancel">Cancelar</button></div></form><p id="paperMessage" role="status"></p></div><div id="disagreementPanel" hidden><h3>Disconformidades del consumidor</h3><p><small>Registra la disconformidad recibida. Es seguimiento interno, no un recurso legal ante Indecopi. Mientras permanezca pendiente, se suspende el cierre automático.</small></p><div id="disagreementsList"></div><form id="disagreementForm" hidden><label for="disagreementBody">Detalle de disconformidad recibida</label><textarea id="disagreementBody" minlength="10" maxlength="4000" required placeholder="Qué comunicó el consumidor y por qué canal"></textarea><button id="disagreementSubmit" type="submit">Registrar disconformidad</button></form><p id="disagreementStatus" role="status" aria-live="polite"></p></div></section></div><div class="panel" id="notesViewPanel" data-workspace-panel data-view-hidden="true" hidden><h2>Notas y actuaciones internas</h2><div id="history"</div><p><small>Las notas y borradores se guardan internamente. No se envían automáticamente al consumidor.</small></p><h3>Añadir anotación interna</h3><form id="entryForm"><label>Tipo <select id="entryKind"><option value="internal_note">Nota interna</option><option value="response_draft">Borrador de respuesta (sin enviar)</option></select></label><label>Contenido<br><textarea id="entryBody" rows="4" style="width:100%" required></textarea></label><button>Guardar seguimiento</button></form></div>
 <div class="panel" id="membersPanel" data-workspace-panel data-view-hidden="true" hidden><h2>Usuarios de la empresa</h2><div class="members-layout"><section class="members-card"><h3>Colaboradores con acceso</h3><p>Usuarios autorizados y permisos de esta empresa.</p><div class="scroll"><table><thead><tr><th>Correo electrónico</th><th>Rol</th><th>Estado</th></tr></thead><tbody id="members"></tbody></table></div></section><section class="members-card"><h3>Invitar a un colaborador</h3><p>Asigna un rol y envía un enlace seguro de activación.</p><form id="memberForm"><label for="memberEmail">Correo electrónico<input id="memberEmail" type="email" placeholder="colaborador@empresa.com" autocomplete="email" required></label><label for="memberRole">Rol de acceso<select id="memberRole"><option value="viewer">Consulta · solo lectura</option><option value="operator">Operador · gestión</option><option value="company_admin">Administrador · gestión y usuarios</option></select></label><button id="inviteButton" type="submit">Enviar invitación</button></form><p id="inviteStatus" role="status" aria-live="polite"></p><small>El correo debe verificarse. Las invitaciones vencen en 7 días.</small></section></div><section class="members-card" style="margin-top:18px"><h3>Invitaciones pendientes</h3><div id="invites"></div></section></div>
 </div></div></section></main><footer class="site-footer">© <span id="copyrightYear">2026</span> 360 Integral Solutions · LIREP — Libro de Reclamaciones Virtual. Todos los derechos reservados.</footer>
@@ -191,14 +192,18 @@ sidebar.addEventListener('keydown',event=>{
   if(event.shiftKey&&document.activeElement===buttons[0]){event.preventDefault();buttons.at(-1).focus();}
   else if(!event.shiftKey&&document.activeElement===buttons.at(-1)){event.preventDefault();buttons[0].focus();}
 });
-const workspaceViewIds=['introPanel','summaryPanel','complaintsPanel','detailPanel','responseViewPanel','notesViewPanel','membersPanel'];
+const workspaceViewIds=['introPanel','summaryPanel','complaintsPanel','caseEmptyPanel','detailPanel','responseViewPanel','notesViewPanel','membersPanel'];
+let companyComplaintCount=0;
+const caseSections=['detailPanel','responseViewPanel','notesViewPanel'];
+const caseSectionLabels={detailPanel:'Expediente',responseViewPanel:'Respuesta y seguimiento',notesViewPanel:'Notas internas'};
 let activeWorkspaceView='introPanel';
 function updateCaseNavigation(){
-  const visible=!$('detailPanel').hidden;
-  for(const item of document.querySelectorAll?.('[data-case-nav]')||[])item.hidden=!visible;
-  $('responseViewPanel').hidden=!visible;
-  $('notesViewPanel').hidden=!visible;
-  if(!visible&&['detailPanel','responseViewPanel','notesViewPanel'].includes(activeWorkspaceView))showWorkspaceView('complaintsPanel',false);
+  // QA250: el menú es permanente; la existencia de expedientes solo modifica el contenido.
+  const hasSelectedCase=!!selectedComplaint&&!$('detailPanel').hidden;
+  for(const item of document.querySelectorAll?.('[data-case-nav]')||[])item.hidden=false;
+  $('responseViewPanel').hidden=!hasSelectedCase;
+  $('notesViewPanel').hidden=!hasSelectedCase;
+  if(!hasSelectedCase&&caseSections.includes(activeWorkspaceView))showWorkspaceView('caseEmptyPanel',false);
 }
 function markActiveSection(id){
   for(const item of sidebar.querySelectorAll?.('button[data-section]')||[]){
@@ -208,6 +213,13 @@ function markActiveSection(id){
 }
 function showWorkspaceView(id,scroll=true){
   if(!workspaceViewIds.includes(id))return false;
+  if(caseSections.includes(id)&&(!selectedComplaint||$(id).hidden)){
+    $('caseEmptyTitle').textContent=caseSectionLabels[id];
+    $('caseEmptyText').textContent=companyComplaintCount===0
+      ? 'No existen reclamaciones o expedientes registrados para esta empresa.'
+      : 'No hay un expediente seleccionado. Abre una reclamación desde la sección Reclamaciones para consultar su información.';
+    id='caseEmptyPanel';
+  }
   const target=$(id);
   if(!target||target.hidden)return false;
   activeWorkspaceView=id;
@@ -350,9 +362,11 @@ async function load(){
     $('detailPanel').hidden=true;updateCaseNavigation();showWorkspaceView('complaintsPanel',false);$('formalResponseText').value='';
   }
   selected=next;
+  companyComplaintCount=0;
   const orgId=next.id;
   const rows=await rpc('lirep_admin_list_complaints',{p_organization_id:orgId,p_limit:100});
   if(version!==loadVersion||selected?.id!==orgId)return;
+  companyComplaintCount=rows.length;
   $('complaints').innerHTML=rows.map(c=>
     '<tr><td>'+esc(publicCode(c.public_code))+'</td><td>'+esc(label(c.complaint_type))+
     '</td><td>'+esc(label(c.status))+'</td><td>'+esc(c.submitted_at?.slice(0,10))+
