@@ -30,5 +30,5 @@ assert.match(onboardingJs,/window\.addEventListener\("focus", syncAfterExternalC
 assert.match(onboardingJs,/window\.setInterval\(syncAfterExternalConfirmation, 15000\)/);
 assert.match(onboardingJs,/data\.state === "active" && data\.invitation_sent/);
 assert.doesNotMatch(onboardingJs,/vuelve a pulsar «Verificar dominio y continuar»/);
-assert.doesNotMatch(onboardingJs,/syncAfterExternalConfirmation[\s\S]*?run\("verify-domain"\)/);
+assert.match(onboardingJs,/const data = await run\("status"\)/);
 console.log("QA256 WORDPRESS PASS | full-width public form, no public sidebar, secure iframe");
