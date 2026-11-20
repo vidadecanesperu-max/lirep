@@ -1,0 +1,39 @@
+name: LIREP QA236 - Worker cron and secret names (read only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa236-worker-runtime-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify real Cloudflare cron and required Worker secret names
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT_ID: 6aa99604577aed2046cf3a569db95b3f
+          WORKER_NAME: lirep-public-api
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo '::error::Cloudflare credential missing'; exit 1; fi
+          BASE="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$WORKER_NAME"
+          curl --fail --silent --show-error -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$BASE/schedules" -o /tmp/lirep-schedules.json
+          if jq -e '.success == true and any(.result.schedules[]?; .cron=="*/5 * * * *")' /tmp/lirep-schedules.json >/dev/null; then
+            echo 'PASS | Worker cron */5 * * * * configured in Cloudflare'
+          else
+            echo '::error::Worker cron missing or not configured every five minutes'; exit 1
+          fi
+          curl --fail --silent --show-error -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$BASE/secrets" -o /tmp/lirep-secrets.json
+          if ! jq -e '.success==true' /tmp/lirep-secrets.json >/dev/null; then echo '::error::Cloudflare secrets API returned failure'; exit 1; fi
+          for name in RESEND_API_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            if jq -e --arg name "$name" 'any(.result[]?; .name==$name)' /tmp/lirep-secrets.json >/dev/null; then
+              echo "PASS | $name secret is configured on Worker"
+            else
+              echo "::error::Required Worker secret $name missing"; exit 1
+            fi
+          done
+          rm -f /tmp/lirep-schedules.json /tmp/lirep-secrets.json
+          echo 'QA236 PASS | no production updates, no secret values disclosed'
