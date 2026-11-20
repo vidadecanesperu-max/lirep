@@ -1,0 +1,18 @@
+import fs from "node:fs";
+import vm from "node:vm";
+import assert from "node:assert/strict";
+const source=fs.readFileSync(new URL("../index.html",import.meta.url),"utf8");
+const script=source.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1]?.trimStart().replace(/^import[^\n]+\n/,"");
+assert.ok(script);
+new vm.Script(script,{filename:"admin/index.html"});
+assert.match(script,/r\.status==='approved'&&\s*caseTracking\?\.official_delivery_method!=='postal'/);
+assert.match(script,/data-process/);
+assert.match(script,/\['pending','retry'\]\.includes\(d\?\.status\)/);
+assert.match(script,/permitted\?/);
+assert.match(script,/lastFormalResponses\.some\(r=>r\.id===responseId&&r\.status==='approved'\)/);
+assert.match(script,/lirepConfirm\(\{\s*title:'Procesar correo oficial pendiente'/);
+assert.match(script,/organization_id:orgId,response_id:responseId/);
+assert.match(script,/Authorization':'Bearer '\+session\.access_token/);
+assert.match(script,/refreshCaseStatus\(\)/);
+assert.doesNotMatch(script,/\b(?:confirm|alert|prompt)\s*\(/);
+console.log("QA244 admin PASS | approved-only targeted action and custom user confirmation");

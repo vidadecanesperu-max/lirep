@@ -26,6 +26,7 @@ jobs:
           node worker/tests/qa233-official-email.mjs
           node worker/tests/qa234-tracking.mjs
           node worker/tests/qa243-scheduled.mjs
+          node worker/tests/qa244-admin-delivery.mjs
           npm run verify
           grep -Fq '"name": "lirep-public-api"' worker/wrangler.jsonc
       - name: Ensure existing Cloudflare credential

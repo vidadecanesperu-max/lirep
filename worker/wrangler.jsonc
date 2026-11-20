@@ -11,6 +11,7 @@
   "vars": {
     "ALLOWED_ORIGINS": "https://vidadecanes.pe",
     "SUPABASE_URL": "https://hiidqmrgrioidvemixfe.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_j85TVkmeDJ3Qn31Ueyp0-g_t03SWOwW",
     "LIREP_ENABLE_MULTIEMPRESA_EMAIL": "true",
     "LIREP_ONBOARDING_ENABLED": "true",
     "LIREP_APPROVED_FROM_EMAIL": "lirep@mail.vidadecanes.pe"
