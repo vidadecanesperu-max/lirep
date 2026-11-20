@@ -432,7 +432,7 @@ $('formalResponseHistory').addEventListener('click',async e=>{
         method:'POST',
         headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
         body:JSON.stringify({organization_id:orgId,response_id:responseId}),
-        signal:AbortSignal.timeout(25000)
+        signal:AbortSignal.timeout(90000)
       });
       const content=await result.json().catch(()=>null);
       if(!result.ok)throw new Error(({AUTH_REQUIRED:'Sesión no disponible.',ADMIN_ACCESS_DENIED:'No tienes permisos para procesar esta respuesta.',RATE_LIMITED:'Demasiados intentos; prueba después.',SERVICE_UNAVAILABLE:'No fue posible contactar al servicio de correo.'})[content?.error]||'No se pudo procesar el envío.');
