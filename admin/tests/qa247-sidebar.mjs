@@ -17,7 +17,7 @@ assert.match(page,/#dashboard \.lirep-sidebar\[data-open="true"\]/);
 assert.match(script,/function openSidebar\(\)/);
 assert.match(script,/function closeSidebar\(\)/);
 assert.match(script,/event\.key==='Escape'/);
-assert.match(script,/event\.key==='Tab'/);
+assert.match(script,/event\.key!=='Tab'/);
 assert.match(script,/event\.shiftKey/);
 assert.match(script,/updateCaseNavigation\(\)/);
 assert.match(script,/target\.scrollIntoView\?\./);
