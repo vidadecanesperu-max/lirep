@@ -29,6 +29,7 @@ async function testScenario(providerStatus=200) {
       const body=JSON.parse(opts.body||"{}");
       calls.push({rpc,body});
       if(rpc==="lirep_admin_response_evidence_claim")return Response.json(null);
+      if(rpc==="lirep_internal_auto_close_due")return Response.json({ok:true,closed_count:0});
       if(rpc==="lirep_admin_response_delivery_claim"){
         if(claimed)return Response.json(null);
         claimed=true;return Response.json(job);
@@ -56,6 +57,14 @@ assert.equal(accepted.mail.length,1,"one and only one email");
 assert.equal(accepted.mail[0].headers["Idempotency-Key"],"lirep-response-"+responseId);
 assert.equal(accepted.mail[0].body.to[0],"consumer@example.com");
 assert.ok(accepted.mail[0].body.html.includes("&lt;su pedido&gt;"));
+assert.match(accepted.mail[0].body.html, /LIREP/);
+assert.match(accepted.mail[0].body.html, /#142640/);
+assert.match(accepted.mail[0].body.html, /#f3f6fa/);
+assert.match(accepted.mail[0].body.html, /360 Integral Solutions/);
+assert.match(accepted.mail[0].body.html, /15 días calendario/);
+assert.match(accepted.mail[0].body.html, /Libro de Reclamaciones Virtual/);
+assert.match(accepted.mail[0].body.text, /15 días calendario/);
+assert.ok(accepted.calls.some(c=>c.rpc==="lirep_internal_auto_close_due"));
 assert.ok(!accepted.mail[0].body.html.includes("<su pedido>"));
 assert.ok(accepted.calls.some(c=>c.rpc==="lirep_admin_response_delivery_complete"&&
   c.body.p_success===true&&c.body.p_provider_message_id==="provider-test-001"));
