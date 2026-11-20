@@ -214,7 +214,17 @@ function lirep_onboarding_page() {
           <p>Identificador asignado: <strong><?php echo esc_html($prefix); ?></strong></p>
           <p>Dominio de WordPress: <code><?php echo esc_html($domain); ?></code></p>
           <p>Inserta <code>[lirep]</code> en una página, entrada o widget Shortcode de Elementor.</p>
-          <p><a href="<?php echo esc_url(LIREP_PROD_BASE . '/libro-de-reclamaciones?public_prefix=' . rawurlencode($prefix)); ?>" target="_blank" rel="noopener noreferrer">Abrir formulario</a></p>
+          <?php
+          // QA253: enlazar exclusivamente a la página pública de este WordPress,
+          // sin sacar al consumidor al endpoint técnico del Worker.
+          $public_page = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page');
+          $public_url = $public_page && 'publish' === $public_page->post_status ? get_permalink($public_page) : '';
+          ?>
+          <?php if ($public_url) : ?>
+            <p><a href="<?php echo esc_url($public_url); ?>" target="_blank" rel="noopener noreferrer">Abrir formulario</a></p>
+          <?php else : ?>
+            <p class="description">Publica una página «Libro de Reclamaciones» con el shortcode [lirep] para habilitar el enlace público.</p>
+          <?php endif; ?>
           <p><a class="button button-primary" href="<?php echo esc_url('https://lirep.360insol.com/?public_prefix=' . rawurlencode($prefix)); ?>" target="_blank" rel="noopener noreferrer">Administrar reclamaciones</a></p>
           <p class="description">Acceso administrativo exclusivo para usuarios autorizados. La activación requiere confirmar el correo de la empresa.</p>
         </section>
