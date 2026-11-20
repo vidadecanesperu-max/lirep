@@ -498,6 +498,60 @@ async function callSupabase(payload, env) {
  * Los reintentos son idempotentes ante Resend; los envíos ambiguos en estado
  * 'sending' nunca se reclaman nuevamente de forma automática.
  */
+/* QA249 — approved LIREP corporate HTML identity for official response only.
+ * This changes FUTURE emails; never re-queues nor changes approved responses.
+ * The outgoing subject/recipient/idempotency key remain unmodified.
+ */
+function renderLIREPOfficialResponseEmail({company_name,public_code,body}) {
+  const company=String(company_name||"Proveedor").slice(0,180);
+  const code=displayComplaintCode(public_code);
+  const response=String(body||"").trim();
+  const safeCompany=escHtml(company),safeCode=escHtml(code);
+  const safeResponse=escHtml(response).replace(/\r?\n/g,"<br>");
+  const html='<!doctype html><html lang="es"><head><meta charset="UTF-8">'+
+    '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+    '<title>Respuesta oficial · LIREP</title></head>'+
+    '<body style="margin:0;padding:24px 10px;background:#f3f6fa;font-family:Arial,Helvetica,sans-serif;color:#18283e;">'+
+    '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:640px;margin:0 auto;border-collapse:collapse;">'+
+    '<tr><td style="padding:24px 28px;background:#142640;border-radius:12px 12px 0 0;color:#ffffff;">'+
+    '<div style="font-size:23px;font-weight:700;letter-spacing:.3px;">LIREP</div>'+
+    '<div style="font-size:12px;margin-top:6px;color:#dae4f2;">Libro de Reclamaciones Virtual</div></td></tr>'+
+    '<tr><td style="background:#fff;padding:30px 28px;border:1px solid #dfe6ed;">'+
+    '<h1 style="font-size:21px;line-height:1.35;color:#142640;margin:0 0 20px;">Respuesta oficial a su reclamación</h1>'+
+    '<p style="margin:0 0 9px;font-size:14px;"><strong>Empresa:</strong> '+safeCompany+'</p>'+
+    '<p style="margin:0 0 22px;font-size:14px;"><strong>Reclamación:</strong> '+safeCode+'</p>'+
+    '<div style="padding:20px;border-left:4px solid #142640;background:#f3f6fa;border-radius:5px;line-height:1.7;font-size:15px;">'+
+    safeResponse+'</div>'+
+    '<p style="font-size:14px;line-height:1.7;margin:23px 0 0;">La respuesta ha sido aprobada y comunicada por la empresa. Conserve este correo como constancia.</p>'+
+    '<p style="font-size:13px;line-height:1.65;color:#475569;margin:12px 0 0;">El expediente podrá cerrarse administrativamente después de 15 días calendario desde el envío, si la entrega está acreditada y no existe una disconformidad pendiente. Este cierre no restringe sus derechos como consumidor ni las vías de atención ante las autoridades competentes.</p>'+
+    '</td></tr>'+
+    '<tr><td style="background:#e9eef5;padding:20px 28px;border-radius:0 0 12px 12px;color:#52667e;font-size:12px;line-height:1.6;">'+
+    '<strong style="color:#142640;">360 Integral Solutions · LIREP</strong><br>'+
+    'Mensaje automático. Para consultas o disconformidades, comuníquese con la empresa por sus canales habituales. No responda a este remitente.'+
+    '</td></tr></table></body></html>';
+  const text='LIREP · Libro de Reclamaciones Virtual\n'+
+    'Respuesta oficial a su reclamación\n\n'+
+    'Empresa: '+company+'\nReclamación: '+code+'\n\n'+
+    response+'\n\nLa respuesta ha sido aprobada y comunicada por la empresa. Conserve este correo como constancia.\n'+
+    'El expediente podrá cerrarse administrativamente después de 15 días calendario desde el envío, si la entrega está acreditada y no existe una disconformidad pendiente. Este cierre no restringe sus derechos como consumidor.\n'+
+    'Para consultas o disconformidades, comuníquese con la empresa por sus canales habituales.\n\n'+
+    '360 Integral Solutions · LIREP\nMensaje automático. No responda a este remitente.';
+  return {html,text,code};
+}
+
+async function autoCloseDueLIREPComplaints(env){
+  if(!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY)return {status:"configuration_missing"};
+  try{
+    const result=await lirepRpc("lirep_internal_auto_close_due",{p_limit:50},env);
+    console.info("LIREP_AUTO_CLOSE_CHECK",Number(result?.closed_count||0));
+    return result;
+  }catch(error){
+    // No consumer identifiers or secrets in logs.
+    console.error("LIREP_AUTO_CLOSE_FAILED",String(error?.message||"RPC_FAILED").slice(0,90));
+    return {status:"error"};
+  }
+}
+
 async function deliverApprovedResponses(env, specific = null) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error("LIREP_CRON_DELIVERY_MISSING_BINDING");
@@ -529,19 +583,7 @@ async function deliverApprovedResponses(env, specific = null) {
           typeof job.body !== "string" || job.body.length < 10) {
         throw Object.assign(new Error("LIREP_RESPONSE_JOB_INVALID"), { retryable: false });
       }
-      const company = String(job.company_name || "Proveedor").slice(0,180);
-      const code = displayComplaintCode(job.public_code);
-      const responseBody = job.body.trim();
-      const html = "<h2>Respuesta oficial del Libro de Reclamaciones</h2>" +
-        "<p><b>Empresa:</b> " + escHtml(company) + "</p>" +
-        "<p><b>Reclamación:</b> " + escHtml(code) + "</p>" +
-        "<p>" + escHtml(responseBody).replace(/\n/g, "<br>") + "</p>" +
-        "<p>Esta respuesta fue aprobada y enviada mediante LIREP.</p>" +
-        "<p>Conserve este correo como constancia de la comunicación.</p>" +
-        "<p>Mensaje automático. No responda a este remitente.</p>";
-      const plain = "Respuesta oficial del Libro de Reclamaciones\n" +
-        "Empresa: " + company + "\nReclamación: " + code + "\n\n" +
-        responseBody + "\n\nConserve este correo como constancia de la comunicación.";
+      const {html,text:plain,code}=renderLIREPOfficialResponseEmail(job);
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -714,6 +756,8 @@ export default {
     ctx.waitUntil(reconcileOfficialResponseEvents(env).catch(()=>console.error("LIREP_EVIDENCE_CRON_FAILED")));
 
     ctx.waitUntil(deliverApprovedResponses(env).catch(() => console.error("LIREP_RESPONSE_SCHEDULER_FAILED")));
+
+    ctx.waitUntil(autoCloseDueLIREPComplaints(env).catch(() => console.error("LIREP_AUTO_CLOSE_SCHEDULER_FAILED")));
 
     ctx.waitUntil((async () => {
       if (!env.RESEND_API_KEY) return;
