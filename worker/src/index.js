@@ -498,23 +498,28 @@ async function callSupabase(payload, env) {
  * Los reintentos son idempotentes ante Resend; los envíos ambiguos en estado
  * 'sending' nunca se reclaman nuevamente de forma automática.
  */
-async function deliverApprovedResponses(env) {
+async function deliverApprovedResponses(env, specific = null) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error("LIREP_CRON_DELIVERY_MISSING_BINDING");
-    return;
+    return {status:"configuration_missing"};
   }
   console.info("LIREP_CRON_DELIVERY_START");
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < (specific?1:5); i++) {
     let job;
     try {
-      job = await lirepRpc("lirep_admin_response_delivery_claim", {}, env);
+      job = specific
+        ? await lirepRpc("lirep_admin_response_delivery_claim_one", {
+            p_organization_id: specific.organizationId,
+            p_response_id: specific.responseId
+          }, env)
+        : await lirepRpc("lirep_admin_response_delivery_claim", {}, env);
     } catch (error) {
       console.error("LIREP_RESPONSE_CLAIM_FAILED", String(error?.message || "RPC_FAILED").slice(0,100));
-      return;
+      return {status:"claim_error"};
     }
     if (!job) {
       console.info("LIREP_CRON_DELIVERY_NO_DUE_JOB");
-      return;
+      return {status:"not_pending"};
     }
     console.info("LIREP_CRON_DELIVERY_CLAIMED");
     let providerAccepted = false;
@@ -569,28 +574,33 @@ async function deliverApprovedResponses(env) {
         p_error: null,
         p_retryable: false
       }, env);
+      if (specific) return {status:"accepted"};
     } catch (error) {
       if (providerAccepted) {
         // Nunca declarar fallo del correo cuando Resend ya lo aceptó:
         // requiere conciliación del registro, sin reenviar.
         console.error("LIREP_RESPONSE_ACCEPTED_RECORD_PENDING", job.queue_id);
+        if (specific) return {status:"accepted_reconciliation_pending"};
         continue;
       }
       const retryable = error?.retryable !== false;
       const safeError = String(error?.message || "EMAIL_UNAVAILABLE").slice(0,150);
       try {
-        await lirepRpc("lirep_admin_response_delivery_complete", {
+        const completed=await lirepRpc("lirep_admin_response_delivery_complete", {
           p_queue_id: job.queue_id,
           p_success: false,
           p_provider_message_id: null,
           p_error: safeError,
           p_retryable: retryable
         }, env);
+        if (specific) return {status:completed?.status||"failed"};
       } catch {
         console.error("LIREP_RESPONSE_FAILURE_RECORD_PENDING", job.queue_id);
+        if(specific)return {status:"record_error"};
       }
     }
   }
+  return {status:"completed"};
 }
 
 
