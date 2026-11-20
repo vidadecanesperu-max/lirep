@@ -73,7 +73,7 @@ function lirep_onboarding_call($route, $payload) {
         return new WP_Error('lirep_invalid_route', 'Operación no permitida.');
     }
     $response = wp_remote_post(LIREP_PROD_BASE . '/api/v1/onboarding/' . $route, array(
-        'timeout' => 30,
+        'timeout' => 'status' === $route ? 8 : 30,
         'redirection' => 0,
         'sslverify' => true,
         'headers' => array('Content-Type' => 'application/json', 'Accept' => 'application/json'),
@@ -88,6 +88,39 @@ function lirep_onboarding_call($route, $payload) {
     }
     return $result;
 }
+
+/**
+ * QA256: activar el prefijo local únicamente si LIREP confirma la activación.
+ * La página WordPress se recupera automáticamente al volver del correo.
+ * Nunca se confía en datos proporcionados por el navegador para el prefijo.
+ */
+function lirep_onboarding_apply_verified_status($status) {
+    if (!is_array($status) || ($status['state'] ?? '') !== 'active'
+        || empty($status['invitation_sent'])) { return false; }
+    $prefix = lirep_valid_prefix($status['public_prefix'] ?? '');
+    if ('' === $prefix) { return false; }
+    update_option('lirep_public_prefix', $prefix, false);
+    if (get_option('lirep_public_prefix', '') !== $prefix) { return false; }
+    delete_option('lirep_onboarding_state');
+    return true;
+}
+
+/** Sin botones manuales ni reenvíos: sincroniza en Ajustes > LIREP. */
+function lirep_onboarding_sync_on_admin_open() {
+    if (!is_admin() || !current_user_can('manage_options')
+        || !isset($_GET['page']) || sanitize_key(wp_unslash($_GET['page'])) !== 'lirep') { return; }
+    if (lirep_valid_prefix(get_option('lirep_public_prefix', '')) !== '') { return; }
+    $pending = get_option('lirep_onboarding_state', array());
+    if (!is_array($pending) || empty($pending['id']) || empty($pending['status_token'])) { return; }
+    $host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+    if (empty($pending['domain']) || strtolower((string) $pending['domain']) !== $host) { return; }
+    $result = lirep_onboarding_call('status', array(
+        'id' => $pending['id'], 'status_token' => $pending['status_token'],
+    ));
+    if (is_wp_error($result)) { return; } // Sin cambios destructivos si falla la red.
+    lirep_onboarding_apply_verified_status($result['state'] ?? array());
+}
+add_action('admin_init', 'lirep_onboarding_sync_on_admin_open', 20);
 
 function lirep_onboarding_ajax() {
     if (!current_user_can('manage_options')) {
@@ -160,14 +193,7 @@ function lirep_onboarding_ajax() {
         wp_send_json_success(array('message' => 'Activación anterior cancelada. Puedes comenzar nuevamente.'));
     }
     $status = isset($result['state']) && is_array($result['state']) ? $result['state'] : array();
-    if (isset($status['state'], $status['invitation_sent'], $status['public_prefix']) &&
-        'active' === $status['state'] && true === $status['invitation_sent']) {
-        $prefix = lirep_valid_prefix($status['public_prefix']);
-        if ($prefix) {
-            update_option('lirep_public_prefix', $prefix, false);
-            delete_option('lirep_onboarding_state');
-        }
-    }
+    lirep_onboarding_apply_verified_status($status);
     wp_send_json_success(array(
         'notice' => isset($result['notice']) ? sanitize_key($result['notice']) : '',
         'state' => isset($status['state']) ? sanitize_key($status['state']) : 'pending',
