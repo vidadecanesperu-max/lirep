@@ -112,7 +112,7 @@ function lirepDialog({title,text,accept='Confirmar',danger=false,reasonRequired=
 async function lirepConfirm(options){return (await lirepDialog(options)).confirmed}
 async function closeDetail(){
   const text=$('formalResponseText').value.trim();
-  if(text&&!confirm('El texto de respuesta todavía no ha sido guardado. ¿Cerrar el detalle y descartar el texto?'))return;
+  if(text&&!(await lirepConfirm({title:'Descartar texto sin guardar',text:'El texto todavía no se ha guardado. Si cierras el detalle, se descartará.',accept:'Descartar y cerrar',danger:true})))return;
   detailVersion++;
   persistOpenCase(selected?.id,null);
   selectedComplaint=null;
@@ -291,7 +291,9 @@ async function loadCaseTracking(){
 }
 $('caseStatusActions').addEventListener('click',async e=>{
   const button=e.target.closest('button[data-status]');if(!button||!selectedComplaint)return;
-  if(!confirm('¿Registrar este cambio de estado en el expediente?'))return;
+  const orgId=selected.id,caseId=selectedComplaint,target=button.dataset.status;
+  if(!(await lirepConfirm({title:'Cambiar estado del reclamo',text:target==='closed'?'¿Cerrar este expediente? Su historial y sus constancias permanecerán disponibles.':'¿Registrar el inicio de atención de este reclamo?',accept:target==='closed'?'Cerrar expediente':'Registrar cambio'})))return;
+  if(selected?.id!==orgId||selectedComplaint!==caseId)return;
   button.disabled=true;
   try{
     await rpc('lirep_admin_case_status_update',{
@@ -316,7 +318,10 @@ $('paperDeliveryForm').addEventListener('submit',async e=>{
   if(button.disabled||!selectedComplaint)return;
   const action=$('paperAction').value,reference=$('paperReference').value.trim(),note=$('paperNote').value.trim();
   if((action==='delivered'||action==='returned')&&note.length<10){message('paperMessage','Describe el documento que acredita la actuación (mínimo 10 caracteres).',true);return}
-  if(!confirm('¿Registrar '+(action==='delivered'?'entrega documentada':action==='dispatched'?'despacho':'devolución')+' con esta referencia?'))return;
+  const orgId=selected.id,caseId=selectedComplaint;
+  const description=action==='delivered'?'la entrega documentada':action==='dispatched'?'el despacho de la carta':'la devolución de la carta';
+  if(!(await lirepConfirm({title:'Registrar comunicación por carta',text:'¿Confirmas '+description+' con la referencia '+reference+'? Esta actuación quedará en el historial.',accept:'Guardar actuación',danger:action==='returned'})))return;
+  if(selected?.id!==orgId||selectedComplaint!==caseId)return;
   button.disabled=true;
   try{
     await rpc('lirep_admin_record_paper_delivery',{
@@ -362,9 +367,19 @@ $('formalResponseHistory').addEventListener('click',async e=>{
   if(button.dataset.paper){$('paperResponseId').value=button.dataset.paper;$('paperDeliveryPanel').hidden=false;$('paperDeliveryPanel').scrollIntoView({block:'nearest'});return}
   const approve=!!button.dataset.approve,id=button.dataset.approve||button.dataset.reject;
   if(!id)return;
-  const note=approve?null:prompt('Indique el motivo del rechazo:');
-  if(!approve&&!note?.trim())return;
-  if(!confirm(approve?(caseTracking?.official_delivery_method==='postal'?'¿Aprobar esta respuesta? Quedará pendiente de entrega por carta.':'¿Aprobar esta respuesta? Se programará su envío oficial por correo.'):'¿Rechazar la propuesta?'))return;
+  const orgId=selected.id,caseId=selectedComplaint;
+  const reply=await lirepDialog({
+    title:approve?'Aprobar respuesta oficial':'Rechazar respuesta propuesta',
+    text:approve?
+      (caseTracking?.official_delivery_method==='postal'
+       ?'La respuesta quedará aprobada y pendiente de entrega física. Aprobar no significa que el consumidor la haya recibido.'
+       :'La respuesta quedará aprobada y se programará su envío oficial por correo. Esta decisión no puede deshacerse.')
+      :'Escribe el motivo del rechazo. Quedará registrado en el expediente.',
+    accept:approve?'Aprobar respuesta':'Rechazar propuesta',
+    danger:!approve,reasonRequired:!approve
+  });
+  if(!reply.confirmed||selected?.id!==orgId||selectedComplaint!==caseId)return;
+  const note=approve?null:reply.note;
   button.disabled=true;
   try{
     await rpc('lirep_admin_a10_review',{p_organization_id:selected.id,p_response_id:id,p_approve:approve,p_note:note});
@@ -376,7 +391,9 @@ $('formalResponseForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const button=$('formalResponseButton'),body=$('formalResponseText').value.trim();
   if(button.disabled||!selectedComplaint||body.length<10)return;
-  if(!confirm('Se registrará el borrador en el expediente y se solicitará aprobación. ¿Continuar?'))return;
+  const orgId=selected.id,caseId=selectedComplaint;
+  if(!(await lirepConfirm({title:'Enviar propuesta a aprobación',text:'Se guardará el borrador y se enviará a aprobación. Todavía no se notificará al consumidor.',accept:'Guardar propuesta'})))return;
+  if(selected?.id!==orgId||selectedComplaint!==caseId)return;
   button.disabled=true;
   try{
     const same=pendingDraft&&pendingDraft.organization_id===selected.id&&pendingDraft.complaint_id===selectedComplaint&&pendingDraft.body===body;
