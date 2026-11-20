@@ -399,18 +399,59 @@ async function loadFormalResponses(){
     const review=(r.status==='pending_approval'&&permitted)?
       '<div class="actions"><button type="button" data-approve="'+esc(r.id)+'">'+(r.submitted_by===currentUserId?'Aprobar mi respuesta':'Aprobar')+'</button><button type="button" data-reject="'+esc(r.id)+'">Rechazar</button></div>':'';
     const paper=r.status==='approved'&&caseTracking?.official_delivery_method==='postal'?'<div class="actions"><button type="button" data-print="'+esc(r.id)+'">Imprimir carta</button>'+(['company_admin','platform_admin','operator'].includes(selected.role)?'<button type="button" data-paper="'+esc(r.id)+'">Registrar envío o entrega</button>':'')+'</div>':'';
+    const processAction=r.status==='approved'&&
+      caseTracking?.official_delivery_method!=='postal'&&
+      ['pending','retry'].includes(d?.status)&&permitted?
+      '<div class="actions"><button type="button" data-process="'+esc(r.id)+'">Procesar envío pendiente</button></div>':'';
     const delivery=d?'<p><b>Entrega:</b> '+esc(deliveryLabel[d.status]||d.status)+
       (d.sent_at?' · Aceptado: '+esc(new Date(d.sent_at).toLocaleString('es-PE')):'')+(d.delivery_confirmed_at?' · Entregado: '+esc(new Date(d.delivery_confirmed_at).toLocaleString('es-PE')):'')+
       (d.provider_message_id?' · Referencia Resend: '+esc(d.provider_message_id):'')+
       (d.last_error?' · Incidencia: '+esc(d.last_error):'')+'</p>':'';
     return '<div class="timeline"><b>'+esc(deliveryLabel[r.status]||r.status)+'</b> · '+esc(date(r.submitted_at))+
-      '<p>'+esc(r.body).replace(/\n/g,'<br>')+'</p>'+(r.reviewed_at?'<p><small>Revisada: '+esc(new Date(r.reviewed_at).toLocaleString('es-PE'))+(r.review_note?' · '+esc(r.review_note):'')+'</small></p>':'')+delivery+review+paper+'</div>';
+      '<p>'+esc(r.body).replace(/\n/g,'<br>')+'</p>'+(r.reviewed_at?'<p><small>Revisada: '+esc(new Date(r.reviewed_at).toLocaleString('es-PE'))+(r.review_note?' · '+esc(r.review_note):'')+'</small></p>':'')+delivery+review+paper+processAction+'</div>';
   }).join(''):'<p>Todavía no hay respuestas oficiales propuestas.</p>';
 }
 $('formalResponseHistory').addEventListener('click',async e=>{
   const button=e.target.closest('button');if(!button)return;
   if(button.dataset.print){const entry=lastFormalResponses.find(x=>x.id===button.dataset.print);if(entry)printFormalLetter(entry);return}
   if(button.dataset.paper){$('paperResponseId').value=button.dataset.paper;$('paperDeliveryPanel').hidden=false;$('paperDeliveryPanel').scrollIntoView({block:'nearest'});return}
+  if(button.dataset.process){
+    const orgId=selected?.id,caseId=selectedComplaint,responseId=button.dataset.process;
+    if(!orgId||!caseId||!lastFormalResponses.some(r=>r.id===responseId&&r.status==='approved'))return;
+    if(!(await lirepConfirm({
+      title:'Procesar correo oficial pendiente',
+      text:'Se intentará enviar la respuesta aprobada mediante Resend. Si el correo ya fue procesado, la cola impedirá un segundo envío. Esta acción envía un correo real al consumidor.',
+      accept:'Procesar correo'
+    })))return;
+    if(selected?.id!==orgId||selectedComplaint!==caseId)return;
+    button.disabled=true;
+    try{
+      const {data:{session}}=await db.auth.getSession();
+      if(!session?.access_token)throw new Error('La sesión ha vencido. Inicia sesión nuevamente.');
+      const result=await fetch('https://lirep-public-api.vidadecanes-peru.workers.dev/api/v1/admin/response-delivery/process',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
+        body:JSON.stringify({organization_id:orgId,response_id:responseId}),
+        signal:AbortSignal.timeout(25000)
+      });
+      const content=await result.json().catch(()=>null);
+      if(!result.ok)throw new Error(({AUTH_REQUIRED:'Sesión no disponible.',ADMIN_ACCESS_DENIED:'No tienes permisos para procesar esta respuesta.',RATE_LIMITED:'Demasiados intentos; prueba después.',SERVICE_UNAVAILABLE:'No fue posible contactar al servicio de correo.'})[content?.error]||'No se pudo procesar el envío.');
+      const messages={
+        accepted:'Resend aceptó el correo. Espera la confirmación de entrega en el seguimiento.',
+        not_pending:'La cola ya no tiene un envío pendiente para esta respuesta. Revisa el estado.',
+        retry:'El proveedor no aceptó el envío; LIREP registró un reintento.',
+        failed:'El proveedor rechazó el envío. Revisa la incidencia antes de continuar.',
+        accepted_reconciliation_pending:'Resend aceptó el mensaje, pero falta conciliar su registro. No lo reenvíes.',
+        record_error:'Existe una incidencia al registrar el resultado. No repitas esta acción.',
+        claim_error:'No pudo reclamarse la cola. Revisa la incidencia.',
+        configuration_missing:'El servicio de correo no está configurado; no se realizó ningún envío.'
+      };
+      message('formalResponseStatus',messages[content?.status]||'Operación finalizada; revisa el seguimiento.');
+      await refreshCaseStatus();
+    }catch(error){message('formalResponseStatus',error.message,true)}
+    finally{button.disabled=false}
+    return;
+  }
   const approve=!!button.dataset.approve,id=button.dataset.approve||button.dataset.reject;
   if(!id)return;
   const orgId=selected.id,caseId=selectedComplaint;
