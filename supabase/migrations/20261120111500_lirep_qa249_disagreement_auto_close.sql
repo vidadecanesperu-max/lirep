@@ -41,6 +41,10 @@ BEGIN
   IF char_length(btrim(coalesce(p_description,''))) NOT BETWEEN 10 AND 4000 THEN
     RAISE EXCEPTION 'LIREP_DISAGREEMENT_TEXT_INVALID' USING ERRCODE='22023';
   END IF;
+  -- Serialize disagreement recording with the automatic closure transaction.
+  PERFORM 1 FROM public.complaints c
+  WHERE c.id=p_complaint_id AND c.organization_id=p_organization_id
+  FOR UPDATE OF c;
   IF NOT EXISTS (
     SELECT 1 FROM public.complaints c
     WHERE c.id=p_complaint_id AND c.organization_id=p_organization_id
