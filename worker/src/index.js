@@ -651,7 +651,9 @@ async function deliverApprovedResponses(env, specific = null) {
  * "delivered" es confirmación del servidor receptor, no de lectura del usuario.
  */
 async function reconcileOfficialResponseEvents(env, specific = null) {
-  if (!env.RESEND_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return {status:"configuration_missing"};
+  // QA255: usar credencial separada con acceso de lectura. La clave de envío
+  // RESEND_API_KEY permanece restringida y nunca se usa para GET /emails.
+  if (!env.RESEND_READ_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return {status:"read_credential_missing"};
   for (let i = 0; i < (specific?1:5); i++) {
     let task;
     try {
@@ -677,7 +679,7 @@ async function reconcileOfficialResponseEvents(env, specific = null) {
       const response = await fetch("https://api.resend.com/emails/" +
         encodeURIComponent(task.provider_message_id), {
         method:"GET",
-        headers:{Authorization:"Bearer "+env.RESEND_API_KEY,Accept:"application/json"},
+        headers:{Authorization:"Bearer "+env.RESEND_READ_API_KEY,Accept:"application/json"},
         signal:AbortSignal.timeout(12000)
       });
       if (!response.ok) throw new Error("RESEND_DELIVERY_LOOKUP_"+response.status);
