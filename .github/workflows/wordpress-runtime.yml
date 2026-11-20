@@ -75,7 +75,7 @@ jobs:
             delete_transient("lirep_onboarding_ready_v171");
             if (lirep_onboarding_is_ready()) { throw new Exception("DISABLED_ONBOARDING_SHOULD_FAIL_CLOSED"); }
             ob_start(); lirep_onboarding_page(); $disabledPage = ob_get_clean();
-            if (strpos($disabledPage, "Servicio de activación en preparación") === false ||
+            if (strpos($disabledPage, "No se pudo conectar con el servicio de activación") === false ||
                 strpos($disabledPage, "lirep-start-form") !== false) { throw new Exception("DISABLED_WIZARD_VISIBLE"); }
             $GLOBALS["lirep_mock_ready"] = true;
             delete_transient("lirep_onboarding_ready_v171");
