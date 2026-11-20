@@ -22,6 +22,7 @@ jobs:
           node admin/tests/qa232-detail.mjs
           node admin/tests/qa234-ui.mjs
           node admin/tests/qa235-custom-modals.mjs
+          node admin/tests/qa236-status.mjs
           grep -q 'signInWithOtp' admin/index.html
           grep -q 'lirep_admin_my_organizations' admin/index.html
           grep -q 'lirep_admin_response_delivery_status' admin/index.html
