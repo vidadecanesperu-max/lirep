@@ -83,7 +83,10 @@
 
     function requestHeight() {
       try {
-        if (frame.contentWindow) frame.contentWindow.postMessage({ type: 'lirep:measure' }, origin);
+        if (frame.contentWindow) {
+          frame.contentWindow.postMessage({ type: 'lirep:measure' }, origin);
+          if (nav && nav.querySelectorAll) frame.contentWindow.postMessage({type:'lirep:nav-shell',prefix:prefix},origin);
+        }
       } catch (_) { /* Cross-origin frames are expected. */ }
     }
     function handleMessage(event) {
