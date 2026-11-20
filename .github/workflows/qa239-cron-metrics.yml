@@ -1,0 +1,32 @@
+name: LIREP QA239 - Cron scheduled invocation metrics (read only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa239-cron-metrics.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Cloudflare scheduled Cron invocations without tenant data
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT_ID: 6aa99604577aed2046cf3a569db95b3f
+        run: |
+          set -euo pipefail
+          START=$(date -u -d '50 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          END=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          QUERY='query GetCron($accountTag: string, $start: string, $end: string) { viewer { accounts(filter: {accountTag: $accountTag}) { workersInvocationsScheduled(limit: 100, filter: {datetime_geq: $start, datetime_leq: $end}) { dimensions { cron scheduledDatetime scriptName status } } } } }'
+          jq -n --arg query "$QUERY" --arg account "$ACCOUNT_ID" --arg start "$START" --arg end "$END" '{query:$query,variables:{accountTag:$account,start:$start,end:$end}}' > /tmp/qa239-request.json
+          STATUS=$(curl --silent --show-error -o /tmp/qa239-result.json -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' -X POST --data-binary @/tmp/qa239-request.json https://api.cloudflare.com/client/v4/graphql)
+          if [ "$STATUS" != '200' ]; then echo "INFO | GraphQL HTTP status: $STATUS"; exit 0; fi
+          if jq -e '.errors != null and (.errors|length)>0' /tmp/qa239-result.json >/dev/null; then
+            jq -r '.errors[]?.message' /tmp/qa239-result.json | cut -c1-180
+          else
+            jq -r '[.data.viewer.accounts[]?.workersInvocationsScheduled[]? | select(.dimensions.scriptName=="lirep-public-api")] as $runs | "Worker scheduled invocations: " + ($runs|length|tostring), ($runs[] | "scheduled=" + (.dimensions.scheduledDatetime//"unknown") + " | status=" + (.dimensions.status//"unknown") + " | cron=" + (.dimensions.cron//"unknown"))' /tmp/qa239-result.json
+          fi
+          rm -f /tmp/qa239-request.json /tmp/qa239-result.json
+          echo 'QA239 complete | read-only metrics, no secrets or consumer records'
