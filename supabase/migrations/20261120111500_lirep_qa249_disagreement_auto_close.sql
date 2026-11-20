@@ -48,7 +48,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.complaints c
     WHERE c.id=p_complaint_id AND c.organization_id=p_organization_id
-      AND c.status IN ('responded','closed')
+      AND c.status IN ('in_review','responded','closed')
       AND EXISTS(
         SELECT 1 FROM public.lirep_admin_official_responses r
         WHERE r.organization_id=c.organization_id AND r.complaint_id=c.id AND r.status='approved')
@@ -128,6 +128,14 @@ BEGIN
     RAISE EXCEPTION 'LIREP_DISAGREEMENT_ACCESS_DENIED' USING ERRCODE='42501';
   END IF;
   SELECT jsonb_build_object(
+    'total',count(*),
+    'in_followup',count(*) FILTER (WHERE c.status NOT IN ('responded','closed')
+      OR EXISTS(SELECT 1 FROM public.lirep_case_disagreements d
+        WHERE d.organization_id=c.organization_id AND d.complaint_id=c.id AND d.status='open')),
+    'due_soon',count(*) FILTER (WHERE c.status NOT IN ('responded','closed')
+      AND c.response_due_at>=now() AND c.response_due_at<now()+INTERVAL '7 days'),
+    'overdue',count(*) FILTER (WHERE c.status NOT IN ('responded','closed')
+      AND c.response_due_at<now()),
     'closed',count(*) FILTER (WHERE c.status='closed'),
     'appealed',count(*) FILTER(WHERE EXISTS (
       SELECT 1 FROM public.lirep_case_disagreements d
