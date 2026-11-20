@@ -3,7 +3,7 @@
  * Plugin Name: LIREP - Libro de Reclamaciones Virtual Peru
  * Plugin URI: https://github.com/vidadecanesperu-max/lirep
  * Description: Libro de Reclamaciones LIREP multiempresa, compatible con WordPress, Gutenberg y Elementor. Los datos permanecen en LIREP.
- * Version: 1.7.3
+ * Version: 1.7.4
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: 360 Integral Solutions
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('LIREP_VERSION')) {
-    define('LIREP_VERSION', '1.7.3');
+    define('LIREP_VERSION', '1.7.4');
 }
 if (!defined('LIREP_PROD_BASE')) {
     define('LIREP_PROD_BASE', 'https://lirep-public-api.vidadecanes-peru.workers.dev');
@@ -111,61 +111,9 @@ function lirep_register_settings() {
 }
 add_action('admin_init', 'lirep_register_settings');
 
-function lirep_admin_menu() {
-    add_options_page('LIREP', 'LIREP', 'manage_options', 'lirep', 'lirep_settings_page');
-}
-add_action('admin_menu', 'lirep_admin_menu');
-
-function lirep_settings_page() {
-    if (!current_user_can('manage_options')) {
-        return;
-    }
-    ?>
-    <div class="wrap">
-      <h1>LIREP — Libro de Reclamaciones</h1>
-      <?php settings_errors(); ?>
-      <p>Conecta este sitio a la empresa habilitada en LIREP. No introduzcas claves de Supabase, API keys ni contraseñas.</p>
-      <form method="post" action="options.php">
-        <?php settings_fields('lirep_settings'); ?>
-        <table class="form-table" role="presentation">
-          <tr>
-            <th scope="row"><label for="lirep_public_prefix">Identificador público de empresa</label></th>
-            <td><input id="lirep_public_prefix" name="lirep_public_prefix" class="regular-text" type="text" maxlength="8" pattern="[A-Za-z0-9]{8}" autocomplete="off" value="<?php echo esc_attr(get_option('lirep_public_prefix', '')); ?>" />
-              <p class="description">Ocho caracteres asignados por LIREP. Ejemplo: VIDACANE. Es obligatorio para publicar el formulario.</p></td>
-          </tr>
-          <tr><th scope="row">Servicio de producción</th><td><code><?php echo esc_html(LIREP_PROD_BASE); ?></code><p class="description">Dirección fija; no editable por contenido o visitantes.</p></td></tr>
-          <tr><th scope="row"><label for="lirep_qa_public_prefix">Identificador de pruebas</label></th>
-            <td><input id="lirep_qa_public_prefix" name="lirep_qa_public_prefix" class="regular-text" type="text" maxlength="8" pattern="[A-Za-z0-9]{8}" value="<?php echo esc_attr(get_option('lirep_qa_public_prefix', 'LIREPQA1')); ?>" />
-              <p class="description">Solo para vista previa de administradores; nunca se sustituye por el identificador de producción.</p></td></tr>
-          <tr><th scope="row"><label for="lirep_qa_worker_url">Worker de pruebas</label></th>
-            <td><input id="lirep_qa_worker_url" name="lirep_qa_worker_url" class="regular-text" type="url" placeholder="https://nombre.cuenta.workers.dev" value="<?php echo esc_attr(get_option('lirep_qa_worker_url', '')); ?>" />
-              <p class="description">Opcional. Debe ser un Worker distinto de producción.</p></td></tr>
-          <tr><th scope="row">Actualizaciones automáticas de seguridad</th>
-            <td><input type="hidden" name="lirep_auto_security_updates" value="0" />
-              <label><input type="checkbox" name="lirep_auto_security_updates" value="1" <?php checked(get_option('lirep_auto_security_updates', '0'), '1'); ?> />
-              Instalar automáticamente versiones marcadas como actualización de seguridad por LIREP.</label>
-              <p class="description">Las versiones oficiales se consultan en GitHub y se verifica SHA-256 del paquete antes de instalarlo. Las actualizaciones normales siguen disponibles en Plugins. Se requiere una publicación oficial con ZIP y digest.</p></td></tr>
-        </table>
-        <?php submit_button('Guardar configuración'); ?>
-      </form>
-      <h2>Publicación automática</h2>
-      <?php $lirep_page = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page'); ?>
-      <?php if ($lirep_page && has_shortcode($lirep_page->post_content, 'lirep')) : ?>
-        <p>El libro ya está vinculado a la página pública:
-          <a href="<?php echo esc_url(get_permalink($lirep_page)); ?>" target="_blank" rel="noopener"><?php echo esc_html(get_permalink($lirep_page)); ?></a>.
-        </p>
-      <?php elseif (lirep_valid_prefix(get_option('lirep_public_prefix', ''))) : ?>
-        <p>La publicación se sincroniza automáticamente al guardar la configuración. Si existe una página manual con la misma dirección, no será sobrescrita.</p>
-      <?php else : ?>
-        <p>Ingresa el identificador público asignado por LIREP y guarda para habilitar la publicación automática.</p>
-      <?php endif; ?>
-      <h2>Insertar en WordPress y Elementor</h2>
-      <p>En cualquier página, entrada o widget Shortcode de Elementor Free/Pro utiliza <code>[lirep]</code>. Para una vista de QA exclusiva del administrador: <code>[lirep entorno="qa"]</code>.</p>
-      <p>El sitio debe estar autorizado para la empresa en LIREP. El plugin no registra ni procesa reclamaciones dentro de WordPress.</p>
-      <p>Versión instalada: <strong><?php echo esc_html(LIREP_VERSION); ?></strong>. Actualizaciones: <a href="<?php echo esc_url(admin_url('plugins.php')); ?>">Plugins</a>.</p>
-    </div>
-    <?php
-}
+// QA252: solo una pantalla administrativa: la activación de LIREP.
+// Las opciones técnicas permanecen registradas internamente para compatibilidad.
+// Se elimina el renderizado heredado y la inscripción duplicada del menú.
 
 function lirep_plugin_action_links($links) {
     array_unshift($links, '<a href="' . esc_url(admin_url('options-general.php?page=lirep')) . '">Configurar LIREP</a>');
@@ -258,7 +206,7 @@ function lirep_valid_release($release) {
 }
 
 function lirep_release_info($force = false) {
-    $key = 'lirep_release_v173';
+    $key = 'lirep_release_v174';
     if (!$force) {
         $cached = get_transient($key);
         if (is_array($cached)) {
