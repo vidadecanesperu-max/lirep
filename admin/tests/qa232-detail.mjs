@@ -62,6 +62,9 @@ assert.match(a.get("formalResponseGuard").textContent,/Tu respuesta ya está apr
 await a.get("refreshCaseDelivery").click();
 assert.equal(a.get("detailPanel").hidden,false,"manual status refresh must preserve case");
 assert.match(a.get("caseResponseDeliveryStatus").textContent,/En cola/);
+assert.match(a.get("caseRefreshStatus").textContent,/Actualizado a las/);
+assert.equal(a.get("refreshCaseDelivery").disabled,false);
+assert.equal(a.get("refreshCaseDelivery").textContent,"Actualizar estado y entrega");
 
 a.get("formalResponseText").value="Borrador sin guardar";
 const prior=a.calls.get("lirep_admin_list_complaints");
