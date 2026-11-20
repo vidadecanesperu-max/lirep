@@ -20,6 +20,7 @@ async function scenario(lastEvent, recipientMismatch=false){
       const rpc=u.pathname.split("/").at(-1);
       const payload=JSON.parse(opts.body||"{}");
       calls.push({rpc,payload});
+      if(rpc==="lirep_internal_auto_close_due")return Response.json({ok:true,closed_count:0});
       if(rpc==="lirep_admin_response_delivery_claim"||
          rpc==="lirep_next_pending_receipt_id_multiempresa")return Response.json(null);
       if(rpc==="lirep_admin_response_evidence_claim"){
