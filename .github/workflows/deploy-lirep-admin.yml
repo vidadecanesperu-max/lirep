@@ -27,6 +27,7 @@ jobs:
           node admin/tests/qa245-one-click.mjs
           node admin/tests/qa246-unified-refresh.mjs
           node admin/tests/qa247-sidebar.mjs
+          node admin/tests/qa248-exclusive-views.mjs
           grep -q 'signInWithOtp' admin/index.html
           grep -q 'lirep_admin_my_organizations' admin/index.html
           grep -q 'lirep_admin_response_delivery_status' admin/index.html
