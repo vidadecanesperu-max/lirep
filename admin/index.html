@@ -204,7 +204,7 @@ function showWorkspaceView(id,scroll=true){
   activeWorkspaceView=id;
   for(const key of workspaceViewIds)$(key).dataset.viewHidden=key===id?'false':'true';
   markActiveSection(id);
-  if(scroll)window?.scrollTo?.({top:0,behavior:'instant'});
+  if(scroll&&typeof window!=='undefined')window.scrollTo?.({top:0,behavior:'instant'});
   return true;
 }
 sidebar.addEventListener('click',event=>{
