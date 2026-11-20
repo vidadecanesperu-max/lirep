@@ -40,7 +40,7 @@ function delete_option($name) { unset($GLOBALS['options'][$name]); return true; 
 function wp_json_encode($value) { return json_encode($value); }
 function wp_remote_post($url, $args) {
     $GLOBALS['onboarding_calls'][] = array('url' => $url, 'payload' => json_decode($args['body'], true));
-    return array('code' => 200, 'body' => json_encode(array('ok' => true, 'state' => $GLOBALS['onboarding_status']));
+    return array('code' => 200, 'body' => json_encode(array('ok' => true, 'state' => $GLOBALS['onboarding_status'])));
 }
 function wp_unique_id() { static $i = 0; return ++$i; }
 function shortcode_atts($defaults, $atts, $shortcode) { return array_merge($defaults, $atts); }
