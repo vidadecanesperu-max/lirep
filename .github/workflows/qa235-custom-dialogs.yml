@@ -1,0 +1,26 @@
+name: LIREP QA235 - custom dialogs and approval queue fix
+on:
+  pull_request:
+    paths:
+      - 'admin/**'
+      - 'supabase/migrations/20261119191000_lirep_qa235_fix_queue_consumer_minor.sql'
+      - '.github/workflows/qa235-custom-dialogs.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa235:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Accessible modals, cancel/reject and backend SQL
+        run: |
+          set -euo pipefail
+          node admin/tests/qa232-detail.mjs
+          node admin/tests/qa234-ui.mjs
+          node admin/tests/qa235-custom-modals.mjs
+          npm run verify
+          echo 'QA235 PASS | no submission, approval, email or WordPress modification'
