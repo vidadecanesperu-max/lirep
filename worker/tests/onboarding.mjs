@@ -25,6 +25,7 @@ const calls=[];
 const mailBodies=[];
 let row=null;
 let issuedToken='Ab9_z-'.repeat(7),issuedType='signup';
+let failShapeOnce=true;
 globalThis.fetch=async(url,opts={})=>{
   const u=new URL(url);
   calls.push({url:u.href,method:opts.method||"GET"});
@@ -48,7 +49,7 @@ globalThis.fetch=async(url,opts={})=>{
     return Response.json({id:"mock-resend-id"});
   }
   if(u.hostname==="example.supabase.co"&&u.pathname==="/auth/v1/admin/generate_link")
-    return Response.json({user:{id:"123e4567-e89b-42d3-a456-426614174001"},properties:{action_link:"https://example.supabase.co/auth/v1/verify?token="+issuedToken,hashed_token:issuedToken,verification_type:issuedType}});
+    return Response.json({user:{id:"123e4567-e89b-42d3-a456-426614174001"},properties:{action_link:"https://example.supabase.co/auth/v1/verify?token="+issuedToken,hashed_token:failShapeOnce?(failShapeOnce=false,"short"):issuedToken,verification_type:issuedType}});
   if(u.hostname==="example.supabase.co"&&u.pathname==="/rest/v1/rpc/lirep_onboarding_activate"){
     row.state="active";row.public_prefix="TEST1234";row.invitation_sent_at=new Date().toISOString();
     return Response.json({public_prefix:"TEST1234"});
@@ -80,6 +81,14 @@ try{
   const linkUrl=new URL(link);
   const landing=await worker.fetch(new Request(link),env,ctx);
   assert.equal(landing.status,200);
+  const firstConfirmation=await worker.fetch(new Request(link,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({id:linkUrl.searchParams.get("id"),token:linkUrl.searchParams.get("token")}).toString()}),env,ctx);
+  assert.equal(firstConfirmation.status,503,"Transient shape error gets a safe retry page");
+  const retryHtml=await firstConfirmation.text();
+  assert.match(retryHtml,/Reintentar activación/);
+  assert.doesNotMatch(retryHtml,/ONBOARDING_AUTH_|HASH_UNKNOWN|activation_auth_unavailable/);
+  assert.equal(row.state,"pending","No partial company activation on auth error");
+  assert.equal(mailBodies.length,1,"No duplicate notification on failed auth");
   const confirmation=await worker.fetch(new Request(link,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},
     body:new URLSearchParams({id:linkUrl.searchParams.get("id"),token:linkUrl.searchParams.get("token")}).toString()}),env,ctx);
   assert.equal(confirmation.status,200);
