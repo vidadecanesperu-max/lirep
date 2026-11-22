@@ -24,6 +24,7 @@ const savedFetch=globalThis.fetch;
 const calls=[];
 const mailBodies=[];
 let row=null;
+let issuedToken='Ab9_z-'.repeat(7),issuedType='signup';
 globalThis.fetch=async(url,opts={})=>{
   const u=new URL(url);
   calls.push({url:u.href,method:opts.method||"GET"});
@@ -47,7 +48,7 @@ globalThis.fetch=async(url,opts={})=>{
     return Response.json({id:"mock-resend-id"});
   }
   if(u.hostname==="example.supabase.co"&&u.pathname==="/auth/v1/admin/generate_link")
-    return Response.json({user:{id:"123e4567-e89b-42d3-a456-426614174001"},properties:{action_link:"https://example.supabase.co/auth/v1/verify?token="+("a".repeat(64)),hashed_token:"a".repeat(64),verification_type:"magiclink"}});
+    return Response.json({user:{id:"123e4567-e89b-42d3-a456-426614174001"},properties:{action_link:"https://example.supabase.co/auth/v1/verify?token="+issuedToken,hashed_token:issuedToken,verification_type:issuedType}});
   if(u.hostname==="example.supabase.co"&&u.pathname==="/rest/v1/rpc/lirep_onboarding_activate"){
     row.state="active";row.public_prefix="TEST1234";row.invitation_sent_at=new Date().toISOString();
     return Response.json({public_prefix:"TEST1234"});
@@ -90,8 +91,27 @@ try{
   assert.match(adminMail,/https:\/\/lirep\.360insol\.com\/\?public_prefix=TEST1234#lirep_login_token=/);
   assert.ok(!adminMail.includes("/auth/v1/verify"),"No redeemable GET links in access email");
   assert.ok(adminMail.includes("Confirmar acceso"),"Human confirmation is required");
+  assert.ok(adminMail.includes("lirep_login_type=signup"),"New administrator uses signup verification");
+  assert.ok(adminMail.includes(issuedToken),"Case-sensitive token is preserved intact");
+
 
   const cancelled=await call("/api/v1/onboarding/cancel","POST",credentials);
   assert.equal(cancelled.status,409);
+  // Regression: existing users get an ordinary 64-character magiclink.
+  // No second email is sent to any real address; this is a mocked cycle.
+  row=null;issuedToken="a".repeat(64);issuedType="magiclink";
+  const secondStart=await call("/api/v1/onboarding/start","POST",input);
+  assert.equal(secondStart.status,200);
+  globalThis.challengeForTest=secondStart.data.challenge;
+  const secondCredentials={id:secondStart.data.id,status_token:secondStart.data.status_token,challenge_url:input.challenge_url};
+  assert.equal((await call("/api/v1/onboarding/verify-domain","POST",secondCredentials)).status,200);
+  const secondMail=mailBodies[2].html;
+  const secondLink=secondMail.match(/href="([^"]+)"/)[1].replaceAll("&amp;","&");
+  const secondUrl=new URL(secondLink);
+  const secondResponse=await worker.fetch(new Request(secondLink,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({id:secondUrl.searchParams.get("id"),token:secondUrl.searchParams.get("token")}).toString()}),env,ctx);
+  assert.equal(secondResponse.status,200);
+  assert.ok(mailBodies[3].html.includes("lirep_login_type=magiclink"));
+  assert.ok(mailBodies[3].html.includes(issuedToken));
+  assert.equal((await call("/api/v1/onboarding/status","POST",secondCredentials)).data.state.state,"active");
 }finally{globalThis.fetch=savedFetch;}
 console.log("PASS: disabled gate, validation, domain proof, email dispatch, status isolation, confirmation, activation, protected cancel");
