@@ -20,3 +20,12 @@
 .lirep-dialog-card h2{font-size:22px;margin:0 0 14px}
 .lirep-dialog-card p{line-height:1.6;overflow-wrap:anywhere}
 @media(max-width:782px){.lirep-setup{margin:12px 10px}.lirep-setup-head{padding:20px;align-items:flex-start;flex-direction:column}.lirep-panel{padding:20px}.lirep-form-grid{grid-template-columns:1fr}.lirep-actions .button{width:100%;text-align:center}}
+
+/* QA258 — QR and printable notice, standard white design */
+.lirep-material{margin:28px 0 12px;padding:22px;border:1px solid #dce2ea;border-radius:12px;background:#fff}
+.lirep-material h3{font-size:19px;margin:0 0 10px;color:#14253e}
+.lirep-material [data-material-status]{color:#314d69;font-weight:600}
+.lirep-material-preview{display:block;width:min(340px,100%);height:auto;margin:20px auto;border:1px solid #e1e6ed;background:#fff}
+.lirep-material-preview[hidden]{display:none!important}
+.lirep-material .lirep-actions{margin-top:16px}
+.lirep-material .button:disabled{cursor:not-allowed;opacity:.6}

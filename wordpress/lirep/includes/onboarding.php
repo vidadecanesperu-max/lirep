@@ -1,6 +1,6 @@
 <?php
 /**
- * LIREP v1.7.6 — WordPress self-service onboarding.
+ * LIREP v1.7.7 — WordPress self-service onboarding.
  * No Supabase keys, platform credentials or service-role secrets are stored here.
  */
 if (!defined('ABSPATH')) { exit; }
@@ -99,6 +99,11 @@ function lirep_onboarding_apply_verified_status($status) {
         || empty($status['invitation_sent'])) { return false; }
     $prefix = lirep_valid_prefix($status['public_prefix'] ?? '');
     if ('' === $prefix) { return false; }
+    // Preserve verified legal name for the standard printable notice.
+    $pending = get_option('lirep_onboarding_state', array());
+    if (is_array($pending) && !empty($pending['legal_name'])) {
+        update_option('lirep_company_name', sanitize_text_field($pending['legal_name']), false);
+    }
     update_option('lirep_public_prefix', $prefix, false);
     if (get_option('lirep_public_prefix', '') !== $prefix) { return false; }
     delete_option('lirep_onboarding_state');
@@ -170,6 +175,7 @@ function lirep_onboarding_ajax() {
             'status_token' => sanitize_text_field($result['status_token']),
             'challenge' => sanitize_text_field($result['challenge']),
             'email' => $payload['contact_email'],
+            'legal_name' => $payload['legal_name'],
             'domain' => $domain,
         );
         update_option('lirep_onboarding_state', $new_state, false);
@@ -209,6 +215,8 @@ add_action('wp_ajax_lirep_onboarding', 'lirep_onboarding_ajax');
 function lirep_onboarding_assets($hook) {
     if ('settings_page_lirep' !== $hook) { return; }
     wp_enqueue_style('lirep-onboarding', plugins_url('assets/css/lirep-onboarding.css', dirname(__DIR__) . '/lirep.php'), array(), LIREP_VERSION);
+    wp_enqueue_script('lirep-qr-vendor', plugins_url('assets/js/vendor/qrcodegen.min.js', dirname(__DIR__) . '/lirep.php'), array(), LIREP_VERSION, true);
+    wp_enqueue_script('lirep-material', plugins_url('assets/js/lirep-material.js', dirname(__DIR__) . '/lirep.php'), array('lirep-qr-vendor'), LIREP_VERSION, true);
     wp_enqueue_script('lirep-onboarding', plugins_url('assets/js/lirep-onboarding.js', dirname(__DIR__) . '/lirep.php'), array(), LIREP_VERSION, true);
     wp_localize_script('lirep-onboarding', 'LIREP_SETUP', array(
         'ajax' => admin_url('admin-ajax.php'),
@@ -244,13 +252,51 @@ function lirep_onboarding_page() {
           // QA253: enlazar exclusivamente a la página pública de este WordPress,
           // sin sacar al consumidor al endpoint técnico del Worker.
           $public_page = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page');
-          $public_url = $public_page && 'publish' === $public_page->post_status ? get_permalink($public_page) : '';
+          // QA258: never create a printable QR for a published page without LIREP.
+          // Elementor stores widget shortcode markup in _elementor_data.
+          $has_lirep = false;
+          if ($public_page && 'publish' === $public_page->post_status) {
+              $post_content = (string) $public_page->post_content;
+              $elementor_data = (string) get_post_meta($public_page->ID, '_elementor_data', true);
+              $has_lirep = has_shortcode($post_content, 'lirep') ||
+                  false !== strpos($elementor_data, '[lirep]');
+          }
+          $public_url = $has_lirep ? get_permalink($public_page) : '';
+          // Only a URL on this WordPress installation; no external or administrative URLs.
+          $public_host = $public_url ? wp_parse_url($public_url, PHP_URL_HOST) : '';
+          if (!$public_url || 'https' !== wp_parse_url($public_url, PHP_URL_SCHEME) ||
+              strtolower((string) $public_host) !== strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST))) {
+              $public_url = '';
+          }
+          $company_name = get_option('lirep_company_name', get_bloginfo('name'));
+          if (!is_string($company_name) || '' === trim($company_name)) { $company_name = $domain; }
           ?>
           <?php if ($public_url) : ?>
             <p><a href="<?php echo esc_url($public_url); ?>" target="_blank" rel="noopener noreferrer">Abrir formulario</a></p>
           <?php else : ?>
             <p class="description">Publica una página «Libro de Reclamaciones» con el shortcode [lirep] para habilitar el enlace público.</p>
           <?php endif; ?>
+          <section class="lirep-material" id="lirep-material"
+            data-public-url="<?php echo esc_attr($public_url); ?>"
+            data-prefix="<?php echo esc_attr($prefix); ?>"
+            data-company="<?php echo esc_attr($company_name); ?>">
+            <h3>Material institucional del Libro de Reclamaciones</h3>
+            <p>QR y aviso blanco estándar para recepción. Se preparan automáticamente cuando publiques la página con <code>[lirep]</code>.</p>
+            <?php if ($public_url) : ?>
+              <p>Destino del QR: <a href="<?php echo esc_url($public_url); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html($public_url); ?></a></p>
+            <?php else : ?>
+              <p class="description">Pendiente de publicación: crea la página <strong>libro-de-reclamaciones</strong>, inserta <code>[lirep]</code> y publícala con HTTPS. No exhibas un QR antes de comprobar el formulario.</p>
+            <?php endif; ?>
+            <p data-material-status role="status">Preparando el material…</p>
+            <img data-material-preview hidden alt="Vista previa del aviso institucional A4" class="lirep-material-preview" />
+            <div class="lirep-actions">
+              <button type="button" class="button" data-material-download="qr-png" disabled>Descargar QR PNG</button>
+              <button type="button" class="button" data-material-download="qr-svg" disabled>Descargar QR SVG</button>
+              <button type="button" class="button" data-material-download="poster-png" disabled>Descargar aviso PNG</button>
+              <button type="button" class="button button-primary" data-material-download="poster-pdf" disabled>Descargar aviso PDF A4</button>
+            </div>
+            <p class="description">El QR es exclusivo de esta instalación. Si cambias la dirección pública, vuelve a descargar los materiales. Antes de colocarlos en recepción, abre el formulario escaneando el QR con un teléfono.</p>
+          </section>
           <p><a class="button button-primary" href="<?php echo esc_url('https://lirep.360insol.com/?public_prefix=' . rawurlencode($prefix)); ?>" target="_blank" rel="noopener noreferrer">Administrar reclamaciones</a></p>
           <p class="description">Acceso administrativo exclusivo para usuarios autorizados. La activación requiere confirmar el correo de la empresa.</p>
         </section>
