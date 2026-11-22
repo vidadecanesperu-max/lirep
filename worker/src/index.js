@@ -310,7 +310,7 @@ function onboardingEmailTemplate(subject,content) {
 async function onboardingMail(env,to,subject,html) {
   const res=await fetch("https://api.resend.com/emails",{method:"POST",
     headers:{"content-type":"application/json",Authorization:"Bearer "+env.RESEND_API_KEY},
-    body:JSON.stringify({from:"LIREP – 360 Integral Solutions <notificaciones@360insol.com>",to:[to],subject,html:onboardingEmailTemplate(subject,html)}),
+    body:JSON.stringify({from:"LIREP <notificaciones@360insol.com>",to:[to],subject,html:onboardingEmailTemplate(subject,html)}),
     signal:AbortSignal.timeout(15000)});
   const data=await res.json().catch(()=>null);
   if(!res.ok||!data?.id)throw new Error("ONBOARDING_EMAIL_UNAVAILABLE");
