@@ -25,7 +25,8 @@ const calls=[];
 const mailBodies=[];
 let row=null;
 let issuedToken='Ab9_z-'.repeat(7),issuedType='signup';
-let failShapeOnce=true;
+let failUserIdOnce=true;
+let authResponseMode='no_hash';
 globalThis.fetch=async(url,opts={})=>{
   const u=new URL(url);
   calls.push({url:u.href,method:opts.method||"GET"});
@@ -49,7 +50,7 @@ globalThis.fetch=async(url,opts={})=>{
     return Response.json({id:"mock-resend-id"});
   }
   if(u.hostname==="example.supabase.co"&&u.pathname==="/auth/v1/admin/generate_link")
-    return Response.json({user:{id:"123e4567-e89b-42d3-a456-426614174001"},properties:{action_link:"https://example.supabase.co/auth/v1/verify?token="+issuedToken,hashed_token:failShapeOnce?(failShapeOnce=false,"short"):issuedToken,verification_type:issuedType}});
+    return Response.json({user:{id:failUserIdOnce?(failUserIdOnce=false,"INVALID_USER"):"123e4567-e89b-42d3-a456-426614174001"},properties:authResponseMode==="no_hash"?{}:{action_link:"https://example.supabase.co/auth/v1/verify?token="+issuedToken,hashed_token:"x",verification_type:issuedType}});
   if(u.hostname==="example.supabase.co"&&u.pathname==="/rest/v1/rpc/lirep_onboarding_activate"){
     row.state="active";row.public_prefix="TEST1234";row.invitation_sent_at=new Date().toISOString();
     return Response.json({public_prefix:"TEST1234"});
@@ -83,7 +84,7 @@ try{
   assert.equal(landing.status,200);
   const firstConfirmation=await worker.fetch(new Request(link,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},
     body:new URLSearchParams({id:linkUrl.searchParams.get("id"),token:linkUrl.searchParams.get("token")}).toString()}),env,ctx);
-  assert.equal(firstConfirmation.status,503,"Transient shape error gets a safe retry page");
+  assert.equal(firstConfirmation.status,503,"Invalid user ID gets a safe retry page");
   const retryHtml=await firstConfirmation.text();
   assert.match(retryHtml,/Reintentar activación/);
   assert.doesNotMatch(retryHtml,/ONBOARDING_AUTH_|HASH_UNKNOWN|activation_auth_unavailable/);
@@ -97,18 +98,18 @@ try{
   assert.equal(active.data.state.public_prefix,"TEST1234");
   assert.equal(mailBodies.length,2);
   const adminMail=mailBodies[1].html;
-  assert.match(adminMail,/https:\/\/lirep\.360insol\.com\/\?public_prefix=TEST1234#lirep_login_token=/);
-  assert.ok(!adminMail.includes("/auth/v1/verify"),"No redeemable GET links in access email");
-  assert.ok(adminMail.includes("Confirmar acceso"),"Human confirmation is required");
-  assert.ok(adminMail.includes("lirep_login_type=signup"),"New administrator uses signup verification");
-  assert.ok(adminMail.includes(issuedToken),"Case-sensitive token is preserved intact");
-
+  assert.match(adminMail,/https:\/\/lirep\.360insol\.com\/\?public_prefix=TEST1234/);
+  assert.ok(!adminMail.includes("/auth/v1/verify"),"No direct verify GET link in access email");
+  assert.ok(!adminMail.includes("lirep_login_token"),"Activation email never embeds OTP");
+  assert.ok(!adminMail.includes("lirep_login_type"),"Activation ignores GoTrue token type");
+  assert.ok(adminMail.includes("Enviar enlace de acceso"),"User requests own OTP on login");
+  assert.ok(!adminMail.includes(issuedToken),"Even opaque provider token is not used");
 
   const cancelled=await call("/api/v1/onboarding/cancel","POST",credentials);
   assert.equal(cancelled.status,409);
   // Regression: existing users get an ordinary 64-character magiclink.
   // No second email is sent to any real address; this is a mocked cycle.
-  row=null;issuedToken="a".repeat(64);issuedType="magiclink";
+  row=null;issuedToken="a".repeat(64);issuedType="magiclink";authResponseMode="with_malformed_hash";
   const secondStart=await call("/api/v1/onboarding/start","POST",input);
   assert.equal(secondStart.status,200);
   globalThis.challengeForTest=secondStart.data.challenge;
@@ -119,8 +120,10 @@ try{
   const secondUrl=new URL(secondLink);
   const secondResponse=await worker.fetch(new Request(secondLink,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({id:secondUrl.searchParams.get("id"),token:secondUrl.searchParams.get("token")}).toString()}),env,ctx);
   assert.equal(secondResponse.status,200);
-  assert.ok(mailBodies[3].html.includes("lirep_login_type=magiclink"));
-  assert.ok(mailBodies[3].html.includes(issuedToken));
+  assert.ok(mailBodies[3].html.includes("Enviar enlace de acceso"));
+  assert.ok(!mailBodies[3].html.includes("lirep_login_token"));
+  assert.ok(!mailBodies[3].html.includes("lirep_login_type"));
+  assert.ok(!mailBodies[3].html.includes(issuedToken));
   assert.equal((await call("/api/v1/onboarding/status","POST",secondCredentials)).data.state.state,"active");
 }finally{globalThis.fetch=savedFetch;}
-console.log("PASS: disabled gate, validation, domain proof, email dispatch, status isolation, confirmation, activation, protected cancel");
+console.log("PASS QA260: activation independent of OTP hash, secure user ID, single tenant, retry, login link only");
