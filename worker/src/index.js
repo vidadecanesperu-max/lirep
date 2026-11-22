@@ -289,10 +289,28 @@ async function onboardingRow(env,id) {
   const rows=await onboardingDb(env,"lirep_onboarding_requests?id=eq."+encodeURIComponent(id)+"&select=*");
   return Array.isArray(rows)?rows[0]:null;
 }
+// QA261: one consistent LIREP identity for all onboarding transactional emails.
+function onboardingEmailTemplate(subject,content) {
+  const heading=escHtml(subject);
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>'+
+    '<body style="margin:0;background:#f3f6fa;font-family:Arial,Helvetica,sans-serif;color:#172842">'+
+    '<div style="display:none;max-height:0;overflow:hidden">Notificación segura de LIREP · 360 Integral Solutions</div>'+
+    '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f3f6fa;padding:28px 12px"><tr><td align="center">'+
+    '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background:#fff;border:1px solid #dbe3ee;border-radius:12px;overflow:hidden">'+
+    '<tr><td style="padding:30px 34px;background:#14253e;color:#fff"><div style="font-size:25px;font-weight:700;letter-spacing:.3px">LIREP</div>'+
+    '<div style="font-size:13px;color:#d9e5f4;margin-top:8px">Libro de Reclamaciones Virtual</div></td></tr>'+
+    '<tr><td style="padding:30px 34px"><h1 style="font-size:22px;line-height:1.35;color:#14253e;margin:0 0 22px">'+heading+'</h1>'+
+    '<div style="font-size:15px;line-height:1.75;color:#26374e">'+content+'</div>'+
+    '<div style="font-size:12px;color:#5e6c80;line-height:1.6;margin-top:26px;border-top:1px solid #e0e7f0;padding-top:18px">'+
+    'Por seguridad, no compartas enlaces personales de acceso. Si no solicitaste esta operación, ignora este mensaje.</div></td></tr>'+
+    '<tr><td style="background:#f8fafc;border-top:1px solid #e0e7f0;padding:18px 34px;font-size:12px;color:#55657c">'+
+    '<b style="color:#14253e">360 Integral Solutions</b><br>LIREP · Gestión administrativa multiempresa<br>'+
+    'Correo automático, no supervisado. No respondas a este mensaje.</td></tr></table></td></tr></table></body></html>';
+}
 async function onboardingMail(env,to,subject,html) {
   const res=await fetch("https://api.resend.com/emails",{method:"POST",
     headers:{"content-type":"application/json",Authorization:"Bearer "+env.RESEND_API_KEY},
-    body:JSON.stringify({from:"LIREP <notificaciones@360insol.com>",to:[to],subject,html}),
+    body:JSON.stringify({from:"LIREP <notificaciones@360insol.com>",to:[to],subject,html:onboardingEmailTemplate(subject,html)}),
     signal:AbortSignal.timeout(15000)});
   const data=await res.json().catch(()=>null);
   if(!res.ok||!data?.id)throw new Error("ONBOARDING_EMAIL_UNAVAILABLE");
@@ -409,7 +427,7 @@ async function onboardingRoute(request,env,url) {
       const adminUrl="https://lirep.360insol.com/"+(activatedPrefix?"?public_prefix="+activatedPrefix:"");
       await onboardingMail(env,row.contact_email,"Acceso administrativo a LIREP",
         '<p>Tu Libro de Reclamaciones está activo.</p>'+
-        '<p><a href="'+adminUrl.replace(/&/g,"&amp;")+'">Abrir el panel administrativo</a></p>'+
+        '<p style="margin:26px 0"><a style="background:#14253e;color:#fff;text-decoration:none;display:inline-block;padding:14px 22px;border-radius:6px;font-weight:bold" href="'+adminUrl.replace(/&/g,"&amp;")+'">Abrir el panel administrativo</a></p>'+
         '<p>Ingresa el correo administrativo autorizado y pulsa «Enviar enlace de acceso». Revisa el nuevo correo y confirma el ingreso.</p>'+
         '<p>Este mensaje no contiene contraseñas ni enlaces de inicio de sesión reutilizables.</p>');
     } catch(error) {
@@ -448,7 +466,7 @@ async function onboardingRoute(request,env,url) {
   link.searchParams.set("id",id);link.searchParams.set("token",emailToken);
   try {
     await onboardingMail(env,row.contact_email,"Confirma la activación de LIREP",
-      '<p>Se solicitó registrar un Libro de Reclamaciones para '+row.hostname+'.</p><p>Si autorizas esta operación, abre el enlace y confirma:</p><p><a href="'+link.href.replace(/&/g,"&amp;")+'">Confirmar correo y activar LIREP</a></p><p>Si no solicitaste el registro, ignora este mensaje.</p>');
+      '<p>Se solicitó registrar un Libro de Reclamaciones para '+row.hostname+'.</p><p>Si autorizas esta operación, abre el enlace y confirma:</p><p style="margin:26px 0"><a style="background:#14253e;color:#fff;text-decoration:none;display:inline-block;padding:14px 22px;border-radius:6px;font-weight:bold" href="'+link.href.replace(/&/g,"&amp;")+'">Confirmar correo y activar LIREP</a></p><p>Si no solicitaste el registro, ignora este mensaje.</p>');
   } catch {
     await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id+"&state=eq.pending","PATCH",{domain_verified_at:null});
     return json({ok:false,error:"email_send_failed"},503);

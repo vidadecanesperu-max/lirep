@@ -98,6 +98,16 @@ try{
   assert.equal(active.data.state.public_prefix,"TEST1234");
   assert.equal(mailBodies.length,2);
   const adminMail=mailBodies[1].html;
+  for(const email of [mailBodies[0],mailBodies[1]]){
+    assert.match(email.html,/<html lang="es">/);
+    assert.match(email.html,/<table role="presentation"/);
+    assert.match(email.html,/background:#14253e/);
+    assert.match(email.html,/360 Integral Solutions/);
+    assert.match(email.html,/Correo automático, no supervisado/);
+    assert.match(email.html,/Libro de Reclamaciones Virtual/);
+    assert.match(email.from,/notificaciones@360insol\.com/);
+  }
+
   assert.match(adminMail,/https:\/\/lirep\.360insol\.com\/\?public_prefix=TEST1234/);
   assert.ok(!adminMail.includes("/auth/v1/verify"),"No direct verify GET link in access email");
   assert.ok(!adminMail.includes("lirep_login_token"),"Activation email never embeds OTP");
