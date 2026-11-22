@@ -26,6 +26,15 @@ assert.match(php,/data-public-url="<\?php echo esc_attr\(\$public_url\)/);
 assert.match(php,/assets\/js\/vendor\/qrcodegen.min.js/);
 assert.match(php,/assets\/js\/lirep-material.js/);
 assert.match(php,/update_option\('lirep_company_name'/);
+assert.match(php,/admin_post_lirep_prepare_public_page/);
+assert.match(php,/check_admin_referer\('lirep_prepare_public_page'\)/);
+assert.match(php,/get_page_by_path\('libro-de-reclamaciones-lirep'/);
+assert.match(php,/'post_status' => 'draft'/);
+assert.match(php,/'post_content' => '\[lirep\]'/);
+assert.match(php,/\$legacy_page/);
+assert.match(php,/\$legacy_has_lirep/);
+assert.match(php,/wp_safe_redirect\(get_edit_post_link/);
+
 assert(!material.includes("fetch("),"No network requests in offline materials");
 assert(!material.includes("localStorage"),"No secrets or local persistence");
 console.log("PASS QA258 | QR locally generated, PDF A4, WordPress gate, Elementor and data isolation");
