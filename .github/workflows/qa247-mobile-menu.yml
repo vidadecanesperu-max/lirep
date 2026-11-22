@@ -35,6 +35,8 @@ jobs:
           node worker/tests/qa247-public-nav.mjs
           node worker/tests/qa234-tracking.mjs
           node wordpress/tests/qa247-nav.mjs
+          node wordpress/tests/qa258-material.mjs
+          node --check wordpress/lirep/assets/js/lirep-material.js
           node wordpress/tests/qa-embed.mjs
           npm run verify
           echo 'QA247 PASS | no submission or real email'
