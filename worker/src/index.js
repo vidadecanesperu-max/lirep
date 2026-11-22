@@ -305,6 +305,13 @@ function onboardingState(row) {
     domain_verified:!!row.domain_verified_at,invitation_sent:!!row.invitation_sent_at,
     public_prefix:row.state==="active"?row.public_prefix:null};
 }
+// QA259: human-readable retry after a transient backend failure.
+// Only works with the original verified one-time confirmation credentials.
+// No automatic retries, tenant reset, or exposure of internal diagnostics.
+function onboardingConfirmRetry(id,token) {
+  const page='<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>LIREP · Activación pendiente</title><main style="font:16px system-ui;max-width:560px;margin:10vh auto;padding:24px;color:#172842"><h1>Activación pendiente de completar</h1><p>Ya verificamos el dominio y el correo, pero el acceso administrativo no pudo prepararse. No reinstales el plugin ni reinicies el registro.</p><p>Vuelve a intentar con el mismo enlace de confirmación.</p><form method="post"><input type="hidden" name="id" value="'+id+'"><input type="hidden" name="token" value="'+token+'"><button style="background:#172842;color:#fff;border:0;border-radius:6px;padding:14px 22px;cursor:pointer">Reintentar activación</button></form></main></html>';
+  return new Response(page,{status:503,headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer","content-security-policy":"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'"}});
+}
 async function onboardingAuthLink(env,email) {
   const res=await fetch(env.SUPABASE_URL.replace(/\/$/,"")+"/auth/v1/admin/generate_link",{
     method:"POST",headers:{...onboardingJsonHeaders,apikey:env.SUPABASE_SERVICE_ROLE_KEY,
@@ -315,26 +322,35 @@ async function onboardingAuthLink(env,email) {
   // Supabase GoTrue returns the generated URL inside properties.action_link.
   // Some SDK wrappers expose it at the top level; support both without logging tokens.
   const actionLink=data?.properties?.action_link||data?.action_link;
-  // QA257: never mail a GET /auth/v1/verify action link: email previewers
-  // can redeem the one-time token before the administrator does.
-  // The hash is sent to our inert page; verification needs an explicit click.
-  let verificationHash=data?.properties?.hashed_token||data?.hashed_token||"";
-  if(!verificationHash&&typeof actionLink==="string"){
-    try {const link=new URL(actionLink);
-      if(link.hostname===new URL(env.SUPABASE_URL).hostname&&link.pathname.endsWith("/auth/v1/verify"))
-        verificationHash=link.searchParams.get("token")||"";
+  // QA259: token_hash is opaque. GoTrue returns base64url and hex variants,
+  // not a guaranteed 64-char lowercase SHA-256 string. Never normalize its case.
+  // The verification type may be signup when magiclink created a new user.
+  let tokenHash=data?.properties?.hashed_token||data?.hashed_token||"";
+  const verificationType=data?.properties?.verification_type||data?.verification_type||"";
+  if(!tokenHash&&typeof actionLink==="string"){
+    try {
+      const link=new URL(actionLink);
+      if(link.hostname===new URL(env.SUPABASE_URL).hostname&&link.pathname==="/auth/v1/verify")
+        tokenHash=link.searchParams.get("token")||"";
     }catch{}
   }
-  // GoTrue's REST generate_link response exposes the user fields at the root.
-  // SDK wrappers may instead nest the user under `user`.
   const userId=data?.user?.id||data?.id;
-  if(!res.ok||!isUuid(userId)||!/^[a-f0-9]{64}$/i.test(verificationHash)) {
+  // Fail closed for malformed tokens, unexpected providers and invalid user ID.
+  const validToken=typeof tokenHash==="string"&&/^[A-Za-z0-9_-]{20,256}$/.test(tokenHash);
+  const validType=["magiclink","signup","invite"].includes(verificationType);
+  if(!res.ok||!isUuid(userId)||!validToken||!validType){
     const code=typeof data?.code==="string"?data.code:(typeof data?.error_code==="string"?data.error_code:"unknown");
-    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_user:!!userId,has_verification_hash:/^[a-f0-9]{64}$/i.test(verificationHash)}));
-    // Safe machine-readable diagnostic: never expose email, credentials or generated link.
-    throw new Error("ONBOARDING_AUTH_"+res.status+"_"+(res.ok?"SHAPE":"HTTP")+"_"+(userId?"USER":"NOUSER")+"_"+(verificationHash?"HASH":"NOHASH")+"_"+(code==="unknown"?"UNKNOWN":code.replace(/[^a-zA-Z0-9_]/g,"").slice(0,40)));
+    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({
+      status:res.status,code,has_user:isUuid(userId),has_hash:!!tokenHash,
+      hash_format_ok:validToken,verification_type_valid:validType
+    }));
+    // No token, email, URL, or service credentials appear in diagnostics.
+    throw new Error("ONBOARDING_AUTH_"+res.status+"_"+(res.ok?"SHAPE":"HTTP")+
+      "_"+(isUuid(userId)?"USER":"NOUSER")+"_"+(validToken?"TOKENOK":"TOKENINVALID")+
+      "_"+(validType?"TYPEOK":"TYPEINVALID")+"_"+
+      (code==="unknown"?"UNKNOWN":code.replace(/[^a-zA-Z0-9_]/g,"").slice(0,40)));
   }
-  return {user:{id:userId},token_hash:verificationHash.toLowerCase()};
+  return {user:{id:userId},token_hash:tokenHash,verification_type:verificationType};
 }
 async function onboardingRoute(request,env,url) {
   const path=url.pathname.slice(onboardingBase.length);
@@ -403,15 +419,16 @@ async function onboardingRoute(request,env,url) {
     await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id,"PATCH",{email_verified_at:new Date().toISOString()});
     let auth;
     try { auth=await onboardingAuthLink(env,row.contact_email); }
-    catch(error) { const diagnostic=String(error?.message||error); console.error("LIREP_ONBOARDING_AUTH",diagnostic); return json({ok:false,error:"activation_auth_unavailable",diagnostic:diagnostic.startsWith("ONBOARDING_AUTH_")?diagnostic:"AUTH_REQUEST_FAILED",retryable:true},503); }
+    catch(error) { const diagnostic=String(error?.message||error); console.error("LIREP_ONBOARDING_AUTH",diagnostic); return onboardingConfirmRetry(id,input.token); }
     let activation;
     try { activation=await lirepRpc("lirep_onboarding_activate",{p_request_id:id,p_user_id:auth.user.id},env); }
-    catch(error) { console.error("LIREP_ONBOARDING_TENANT",String(error?.message||error)); return json({ok:false,error:"activation_tenant_unavailable",retryable:true},503); }
+    catch(error) { console.error("LIREP_ONBOARDING_TENANT",String(error?.message||error)); return onboardingConfirmRetry(id,input.token); }
     try {
       const activatedPrefix=typeof activation?.public_prefix==="string"&&/^[A-Z0-9]{8}$/.test(activation.public_prefix)?activation.public_prefix:"";
       // The hash travels in the URL fragment, never in an HTTP GET request.
       // On the admin page a user must press "Confirmar acceso" to consume it.
-      const safeAccessUrl="https://lirep.360insol.com/"+(activatedPrefix?"?public_prefix="+activatedPrefix:"")+"#lirep_login_token="+auth.token_hash;
+      const safeAccessUrl="https://lirep.360insol.com/"+(activatedPrefix?"?public_prefix="+activatedPrefix:"")+
+        "#lirep_login_token="+encodeURIComponent(auth.token_hash)+"&lirep_login_type="+encodeURIComponent(auth.verification_type);
       await onboardingMail(env,row.contact_email,"Acceso administrativo a LIREP",
         '<p>Tu Libro de Reclamaciones está activo.</p><p><a href="'+safeAccessUrl.replace(/&/g,"&amp;")+'">Acceder a LIREP</a></p><p>En la página pulsa «Confirmar acceso». Este enlace es personal y temporal.</p>');
     } catch(error) {

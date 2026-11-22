@@ -162,9 +162,12 @@ const db=createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,d
    Remove the secret immediately from the URL without logging or storing it. */
 const initialHash=new URLSearchParams(location.hash.slice(1));
 let firstAccessHash=initialHash.get('lirep_login_token')||'';
+let firstAccessType=initialHash.get('lirep_login_type')||'magiclink';
 if(firstAccessHash){
   history.replaceState(null,'',location.pathname+location.search);
-  if(!/^[a-f0-9]{64}$/i.test(firstAccessHash))firstAccessHash='';
+  // The OTP is an opaque case-sensitive credential, never trim/lowercase it.
+  if(!/^[A-Za-z0-9_-]{20,256}$/.test(firstAccessHash)||
+     !['magiclink','signup','invite'].includes(firstAccessType))firstAccessHash='';
 }
 
 const $=id=>document.getElementById(id);$('copyrightYear').textContent=new Date().getFullYear();let organizations=[],selected=null,selectedComplaint=null,currentUserId=null,pendingDraft=null,initializationPromise=null,detailVersion=0,loadVersion=0,caseData=null,caseTracking=null,lastFormalResponses=[],lastDeliveryRecords=[],statusRefreshing=false;
@@ -430,10 +433,11 @@ $('firstAccessButton').addEventListener('click',async()=>{
   if(!firstAccessHash)return;
   const button=$('firstAccessButton');
   button.disabled=true;button.textContent='Verificando acceso…';
-  const token=firstAccessHash;
+  const token=firstAccessHash,otpType=firstAccessType;
   firstAccessHash=''; // one attempt per page and never persist
+  firstAccessType='magiclink';
   try{
-    const {error}=await db.auth.verifyOtp({token_hash:token,type:'magiclink'});
+    const {error}=await db.auth.verifyOtp({token_hash:token,type:otpType});
     if(error)throw error;
     $('firstAccessConfirm').hidden=true;
     $('loginForm').hidden=false;
