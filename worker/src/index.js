@@ -319,38 +319,16 @@ async function onboardingAuthLink(env,email) {
     body:JSON.stringify({type:"magiclink",email,options:{redirect_to:"https://lirep.360insol.com/"}}),
     signal:AbortSignal.timeout(12000)});
   const data=await res.json().catch(()=>null);
-  // Supabase GoTrue returns the generated URL inside properties.action_link.
-  // Some SDK wrappers expose it at the top level; support both without logging tokens.
-  const actionLink=data?.properties?.action_link||data?.action_link;
-  // QA259: token_hash is opaque. GoTrue returns base64url and hex variants,
-  // not a guaranteed 64-char lowercase SHA-256 string. Never normalize its case.
-  // The verification type may be signup when magiclink created a new user.
-  let tokenHash=data?.properties?.hashed_token||data?.hashed_token||"";
-  const verificationType=data?.properties?.verification_type||data?.verification_type||"";
-  if(!tokenHash&&typeof actionLink==="string"){
-    try {
-      const link=new URL(actionLink);
-      if(link.hostname===new URL(env.SUPABASE_URL).hostname&&link.pathname==="/auth/v1/verify")
-        tokenHash=link.searchParams.get("token")||"";
-    }catch{}
-  }
+  // QA260: tenant activation requires ONLY a server-verified Supabase user ID.
+  // Email access is requested later from the official admin login flow.
+  // NEVER inspect or transmit GoTrue's magic-link OTP/hashed_token here.
   const userId=data?.user?.id||data?.id;
-  // Fail closed for malformed tokens, unexpected providers and invalid user ID.
-  const validToken=typeof tokenHash==="string"&&/^[A-Za-z0-9_-]{20,256}$/.test(tokenHash);
-  const validType=["magiclink","signup","invite"].includes(verificationType);
-  if(!res.ok||!isUuid(userId)||!validToken||!validType){
+  if(!res.ok||!isUuid(userId)){
     const code=typeof data?.code==="string"?data.code:(typeof data?.error_code==="string"?data.error_code:"unknown");
-    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({
-      status:res.status,code,has_user:isUuid(userId),has_hash:!!tokenHash,
-      hash_format_ok:validToken,verification_type_valid:validType
-    }));
-    // No token, email, URL, or service credentials appear in diagnostics.
-    throw new Error("ONBOARDING_AUTH_"+res.status+"_"+(res.ok?"SHAPE":"HTTP")+
-      "_"+(isUuid(userId)?"USER":"NOUSER")+"_"+(validToken?"TOKENOK":"TOKENINVALID")+
-      "_"+(validType?"TYPEOK":"TYPEINVALID")+"_"+
-      (code==="unknown"?"UNKNOWN":code.replace(/[^a-zA-Z0-9_]/g,"").slice(0,40)));
+    console.error("LIREP_AUTH_GENERATE_LINK",JSON.stringify({status:res.status,code,has_valid_user_id:isUuid(userId)}));
+    throw new Error("ONBOARDING_AUTH_"+res.status+"_"+(res.ok?"USER_ID_MISSING":"HTTP")+"_"+code.replace(/[^a-zA-Z0-9_]/g,"").slice(0,40));
   }
-  return {user:{id:userId},token_hash:tokenHash,verification_type:verificationType};
+  return {user:{id:userId}};
 }
 async function onboardingRoute(request,env,url) {
   const path=url.pathname.slice(onboardingBase.length);
@@ -425,17 +403,20 @@ async function onboardingRoute(request,env,url) {
     catch(error) { console.error("LIREP_ONBOARDING_TENANT",String(error?.message||error)); return onboardingConfirmRetry(id,input.token); }
     try {
       const activatedPrefix=typeof activation?.public_prefix==="string"&&/^[A-Z0-9]{8}$/.test(activation.public_prefix)?activation.public_prefix:"";
-      // The hash travels in the URL fragment, never in an HTTP GET request.
-      // On the admin page a user must press "Confirmar acceso" to consume it.
-      const safeAccessUrl="https://lirep.360insol.com/"+(activatedPrefix?"?public_prefix="+activatedPrefix:"")+
-        "#lirep_login_token="+encodeURIComponent(auth.token_hash)+"&lirep_login_type="+encodeURIComponent(auth.verification_type);
+      // QA260: activation mail contains NO one-time credential.
+      // The authenticated panel requests its own OTP via Supabase after the
+      // user enters the verified administrator email (shouldCreateUser=false).
+      const adminUrl="https://lirep.360insol.com/"+(activatedPrefix?"?public_prefix="+activatedPrefix:"");
       await onboardingMail(env,row.contact_email,"Acceso administrativo a LIREP",
-        '<p>Tu Libro de Reclamaciones está activo.</p><p><a href="'+safeAccessUrl.replace(/&/g,"&amp;")+'">Acceder a LIREP</a></p><p>En la página pulsa «Confirmar acceso». Este enlace es personal y temporal.</p>');
+        '<p>Tu Libro de Reclamaciones está activo.</p>'+
+        '<p><a href="'+adminUrl.replace(/&/g,"&amp;")+'">Abrir el panel administrativo</a></p>'+
+        '<p>Ingresa el correo administrativo autorizado y pulsa «Enviar enlace de acceso». Revisa el nuevo correo y confirma el ingreso.</p>'+
+        '<p>Este mensaje no contiene contraseñas ni enlaces de inicio de sesión reutilizables.</p>');
     } catch(error) {
       console.error("LIREP_ONBOARDING_ACCESS_EMAIL",String(error?.message||error));
       return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>Empresa activada</h1><p>La activación se completó, pero el correo de acceso no pudo enviarse. No vuelvas a registrar la empresa; solicita un nuevo acceso desde el panel administrativo.</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
     }
-    return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>LIREP activado</h1><p>Revisa tu correo y pulsa «Acceder a LIREP». En la página de acceso confirma el ingreso. WordPress actualizará el estado de la empresa automáticamente.</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer"}});
+    return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><main style="font:16px system-ui;max-width:600px;margin:12vh auto;padding:20px"><h1>LIREP activado</h1><p>La empresa quedó activada. Revisa tu correo y abre el panel administrativo. Solicita allí un enlace de acceso con el correo autorizado. WordPress actualizará el estado automáticamente.</p></main></html>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer"}});
   }
   const status=typeof input.status_token==="string"?input.status_token:"";
   if(!/^[a-f0-9]{64}$/.test(status)||await onboardingHash(status)!==row.status_token_hash)
