@@ -99,6 +99,11 @@ function lirep_onboarding_apply_verified_status($status) {
         || empty($status['invitation_sent'])) { return false; }
     $prefix = lirep_valid_prefix($status['public_prefix'] ?? '');
     if ('' === $prefix) { return false; }
+    // Preserve verified legal name for the standard printable notice.
+    $pending = get_option('lirep_onboarding_state', array());
+    if (is_array($pending) && !empty($pending['legal_name'])) {
+        update_option('lirep_company_name', sanitize_text_field($pending['legal_name']), false);
+    }
     update_option('lirep_public_prefix', $prefix, false);
     if (get_option('lirep_public_prefix', '') !== $prefix) { return false; }
     delete_option('lirep_onboarding_state');
@@ -170,6 +175,7 @@ function lirep_onboarding_ajax() {
             'status_token' => sanitize_text_field($result['status_token']),
             'challenge' => sanitize_text_field($result['challenge']),
             'email' => $payload['contact_email'],
+            'legal_name' => $payload['legal_name'],
             'domain' => $domain,
         );
         update_option('lirep_onboarding_state', $new_state, false);
@@ -262,7 +268,7 @@ function lirep_onboarding_page() {
               strtolower((string) $public_host) !== strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST))) {
               $public_url = '';
           }
-          $company_name = get_bloginfo('name');
+          $company_name = get_option('lirep_company_name', get_bloginfo('name'));
           if (!is_string($company_name) || '' === trim($company_name)) { $company_name = $domain; }
           ?>
           <?php if ($public_url) : ?>
