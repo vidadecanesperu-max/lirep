@@ -305,6 +305,13 @@ function onboardingState(row) {
     domain_verified:!!row.domain_verified_at,invitation_sent:!!row.invitation_sent_at,
     public_prefix:row.state==="active"?row.public_prefix:null};
 }
+// QA259: human-readable retry after a transient backend failure.
+// Only works with the original verified one-time confirmation credentials.
+// No automatic retries, tenant reset, or exposure of internal diagnostics.
+function onboardingConfirmRetry(id,token) {
+  const page='<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>LIREP · Activación pendiente</title><main style="font:16px system-ui;max-width:560px;margin:10vh auto;padding:24px;color:#172842"><h1>Activación pendiente de completar</h1><p>Ya verificamos el dominio y el correo, pero el acceso administrativo no pudo prepararse. No reinstales el plugin ni reinicies el registro.</p><p>Vuelve a intentar con el mismo enlace de confirmación.</p><form method="post"><input type="hidden" name="id" value="'+id+'"><input type="hidden" name="token" value="'+token+'"><button style="background:#172842;color:#fff;border:0;border-radius:6px;padding:14px 22px;cursor:pointer">Reintentar activación</button></form></main></html>';
+  return new Response(page,{status:503,headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer","content-security-policy":"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'"}});
+}
 async function onboardingAuthLink(env,email) {
   const res=await fetch(env.SUPABASE_URL.replace(/\/$/,"")+"/auth/v1/admin/generate_link",{
     method:"POST",headers:{...onboardingJsonHeaders,apikey:env.SUPABASE_SERVICE_ROLE_KEY,
@@ -412,10 +419,10 @@ async function onboardingRoute(request,env,url) {
     await onboardingDb(env,"lirep_onboarding_requests?id=eq."+id,"PATCH",{email_verified_at:new Date().toISOString()});
     let auth;
     try { auth=await onboardingAuthLink(env,row.contact_email); }
-    catch(error) { const diagnostic=String(error?.message||error); console.error("LIREP_ONBOARDING_AUTH",diagnostic); return json({ok:false,error:"activation_auth_unavailable",diagnostic:diagnostic.startsWith("ONBOARDING_AUTH_")?diagnostic:"AUTH_REQUEST_FAILED",retryable:true},503); }
+    catch(error) { const diagnostic=String(error?.message||error); console.error("LIREP_ONBOARDING_AUTH",diagnostic); return onboardingConfirmRetry(id,input.token); }
     let activation;
     try { activation=await lirepRpc("lirep_onboarding_activate",{p_request_id:id,p_user_id:auth.user.id},env); }
-    catch(error) { console.error("LIREP_ONBOARDING_TENANT",String(error?.message||error)); return json({ok:false,error:"activation_tenant_unavailable",retryable:true},503); }
+    catch(error) { console.error("LIREP_ONBOARDING_TENANT",String(error?.message||error)); return onboardingConfirmRetry(id,input.token); }
     try {
       const activatedPrefix=typeof activation?.public_prefix==="string"&&/^[A-Z0-9]{8}$/.test(activation.public_prefix)?activation.public_prefix:"";
       // The hash travels in the URL fragment, never in an HTTP GET request.
