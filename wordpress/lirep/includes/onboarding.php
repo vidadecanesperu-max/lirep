@@ -226,6 +226,37 @@ function lirep_onboarding_assets($hook) {
 
 add_action('admin_enqueue_scripts', 'lirep_onboarding_assets');
 
+/**
+ * QA261: controlled, reversible preparation. Never overwrite an existing
+ * complaint page (including an Elementor-built legacy one).
+ * Creates a DRAFT, so a second public complaint book cannot appear by surprise.
+ */
+function lirep_prepare_public_page() {
+    if (!current_user_can('manage_options')) { wp_die('Acceso no autorizado.', '', array('response' => 403)); }
+    check_admin_referer('lirep_prepare_public_page');
+    if (!lirep_valid_prefix(get_option('lirep_public_prefix', ''))) {
+        wp_die('Primero debes activar la empresa.', '', array('response' => 403));
+    }
+    $existing = get_page_by_path('libro-de-reclamaciones-lirep', OBJECT, 'page');
+    if ($existing) {
+        wp_safe_redirect(get_edit_post_link($existing->ID, ''));
+        exit;
+    }
+    $page_id = wp_insert_post(array(
+        'post_type' => 'page',
+        'post_title' => 'Libro de Reclamaciones · LIREP',
+        'post_name' => 'libro-de-reclamaciones-lirep',
+        'post_content' => '[lirep]',
+        'post_status' => 'draft',
+        'post_author' => get_current_user_id(),
+    ), true);
+    if (is_wp_error($page_id)) { wp_die('No se pudo preparar la página. Revisa los permisos de WordPress.'); }
+    update_post_meta($page_id, '_lirep_managed_page', '1');
+    wp_safe_redirect(get_edit_post_link($page_id, ''));
+    exit;
+}
+add_action('admin_post_lirep_prepare_public_page', 'lirep_prepare_public_page');
+
 function lirep_onboarding_page() {
     if (!current_user_can('manage_options')) { return; }
     $prefix = lirep_valid_prefix(get_option('lirep_public_prefix', ''));
@@ -251,7 +282,12 @@ function lirep_onboarding_page() {
           <?php
           // QA253: enlazar exclusivamente a la página pública de este WordPress,
           // sin sacar al consumidor al endpoint técnico del Worker.
-          $public_page = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page');
+          $legacy_page = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page');
+          $managed_page = get_page_by_path('libro-de-reclamaciones-lirep', OBJECT, 'page');
+          $legacy_has_lirep = $legacy_page && ('publish' === $legacy_page->post_status) &&
+              (has_shortcode((string) $legacy_page->post_content, 'lirep') ||
+               false !== strpos((string) get_post_meta($legacy_page->ID, '_elementor_data', true), '[lirep]'));
+          $public_page = $legacy_has_lirep ? $legacy_page : $managed_page;
           // QA258: never create a printable QR for a published page without LIREP.
           // Elementor stores widget shortcode markup in _elementor_data.
           $has_lirep = false;
@@ -285,7 +321,19 @@ function lirep_onboarding_page() {
             <?php if ($public_url) : ?>
               <p>Destino del QR: <a href="<?php echo esc_url($public_url); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html($public_url); ?></a></p>
             <?php else : ?>
-              <p class="description">Pendiente de publicación: crea la página <strong>libro-de-reclamaciones</strong>, inserta <code>[lirep]</code> y publícala con HTTPS. No exhibas un QR antes de comprobar el formulario.</p>
+              <p class="description">El aviso se habilitará al publicar una página HTTPS con <code>[lirep]</code>. Si existe un libro antiguo, conserva su página mientras preparas el reemplazo; evita tener dos formularios públicos.</p>
+            <?php if ($managed_page && 'publish' !== $managed_page->post_status) : ?>
+              <p><a class="button button-primary" href="<?php echo esc_url(get_edit_post_link($managed_page->ID, '')); ?>">Abrir borrador LIREP para revisión</a></p>
+            <?php elseif (!$managed_page) : ?>
+              <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
+                <input type="hidden" name="action" value="lirep_prepare_public_page">
+                <?php wp_nonce_field('lirep_prepare_public_page'); ?>
+                <button type="submit" class="button button-primary">Preparar página LIREP (borrador)</button>
+              </form>
+            <?php endif; ?>
+            <?php if ($legacy_page && !$legacy_has_lirep) : ?>
+              <p class="description"><strong>Atención:</strong> ya existe una página de reclamaciones anterior. Este botón no la cambia ni la elimina. Revisa la migración antes de publicar el formulario nuevo.</p>
+            <?php endif; ?>
             <?php endif; ?>
             <p data-material-status role="status">Preparando el material…</p>
             <img data-material-preview hidden alt="Vista previa del aviso institucional A4" class="lirep-material-preview" />
