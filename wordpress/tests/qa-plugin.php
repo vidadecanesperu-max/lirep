@@ -72,7 +72,7 @@ function qa($condition, $name) {
 }
 qa(isset($GLOBALS['shortcodes']['lirep']), 'Shortcode registered');
 qa(!function_exists('lirep_settings_page') && !function_exists('lirep_admin_menu'), 'Legacy admin page removed at source');
-qa(LIREP_VERSION === '1.7.6', 'Self-service version loaded');
+qa(LIREP_VERSION === '1.7.7', 'Self-service version loaded');
 qa(function_exists('lirep_onboarding_ajax') && function_exists('lirep_onboarding_challenge'), 'Self-service endpoints registered');
 qa(strpos(lirep_onboarding_error_message('domain_challenge_failed'), 'REST') !== false, 'Domain proof guidance localized');
 qa(strpos(lirep_onboarding_error_message('review_required'), 'revisión') !== false, 'Existing company conflict guidance localized');
