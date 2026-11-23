@@ -72,7 +72,7 @@ function qa($condition, $name) {
 }
 qa(isset($GLOBALS['shortcodes']['lirep']), 'Shortcode registered');
 qa(!function_exists('lirep_settings_page') && !function_exists('lirep_admin_menu'), 'Legacy admin page removed at source');
-qa(LIREP_VERSION === '1.7.8', 'Self-service version loaded');
+qa(LIREP_VERSION === '1.7.9', 'Self-service version loaded');
 qa(function_exists('lirep_onboarding_ajax') && function_exists('lirep_onboarding_challenge'), 'Self-service endpoints registered');
 qa(strpos(lirep_onboarding_error_message('domain_challenge_failed'), 'REST') !== false, 'Domain proof guidance localized');
 qa(strpos(lirep_onboarding_error_message('review_required'), 'revisión') !== false, 'Existing company conflict guidance localized');
@@ -111,7 +111,7 @@ qa(strpos($prod_html, 'lirep-public-toggle') === false, 'Public hamburger absent
 qa(strpos($prod_html, 'lirep-public-nav') === false, 'Public form stages have no external navigation');
 qa(strpos($prod_html, 'data-lirep-go="admin"') === false, 'Public view never exposes administrative navigation');
 
-$tag = 'lirep-wp-v1.7.9';
+$tag = 'lirep-wp-v1.7.10';
 $url = 'https://github.com/vidadecanesperu-max/lirep/releases/download/' . $tag . '/lirep.zip';
 $digest = hash('sha256', $GLOBALS['asset_content']);
 $release = array('tag_name' => $tag, 'draft' => false, 'prerelease' => false, 'body' => '[LIREP-SECURITY] Fix', 'assets' => array(array('name' => 'lirep.zip', 'browser_download_url' => $url, 'digest' => 'sha256:' . $digest, 'size' => 1500)));
@@ -122,15 +122,15 @@ $nohash = $release; unset($nohash['assets'][0]['digest']);
 qa(lirep_valid_release($nohash) === null, 'Release without SHA256 rejected');
 $prerelease = $release; $prerelease['prerelease'] = true;
 qa(lirep_valid_release($prerelease) === null, 'Prerelease rejected');
-$wrongtag = $release; $wrongtag['tag_name'] = 'v1.7.8';
+$wrongtag = $release; $wrongtag['tag_name'] = 'v1.7.9';
 qa(lirep_valid_release($wrongtag) === null, 'Unrelated release rejected');
 $GLOBALS['remote_releases'] = array($release);
 $info = lirep_release_info();
-qa($info['version'] === '1.7.9' && $GLOBALS['requests'] === 1, 'Release discovered');
+qa($info['version'] === '1.7.10' && $GLOBALS['requests'] === 1, 'Release discovered');
 qa(lirep_release_info()['sha256'] === $digest && $GLOBALS['requests'] === 1, 'Release cached');
 qa(lirep_update_plugins_github('unchanged', array(), 'another/plugin.php', array()) === 'unchanged', 'Other GitHub plugins unaffected');
 $update = lirep_update_plugins_github(null, array(), 'lirep/lirep.php', array());
-qa($update['version'] === '1.7.9' && $update['package'] === $url && $update['lirep_security'], 'WordPress update metadata');
+qa($update['version'] === '1.7.10' && $update['package'] === $url && $update['lirep_security'], 'WordPress update metadata');
 qa(lirep_upgrader_pre_download(false, 'https://example.org/plugin.zip', null, array()) === false, 'Other package downloads unaffected');
 $download = lirep_upgrader_pre_download(false, $url, null, array());
 qa(is_string($download) && file_exists($download) && hash_file('sha256', $download) === $digest, 'Verified SHA256 download');
