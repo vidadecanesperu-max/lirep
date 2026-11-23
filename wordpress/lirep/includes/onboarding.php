@@ -1,6 +1,6 @@
 <?php
 /**
- * LIREP v1.7.7 — WordPress self-service onboarding.
+ * LIREP v1.7.9 — WordPress self-service onboarding.
  * No Supabase keys, platform credentials or service-role secrets are stored here.
  */
 if (!defined('ABSPATH')) { exit; }
@@ -227,35 +227,38 @@ function lirep_onboarding_assets($hook) {
 add_action('admin_enqueue_scripts', 'lirep_onboarding_assets');
 
 /**
- * QA261: controlled, reversible preparation. Never overwrite an existing
- * complaint page (including an Elementor-built legacy one).
- * Creates a DRAFT, so a second public complaint book cannot appear by surprise.
+ * QA262: reuse only the actual published Book of Complaints page.
+ * Prefer canonical permalink slug. For sites with a customized permalink,
+ * accept the official WordPress page title only when it embeds [lirep].
+ * Never create, edit, publish, or overwrite pages from the activation screen.
  */
-function lirep_prepare_public_page() {
-    if (!current_user_can('manage_options')) { wp_die('Acceso no autorizado.', '', array('response' => 403)); }
-    check_admin_referer('lirep_prepare_public_page');
-    if (!lirep_valid_prefix(get_option('lirep_public_prefix', ''))) {
-        wp_die('Primero debes activar la empresa.', '', array('response' => 403));
-    }
-    $existing = get_page_by_path('libro-de-reclamaciones-lirep', OBJECT, 'page');
-    if ($existing) {
-        wp_safe_redirect(get_edit_post_link($existing->ID, ''));
-        exit;
-    }
-    $page_id = wp_insert_post(array(
+function lirep_official_complaints_page() {
+    $candidates = array();
+    $canonical = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page');
+    if ($canonical) { $candidates[] = $canonical; }
+    $titles = new WP_Query(array(
         'post_type' => 'page',
-        'post_title' => 'Libro de Reclamaciones · LIREP',
-        'post_name' => 'libro-de-reclamaciones-lirep',
-        'post_content' => '[lirep]',
-        'post_status' => 'draft',
-        'post_author' => get_current_user_id(),
-    ), true);
-    if (is_wp_error($page_id)) { wp_die('No se pudo preparar la página. Revisa los permisos de WordPress.'); }
-    update_post_meta($page_id, '_lirep_managed_page', '1');
-    wp_safe_redirect(get_edit_post_link($page_id, ''));
-    exit;
+        'post_status' => 'publish',
+        'title' => 'Libro de Reclamaciones',
+        'posts_per_page' => 10,
+        'no_found_rows' => true,
+        'fields' => 'all',
+    ));
+    foreach ($titles->posts as $candidate) {
+        if (!in_array((int) $candidate->ID, array_map('intval', wp_list_pluck($candidates, 'ID')), true)) {
+            $candidates[] = $candidate;
+        }
+    }
+    foreach ($candidates as $page) {
+        if ('publish' !== $page->post_status) { continue; }
+        $content = (string) $page->post_content;
+        $elementor = (string) get_post_meta($page->ID, '_elementor_data', true);
+        if (has_shortcode($content, 'lirep') || false !== strpos($elementor, '[lirep]')) {
+            return $page;
+        }
+    }
+    return null;
 }
-add_action('admin_post_lirep_prepare_public_page', 'lirep_prepare_public_page');
 
 function lirep_onboarding_page() {
     if (!current_user_can('manage_options')) { return; }
@@ -280,24 +283,11 @@ function lirep_onboarding_page() {
           <p>Dominio de WordPress: <code><?php echo esc_html($domain); ?></code></p>
           <p>Inserta <code>[lirep]</code> en una página, entrada o widget Shortcode de Elementor.</p>
           <?php
-          // QA253: enlazar exclusivamente a la página pública de este WordPress,
-          // sin sacar al consumidor al endpoint técnico del Worker.
-          $legacy_page = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page');
-          $managed_page = get_page_by_path('libro-de-reclamaciones-lirep', OBJECT, 'page');
-          $legacy_has_lirep = $legacy_page && ('publish' === $legacy_page->post_status) &&
-              (has_shortcode((string) $legacy_page->post_content, 'lirep') ||
-               false !== strpos((string) get_post_meta($legacy_page->ID, '_elementor_data', true), '[lirep]'));
-          $public_page = $legacy_has_lirep ? $legacy_page : $managed_page;
-          // QA258: never create a printable QR for a published page without LIREP.
-          // Elementor stores widget shortcode markup in _elementor_data.
-          $has_lirep = false;
-          if ($public_page && 'publish' === $public_page->post_status) {
-              $post_content = (string) $public_page->post_content;
-              $elementor_data = (string) get_post_meta($public_page->ID, '_elementor_data', true);
-              $has_lirep = has_shortcode($post_content, 'lirep') ||
-                  false !== strpos($elementor_data, '[lirep]');
-          }
-          $public_url = $has_lirep ? get_permalink($public_page) : '';
+          // QA262: authoritative public page is the already published official
+          // Libro de Reclamaciones; no secondary drafts or extra public routes.
+          $official_page = get_page_by_path('libro-de-reclamaciones', OBJECT, 'page');
+          $public_page = lirep_official_complaints_page();
+          $public_url = $public_page ? get_permalink($public_page) : '';
           // Only a URL on this WordPress installation; no external or administrative URLs.
           $public_host = $public_url ? wp_parse_url($public_url, PHP_URL_HOST) : '';
           if (!$public_url || 'https' !== wp_parse_url($public_url, PHP_URL_SCHEME) ||
@@ -310,7 +300,7 @@ function lirep_onboarding_page() {
           <?php if ($public_url) : ?>
             <p><a href="<?php echo esc_url($public_url); ?>" target="_blank" rel="noopener noreferrer">Abrir formulario</a></p>
           <?php else : ?>
-            <p class="description">Publica una página «Libro de Reclamaciones» con el shortcode [lirep] para habilitar el enlace público.</p>
+            <p class="description">LIREP utiliza tu página oficial «Libro de Reclamaciones». Si ya existe, ábrela en WordPress o Elementor e inserta <code>[lirep]</code> en su contenido; no debes crear otra página.</p>
           <?php endif; ?>
           <section class="lirep-material" id="lirep-material"
             data-public-url="<?php echo esc_attr($public_url); ?>"
@@ -321,18 +311,11 @@ function lirep_onboarding_page() {
             <?php if ($public_url) : ?>
               <p>Destino del QR: <a href="<?php echo esc_url($public_url); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html($public_url); ?></a></p>
             <?php else : ?>
-              <p class="description">El aviso se habilitará al publicar una página HTTPS con <code>[lirep]</code>. Si existe un libro antiguo, conserva su página mientras preparas el reemplazo; evita tener dos formularios públicos.</p>
-            <?php if ($managed_page && 'publish' !== $managed_page->post_status) : ?>
-              <p><a class="button button-primary" href="<?php echo esc_url(get_edit_post_link($managed_page->ID, '')); ?>">Abrir borrador LIREP para revisión</a></p>
-            <?php elseif (!$managed_page) : ?>
-              <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
-                <input type="hidden" name="action" value="lirep_prepare_public_page">
-                <?php wp_nonce_field('lirep_prepare_public_page'); ?>
-                <button type="submit" class="button button-primary">Preparar página LIREP (borrador)</button>
-              </form>
-            <?php endif; ?>
-            <?php if ($legacy_page && !$legacy_has_lirep) : ?>
-              <p class="description"><strong>Atención:</strong> ya existe una página de reclamaciones anterior. Este botón no la cambia ni la elimina. Revisa la migración antes de publicar el formulario nuevo.</p>
+              <p class="description">El QR y el aviso se habilitan automáticamente al detectar <code>[lirep]</code> en la página oficial publicada con HTTPS. No debes crear una página adicional.</p>
+            <?php if ($official_page) : ?>
+              <p><a class="button" href="<?php echo esc_url(get_edit_post_link($official_page->ID, '')); ?>">Editar página oficial existente</a></p>
+            <?php else : ?>
+              <p class="description">No se encontró la página oficial «Libro de Reclamaciones». Configura una página con ese nombre y el formulario antes de exhibir el QR.</p>
             <?php endif; ?>
             <?php endif; ?>
             <p data-material-status role="status">Preparando el material…</p>
