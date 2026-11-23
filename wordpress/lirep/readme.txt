@@ -3,7 +3,7 @@ Contributors: vidadecanesperu-max
 Tags: libro de reclamaciones, peru, reclamos, elementor, shortcode
 Requires at least: 6.5
 Requires PHP: 7.4
-Stable tag: 1.7.8
+Stable tag: 1.7.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -41,7 +41,7 @@ El ZIP se puede instalar en WordPress compatible, pero para recibir reclamacione
 La búsqueda de versiones utiliza GitHub Releases. Las actualizaciones normales se muestran en Plugins. Las automáticas de seguridad requieren activar la opción y publicar una versión oficial marcada [LIREP-SECURITY], con asset lirep.zip y digest SHA-256.
 
 == Changelog ==
-= 1.7.8 =
+= 1.7.9 =
 * Al confirmar el enlace del correo, el panel de WordPress sincroniza automáticamente la activación al abrirse o recuperar el foco.
 * Elimina la necesidad del botón manual «Comprobar estado» para finalizar la activación.
 * Mantiene el botón como alternativa, sin reenviar correos ni crear empresas duplicadas.
